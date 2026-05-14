@@ -149,3 +149,14 @@ class Embedder:
 # provider = OpenAIProvider()
 # embedder = Embedder(provider=provider)
 # vectors = await embedder.process_chunks(["abc", "def", ... ])
+
+async def main():
+    provider = OpenAIProvider()
+    embedder = Embedder(provider=provider, max_batch_size=2, max_concurrent_batches=2)
+    chunks = ["hello world", "foo bar", "lorem ipsum", "spruce keeps vectors fresh", "the fifth chunk"]
+    vectors = await embedder.process_chunks(chunks)
+    print(f"input: {len(chunks)} chunks")
+    print(f"output: {len(vectors)} vectors")
+    print(f"dimension: {len(vectors[0])}")
+
+asyncio.run(main())
