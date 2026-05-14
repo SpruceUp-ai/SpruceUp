@@ -2,36 +2,45 @@ import openai
 import tenacity
 import asyncio
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Custom embedding provider classes to allow for future extensibility.
 class EmbeddingProvider:
     """Abstract base class for embedding providers."""
 
-    def __init__(self, provider: str, model: str, encoding_format: str = "float"):
+    def __init__(self, provider: str, model: str, encoding_format: str = "float", dimensions: int = 512):
         self._provider = provider
         self._model = model
         self._encoding_format = encoding_format
+        self._dimensions = dimensions
 
-    def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        pass
+    async def embed_batch(self, batch: list[str]) -> list[list[float]]:
         raise NotImplementedError
 
 
 class OpenAIProvider(EmbeddingProvider):
-    """OpenAI embedding provider implementation."""
+    """OpenAI embedding provider implementation. Client is reused across calls."""
 
     def __init__(self, model: str = "text-embedding-3-small", encoding_format: str = "float"):
         super().__init__("openai", model, encoding_format)
-
-    def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        # should new client be created on each call or reused?
         OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
         if not OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY environment variable not set")
 
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        pass
+        self._client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
+
+    async def embed_batch(self, batch: list[str]) -> list[list[float]]:
+
+        response = await self._client.embeddings.create(
+            model=self._model,
+            input=batch,
+            dimensions=self._dimensions
+        )
+
+        return [item.embedding for item in response.data]
 
 
 # --------------------------------------------
@@ -60,10 +69,6 @@ class Embedder:
     -----------
     provider: Object?
         The provider to use for embedding.
-    model: str
-        The model to use for embedding.
-    encoding_format: str
-        The encoding format to use for the embeddings.
     max_batch_size: int
         Max number of chunks to embed in a single batch.
     max_concurrent_batches: int
@@ -78,10 +83,10 @@ class Embedder:
         Decorated with `tenacity.retry` to handle transient failures.
     """
 
-    def __init__(self,  max_batch_size: int = 50, max_concurrent_batches: int = 5, provider: EmbeddingProvider = OpenAIProvider):
+    def __init__(self,  max_batch_size: int = 50, max_concurrent_batches: int = 5, provider: EmbeddingProvider | None = None):
         self._max_batch_size = max_batch_size
         self._max_concurrent_batches = max_concurrent_batches
-        self._provider = provider
+        self._provider = provider if provider is not None else OpenAIProvider()
 
     def batch_chunks(self, chunks: list[str]) -> list[list[str]]:
         """
@@ -94,13 +99,14 @@ class Embedder:
 
     @tenacity.retry(
         wait=tenacity.wait_exponential_jitter(initial=1, max=30),
-        stop=tenacity.stop_after_attempt()
+        stop=tenacity.stop_after_attempt(5),
+        reraise=True
     )
-    async def embed_batch(self, batch: list[str]) -> list[list[float]]:
+    async def embed_batch(self, chunk_batch: list[str]) -> list[list[float]]:
         """
         Embed `batch` of `chunks` using `_client`.
         """
-        pass
+        return await self._provider.embed_batch(batch=chunk_batch)
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         """
@@ -112,13 +118,34 @@ class Embedder:
         For each `chunk`, generate an embedding using `_client` where failure is retried with back-off.
         Return list of embeddings.
         """
+        if not chunks:
+            return []
+
         # define the semaphore
         semaphore = asyncio.Semaphore(self._max_concurrent_batches)
 
         # batch chunks
-        chunks = self.batch_chunks(chunks)
+        batches = self.batch_chunks(chunks)
 
         # for each batch, embed in parallel
         # async with semaphore:
         #   embed_batch()
-        pass
+        async def  embed_batch_with_limited_concurrency(batch):
+            async with semaphore:
+                return await self.embed_batch(batch)
+
+        batch_results = await asyncio.gather(
+            *(embed_batch_with_limited_concurrency(batch) for batch in batches)
+        )
+
+        return [embeddings for result in batch_results
+                for embeddings in result]
+
+
+# ----------------------------------
+
+# Example Usage
+# =============
+# provider = OpenAIProvider()
+# embedder = Embedder(provider=provider)
+# vectors = await embedder.process_chunks(["abc", "def", ... ])
