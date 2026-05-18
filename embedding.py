@@ -10,26 +10,25 @@ load_dotenv()
 class EmbeddingProvider:
     """Abstract base class for embedding providers."""
 
-    def __init__(self, provider: str, model: str, encoding_format: str = "float", dimensions: int = 512):
+    def __init__(self, provider: str, model: str, encoding_format: str = "float"):
         self._provider = provider
         self._model = model
         self._encoding_format = encoding_format
-        self._dimensions = dimensions
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
         raise NotImplementedError
 
-
 class OpenAIProvider(EmbeddingProvider):
     """OpenAI embedding provider implementation. Client is reused across calls."""
 
-    def __init__(self, model: str = "text-embedding-3-small", encoding_format: str = "float"):
+    def __init__(self, model: str = "text-embedding-3-small", encoding_format: str = "float", dimensions: int = 512):
         super().__init__("openai", model, encoding_format)
         OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
         if not OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY environment variable not set")
 
+        self._dimensions = dimensions
         self._client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
@@ -37,7 +36,8 @@ class OpenAIProvider(EmbeddingProvider):
         response = await self._client.embeddings.create(
             model=self._model,
             input=batch,
-            dimensions=self._dimensions
+            dimensions=self._dimensions,
+            encoding_format=self._encoding_format
         )
 
         return [item.embedding for item in response.data]
@@ -83,7 +83,7 @@ class Embedder:
         Decorated with `tenacity.retry` to handle transient failures.
     """
 
-    def __init__(self,  max_batch_size: int = 50, max_concurrent_batches: int = 5, provider: EmbeddingProvider | None = None):
+    def __init__(self, max_batch_size: int = 50, max_concurrent_batches: int = 5, provider: EmbeddingProvider | None = None):
         self._max_batch_size = max_batch_size
         self._max_concurrent_batches = max_concurrent_batches
         self._provider = provider if provider is not None else OpenAIProvider()
@@ -128,8 +128,7 @@ class Embedder:
         batches = self.batch_chunks(chunks)
 
         # for each batch, embed in parallel
-        # async with semaphore:
-        #   embed_batch()
+        # async.'ly with semaphore as the concurrency limiter
         async def  embed_batch_with_limited_concurrency(batch):
             async with semaphore:
                 return await self.embed_batch(batch)
@@ -158,5 +157,7 @@ async def main():
     print(f"input: {len(chunks)} chunks")
     print(f"output: {len(vectors)} vectors")
     print(f"dimension: {len(vectors[0])}")
+    # print(f"vectors: {vectors}")
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
