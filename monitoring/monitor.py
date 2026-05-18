@@ -9,7 +9,7 @@ from .tasks import SyncTask
 
 
 def _hash_file(p: pathlib.Path) -> bytes:
-    h = hashlib.sha256()
+    h = hashlib.blake2b(digest_size=16)
     with open(p, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
@@ -60,18 +60,16 @@ class BaseWatcher(ABC):
         self,
         queue: asyncio.Queue,
         db_path: str,
-        sync_engine,
         force_reindex: bool = False,
         startup_done: asyncio.Event | None = None,
     ) -> None: ...
 
 
 class Monitor:
-    def __init__(self, queue: asyncio.Queue, db_path: str, sync_engine):
+    def __init__(self, queue: asyncio.Queue, db_path: str):
         self._watchers: list[BaseWatcher] = []
         self._queue = queue
         self._db_path = db_path
-        self._sync_engine = sync_engine
 
     def add_watcher(self, watcher: BaseWatcher) -> None:
         self._watchers.append(watcher)
@@ -80,7 +78,7 @@ class Monitor:
         watcher_events = [asyncio.Event() for _ in self._watchers]
         tasks = [
             asyncio.create_task(
-                _with_retry(w.run, self._queue, self._db_path, self._sync_engine, force_reindex, e)
+                _with_retry(w.run, self._queue, self._db_path, force_reindex, e)
             )
             for w, e in zip(self._watchers, watcher_events)
         ]
@@ -98,14 +96,13 @@ class LocalFileWatcher(BaseWatcher):
         self,
         queue: asyncio.Queue,
         db_path: str,
-        sync_engine,
         force_reindex: bool = False,
         startup_done: asyncio.Event | None = None,
     ) -> None:
         buf = _BufferedQueue(queue)
-        watch_task = asyncio.create_task(self._watch(buf, db_path, sync_engine))
+        watch_task = asyncio.create_task(self._watch(buf, db_path))
         try:
-            await self._catch_up(queue, db_path, sync_engine, force_reindex)
+            await self._catch_up(queue, db_path, force_reindex)
             await buf.flush()
             if startup_done:
                 startup_done.set()
@@ -115,7 +112,7 @@ class LocalFileWatcher(BaseWatcher):
             raise
 
     async def _catch_up(
-        self, queue: asyncio.Queue, db_path: str, sync_engine, force_reindex: bool = False
+        self, queue: asyncio.Queue, db_path: str, force_reindex: bool = False
     ) -> None:
         con = sqlite3.connect(db_path)
         cur = con.cursor()
@@ -131,7 +128,7 @@ class LocalFileWatcher(BaseWatcher):
                 await queue.put(SyncTask("local", current_path, "upsert"))
             else:
                 row = cur.execute(
-                    "SELECT file_path, hash_value FROM files WHERE inode = ?", (inode,)
+                    "SELECT file_path, content_hash FROM files WHERE inode = ?", (inode,)
                 ).fetchone()
                 if row is None:
                     await queue.put(SyncTask("local", current_path, "upsert"))
@@ -140,17 +137,17 @@ class LocalFileWatcher(BaseWatcher):
                     if db_hash != _hash_file(p):
                         await queue.put(SyncTask("local", current_path, "upsert"))
                     elif db_path_val != current_path:
-                        await sync_engine.move_file(db_path_val, current_path)
+                        await queue.put(SyncTask("local", current_path, "move", old_identifier=db_path_val))
 
         for db_inode, db_path_val in cur.execute(
             "SELECT inode, file_path FROM files"
         ).fetchall():
             if db_inode not in seen_inodes:
-                await sync_engine.delete_file(db_path_val)
+                await queue.put(SyncTask("local", db_path_val, "delete"))
 
         con.close()
 
-    async def _watch(self, queue: _BufferedQueue, db_path: str, sync_engine) -> None:
+    async def _watch(self, queue: _BufferedQueue, db_path: str) -> None:
         con = sqlite3.connect(db_path)
         async for changes in awatch(self._root_path):
             deleted_paths  = {path for change_type, path in changes if change_type == Change.deleted}
@@ -173,10 +170,10 @@ class LocalFileWatcher(BaseWatcher):
             moved_new = {new for _, new in moves}
 
             for old_path, new_path in moves:
-                await sync_engine.move_file(old_path, new_path)
+                await queue.put(SyncTask("local", new_path, "move", old_identifier=old_path))
 
             for path in deleted_paths - moved_old:
-                await sync_engine.delete_file(path)
+                await queue.put(SyncTask("local", path, "delete"))
 
             for path in (added_paths - moved_new) | modified_paths:
                 if pathlib.Path(path).exists():

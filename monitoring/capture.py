@@ -3,6 +3,8 @@ import inspect
 import sqlite3
 from typing import Callable
 
+DIGEST_SIZE = 16
+
 
 class TransformTracker:
     def __init__(self, db_path: str):
@@ -13,8 +15,22 @@ class TransformTracker:
         self._transforms.append(func)
         return func
 
+    def register(self, func: Callable) -> Callable:
+        """Register a transform function (non-decorator form of __call__)."""
+        return self(func)
+
     def _hash_source(self, func: Callable) -> bytes:
-        return hashlib.sha256(inspect.getsource(func).encode()).digest()
+        return hashlib.blake2b(inspect.getsource(func).encode(), digest_size=DIGEST_SIZE).digest()
+
+    def current_hash(self) -> bytes:
+        """Return a combined BLAKE2B hash of all registered transform functions."""
+        h = hashlib.blake2b(digest_size=DIGEST_SIZE)
+        for func in self._transforms:
+            h.update(self._hash_source(func))
+        return h.digest()
+
+    def configure(self, db_path: str) -> None:
+        self._db_path = db_path
 
     def any_changed(self) -> bool:
         con = sqlite3.connect(self._db_path)

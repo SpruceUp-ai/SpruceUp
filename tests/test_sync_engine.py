@@ -12,11 +12,12 @@ from unittest.mock import patch
 
 import pytest
 
+from db import init_db
+from models import UserDefinedChunkSchema
 from sync_engine import (
     ChunkWrapper,
     SpruceFile,
     SyncEngine,
-    UserDefinedChunkSchema,
     hash_chunk_id,
     hash_file_path,
     hash_object,
@@ -95,9 +96,8 @@ def tmp_manifest(tmp_path):
 
 @pytest.fixture
 def engine(tmp_manifest, pg):
+    init_db(tmp_manifest)
     e = SyncEngine(manifest_path=tmp_manifest, pg_connstr="dbname=test")
-    with sqlite3.connect(tmp_manifest) as conn:
-        conn.execute("INSERT INTO data_sources (id, source_type) VALUES (1, 'local')")
     e.define_target_table(
         db_name="test",
         table_name="vectors",
@@ -126,6 +126,7 @@ def make_file(file_path: str, chunks: list[ChunkWrapper], mtime: float = 1_000_0
     return SpruceFile(
         file_id=fid,
         file_path=file_path,
+        inode=0,
         mtime=mtime,
         content_hash=fid,
         transform_hash=fid,
@@ -162,6 +163,7 @@ def file_row(manifest_path: str, file_id: bytes) -> dict | None:
 class TestReconcile:
 
     def test_requires_define_target_table(self, tmp_manifest, pg):
+        init_db(tmp_manifest)
         engine = SyncEngine(manifest_path=tmp_manifest, pg_connstr="dbname=test")
         with pytest.raises(AssertionError):
             engine.reconcile([])
@@ -273,6 +275,7 @@ class TestReconcile:
 class TestDeleteFile:
 
     def test_requires_define_target_table(self, tmp_manifest, pg):
+        init_db(tmp_manifest)
         engine = SyncEngine(manifest_path=tmp_manifest, pg_connstr="dbname=test")
         with pytest.raises(AssertionError):
             engine.delete_file(FILE_ID_A)

@@ -1,10 +1,9 @@
-from typing import Type
-
 import psycopg
 
 from . import manifest as manifest_db
 from . import target_db
-from .models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
+from .hashing import hash_file_path
+from models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
 
 
 class SyncEngine:
@@ -12,16 +11,21 @@ class SyncEngine:
         self._manifest_path = manifest_path
         self._pg_connstr = pg_connstr
         self._config: TargetTableConfig | None = None
-        with manifest_db.connect(manifest_path) as conn:
-            manifest_db.init_schema(conn)
 
     def define_target_table(
         self,
         db_name: str,
         table_name: str,
-        schema_from_class: Type[UserDefinedChunkSchema],
+        schema_from_class: type,
         primary_key: str,
     ) -> None:
+        """Register the user's chunk schema and target Postgres table.
+
+        schema_from_class must be a dataclass with at least:
+          - chunk_text: str
+          - chunk_embedding: list[float]
+          - a primary-key field matching primary_key
+        """
         self._config = TargetTableConfig(
             db_name=db_name,
             table_name=table_name,
@@ -33,10 +37,9 @@ class SyncEngine:
         """Upsert new/changed chunks, delete orphaned chunks, then stamp each file row."""
         assert self._config is not None, "Call define_target_table() before reconcile()"
 
-        # (file_id, chunk) pairs so manifest.upsert_chunks knows which file each chunk belongs to
         target_upserts: list[tuple[bytes, ChunkWrapper]] = []
-        manifest_deletes: list[bytes] = []  # our internal chunk_ids
-        pg_deletes: list = []               # user PKs for the Postgres DELETE
+        manifest_deletes: list[bytes] = []
+        pg_deletes: list = []
 
         with manifest_db.connect(self._manifest_path) as manifest_conn:
             for file in files:
@@ -66,7 +69,7 @@ class SyncEngine:
                         target_upserts.append((file.file_id, curr))
 
             for file in files:
-                manifest_db.ensure_file_row_exists(manifest_conn, file.file_id)
+                manifest_db.ensure_file_row_exists(manifest_conn, file.file_id, file.file_path)
 
             with psycopg.connect(self._pg_connstr) as pg_conn:
                 target_db.ensure_table_exists(pg_conn, self._config)
@@ -78,6 +81,17 @@ class SyncEngine:
 
             for file in files:
                 manifest_db.upsert_file_row(manifest_conn, file)
+
+    def move_file(self, old_path: str, new_path: str) -> None:
+        """Update the manifest when a file is renamed/moved without re-embedding.
+
+        The vectors in Postgres are keyed by user-defined primary keys (content-based),
+        so they remain valid after a rename. Only the SQLite manifest needs updating.
+        """
+        old_file_id = hash_file_path(old_path)
+        new_file_id = hash_file_path(new_path)
+        with manifest_db.connect(self._manifest_path) as manifest_conn:
+            manifest_db.move_file_row(manifest_conn, old_file_id, new_file_id, new_path)
 
     def delete_file(self, file_id: bytes) -> None:
         """Delete all vectors for a file that has been removed from the corpus."""
