@@ -1,17 +1,17 @@
 # Sync Engine Interface Contract
 
 ## Overview
-The Sync Engine owns all writes to the Postgres vector table and most writes to the SQLite manifest. It receives data from two sources (other than the dbs): the **user's pipeline file** (which configures the engine at startup) and the **Coordination Layer** (which drives sync operations at runtime).
+The Sync Engine owns all writes to the Postgres vector table and most (all?) writes to the SQLite manifest. It receives data from two sources (other than the dbs): the **user's pipeline file** (which configures the engine at startup) and the **Coordination Layer** (which drives sync operations at runtime).
 
 ---
 
 ## Wire 1 — User Pipeline
 
-The user's `spruce_up_pipeline.py` is responsible for two things:
+At least when it comes to interacting with the SyncEngine, the user's `spruce_up_pipeline.py` is responsible for two things:
 
 ### 1a. Define a chunk schema
 
-The user subclasses `UserDefinedChunkSchema` as a `@dataclass` to declare the columns of their Postgres vector table:
+The user subclasses `UserDefinedChunkSchema` (?? or defines their own?) as a `@dataclass` to declare the columns of their Postgres vector table:
 
 ```python
 @dataclass
@@ -20,7 +20,7 @@ class MyChunkSchema(UserDefinedChunkSchema):
     source_page: int        # any additional columns they need
 ```
 
-The field type annotations are used to auto-generate `CREATE TABLE`. Supported mappings:
+The field type annotations are used to auto-generate `CREATE TABLE`. Supported mappings (for MVP):
 
 | Python type | Postgres type |
 |---|---|
@@ -50,7 +50,7 @@ Must be called before any other engine method can be invoked since all Engine me
 
 ### `reconcile(files: list[File]) -> None`
 
-Called when one or more files have been re-embedded and are ready to sync.
+Called when one or more files have been embedded or re-embedded and are ready to sync.
 
 The `File` object:
 ```python
@@ -79,7 +79,8 @@ class ChunkWrapper:
 **Caller guarantees:**
 - For each file in `files`: `File.chunks` contains **all** chunks for that file. Missing chunks are treated as deletions. Sending a partial list will cause the absent chunks to be deleted from Postgres.
 - `user_chunk_object_hash` must be computed with the exported `hash_object()`. Any other hash function breaks change detection.
-- `chunk_id` must be computed with the exported `hash_chunk_id()`. It must be stable across runs for the same file+ordinal.
+(Ultimately, the hash_object function won't live in the source code for the Sync Engine. NOR are we committed to using the Blake2B algorithm which is currently in use in the hash_object function.)
+- `chunk_id` must be computed with the exported `hash_chunk_id()`. (see previous note) It must be stable across runs for the same file+ordinal.
 
 **What the engine does on success (in order):**
 1. Upserts new/changed chunks to Postgres
@@ -90,6 +91,7 @@ class ChunkWrapper:
 ---
 
 ### `delete_file(file_id: bytes) -> None`
+(IS THIS ACTUALLY CALLED BY THE MANIFEST, RATHER THAN THE COORD LAYER?)
 
 Called when a file has been removed from the corpus.
 
