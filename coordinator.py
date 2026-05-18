@@ -1,13 +1,36 @@
 from dataclasses import dataclass
+import os
 
 class FileJob:
     path: str
     source: str = "local"
 
-class FileObject:
-    def __init__(self, path: str, content: str):
+class SpruceFile:
+    def __init__(
+        self,
+        path: str,
+        content: str | bytes,
+        mtime: float,
+        content_hash: bytes,
+        transform_hash: bytes,
+        file_type: str,
+        data_source_id: int,
+        parsed_content: str | None,
+        chunk_strings: str | None,
+        chunks: list[str] | None,
+        # chunks: list[ChunkWrapper] | None
+
+    ):
         self._path = path
         self._content = content
+        self._mtime = mtime
+        self._content_hash = content_hash
+        self._transform_hash = transform_hash
+        self._file_type = file_type
+        self._data_source_id = data_source_id
+        self._parsed_content = parsed_content
+        self._chunk_strings = chunk_strings
+        self._chunks = chunks
 
     def __repr__(self):
         return f"FileObject(path={self._path!r}, content={self._content!r})"
@@ -17,22 +40,73 @@ class FileObject:
         return self._path
 
     @property
-    def content(self) -> str:
+    def content(self) -> str | bytes:
         return self._content
 
+    @property
+    def mtime(self) -> float:
+        return self._mtime
+
+    @property
+    def content_hash(self) -> bytes:
+        return self._content_hash
+
+    @property
+    def transform_hash(self) -> bytes:
+        return self._transform_hash
+
+    @property
+    def file_type(self) -> str:
+        return self._file_type
+
+    @property
+    def data_source_id(self) -> int:
+        return self._data_source_id
+
+    @property
+    def parsed_content(self) -> str | None:
+        return self._parsed_content
+
+    @property
+    def chunk_strings(self) -> str | None:
+        return self._chunk_strings
+
+    @property
+    def chunks(self) -> list[str] | None:
+        return self._chunks
+
 class FileFetcher:
-    async def fetch(self) -> FileObject:
+    async def fetch(self) -> SpruceFile:
         raise NotImplementedError
 
 class LocalFileFetcher(FileFetcher):
     def __init__(self, path: str):
         self._path = path
 
-    async def fetch(self) -> FileObject:
+    async def fetch(self) -> SpruceFile:
         with open(self._path) as f:
             content = f.read()
+            mtime = os.path.getmtime(self._path)
+            # content_hash =
+            # transform_hash =
+            # file_type =
+            # data_source_id =
+            # parsed_content =
+            # chunk_strings =
+            # chunks =
 
-        return FileObject(path=self._path, content=content)
+        return SpruceFile(
+            path=self._path,
+            content=content,
+            mtime=mtime,
+            # content_hash=None,
+            # transform_hash=None,
+            # file_type=None,
+            # data_source_id=None,
+            # parsed_content=None,
+            # chunk_strings=None,
+            # chunks=None,
+        )
 
 # NOTE: Included as stub for future expansion.
 # class NotionFetcher(FileFetcher):  # post-MVP
@@ -80,7 +154,9 @@ class Coordinator:
         chunks = await self._chunker.chunk_file(parsed_content)
         embeddings = await self._embedder.process_chunks(chunks)
 
-        await self._sync_engine.sync_manifest_and_embeddings(file_object, chunks, embeddings)
+        # Once `chunks` is same length as `chunk_string`, meaning all chunks have been
+        # generated for the file, sync the manifest and embeddings with the sync engine.
+        await self._sync_engine.reconcile(file_object, chunks, embeddings)
 
     async def run(self):
         while True:
