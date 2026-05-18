@@ -2,7 +2,7 @@ import dataclasses
 import json
 import sqlite3
 
-from .models import ChunkWrapper, File
+from .models import ChunkWrapper, SpruceFile
 
 
 def connect(path: str) -> sqlite3.Connection:
@@ -90,7 +90,7 @@ def ensure_file_row_exists(conn: sqlite3.Connection, file_id: bytes) -> None:
     conn.execute("INSERT OR IGNORE INTO files (id) VALUES (?)", (file_id,))
 
 
-def upsert_file_row(conn: sqlite3.Connection, file: File) -> None:
+def upsert_file_row(conn: sqlite3.Connection, file: SpruceFile) -> None:
     # ON CONFLICT DO UPDATE performs an in-place update rather than DELETE+INSERT,
     # so it does not trigger the ON DELETE CASCADE on chunks.file_id.
     conn.execute(

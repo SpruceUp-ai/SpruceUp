@@ -14,7 +14,7 @@ import pytest
 
 from sync_engine import (
     ChunkWrapper,
-    File,
+    SpruceFile,
     SyncEngine,
     UserDefinedChunkSchema,
     hash_chunk_id,
@@ -121,9 +121,9 @@ def make_chunk(file_path: str, chunk_id: str, text: str, ordinal: int) -> ChunkW
     )
 
 
-def make_file(file_path: str, chunks: list[ChunkWrapper], mtime: float = 1_000_000.0) -> File:
+def make_file(file_path: str, chunks: list[ChunkWrapper], mtime: float = 1_000_000.0) -> SpruceFile:
     fid = hash_file_path(file_path)
-    return File(
+    return SpruceFile(
         file_id=fid,
         file_path=file_path,
         mtime=mtime,
@@ -131,6 +131,9 @@ def make_file(file_path: str, chunks: list[ChunkWrapper], mtime: float = 1_000_0
         transform_hash=fid,
         file_type=file_path.rsplit(".", 1)[-1],
         data_source_id=1,
+        raw_content=b"",
+        parsed_content=None,
+        chunk_strs=[],
         chunks=chunks,
     )
 

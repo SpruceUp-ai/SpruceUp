@@ -63,6 +63,9 @@ class File:
     transform_hash: bytes # hash identifying which transform version was applied
     file_type: str        # e.g. "pdf", "md"
     data_source_id: int   # must reference an existing row in manifest's data_sources table
+    raw_content: str | bytes
+    parsed_content: str | None
+    chunk_strs: list[str]
     chunks: list[ChunkWrapper]
 ```
 

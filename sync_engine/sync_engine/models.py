@@ -21,7 +21,7 @@ class ChunkWrapper:
 
 
 @dataclass
-class File:
+class SpruceFile:
     file_id: bytes
     file_path: str
     mtime: float
@@ -29,6 +29,9 @@ class File:
     transform_hash: bytes
     file_type: str
     data_source_id: int
+    raw_content: str | bytes
+    parsed_content: str | None
+    chunk_strs: list[str]
     chunks: list[ChunkWrapper]
 
 

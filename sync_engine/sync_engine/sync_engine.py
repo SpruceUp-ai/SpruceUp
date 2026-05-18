@@ -4,7 +4,7 @@ import psycopg
 
 from . import manifest as manifest_db
 from . import target_db
-from .models import ChunkWrapper, File, TargetTableConfig, UserDefinedChunkSchema
+from .models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
 
 
 class SyncEngine:
@@ -29,7 +29,7 @@ class SyncEngine:
             primary_key=primary_key,
         )
 
-    def reconcile(self, files: list[File]) -> None:
+    def reconcile(self, files: list[SpruceFile]) -> None:
         """Upsert new/changed chunks, delete orphaned chunks, then stamp each file row."""
         assert self._config is not None, "Call define_target_table() before reconcile()"
 
