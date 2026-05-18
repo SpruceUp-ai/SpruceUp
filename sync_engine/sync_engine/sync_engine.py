@@ -1,4 +1,3 @@
-import sqlite3
 from typing import Type
 
 import psycopg
@@ -13,7 +12,7 @@ class SyncEngine:
         self._manifest_path = manifest_path
         self._pg_connstr = pg_connstr
         self._config: TargetTableConfig | None = None
-        with sqlite3.connect(manifest_path) as conn:
+        with manifest_db.connect(manifest_path) as conn:
             manifest_db.init_schema(conn)
 
     def define_target_table(
@@ -39,7 +38,7 @@ class SyncEngine:
         manifest_deletes: list[bytes] = []  # our internal chunk_ids
         pg_deletes: list = []               # user PKs for the Postgres DELETE
 
-        with sqlite3.connect(self._manifest_path) as manifest_conn:
+        with manifest_db.connect(self._manifest_path) as manifest_conn:
             for file in files:
                 prev_chunks = manifest_db.get_chunks_for_file(
                     manifest_conn, file.file_id, self._config.primary_key
@@ -84,7 +83,7 @@ class SyncEngine:
         """Delete all vectors for a file that has been removed from the corpus."""
         assert self._config is not None, "Call define_target_table() before delete_file()"
 
-        with sqlite3.connect(self._manifest_path) as manifest_conn:
+        with manifest_db.connect(self._manifest_path) as manifest_conn:
             chunks = manifest_db.get_chunks_for_file(
                 manifest_conn, file_id, self._config.primary_key
             )

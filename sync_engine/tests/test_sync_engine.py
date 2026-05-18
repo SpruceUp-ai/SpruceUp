@@ -96,6 +96,8 @@ def tmp_manifest(tmp_path):
 @pytest.fixture
 def engine(tmp_manifest, pg):
     e = SyncEngine(manifest_path=tmp_manifest, pg_connstr="dbname=test")
+    with sqlite3.connect(tmp_manifest) as conn:
+        conn.execute("INSERT INTO data_sources (id, source_type) VALUES (1, 'local')")
     e.define_target_table(
         db_name="test",
         table_name="vectors",
@@ -248,35 +250,6 @@ class TestReconcile:
         assert chunk_count(tmp_manifest, FILE_ID_B) == 2
         assert file_row(tmp_manifest, FILE_ID_A) is not None
         assert file_row(tmp_manifest, FILE_ID_B) is not None
-
-    def test_new_file_chunks_satisfy_fk_constraint_when_enforcement_is_on(
-        self, tmp_manifest, pg
-    ):
-        # Wrap sqlite3.connect to enable FK enforcement on every connection,
-        # which would surface an IntegrityError if chunks were written before
-        # the placeholder file row exists.
-        _real_connect = sqlite3.connect
-
-        def connect_with_fk(path, **kwargs):
-            conn = _real_connect(path, **kwargs)
-            conn.execute("PRAGMA foreign_keys = ON")
-            return conn
-
-        with patch("sqlite3.connect", side_effect=connect_with_fk):
-            engine = SyncEngine(manifest_path=tmp_manifest, pg_connstr="dbname=test")
-            # Seed data_sources so the files.data_source_id FK is satisfied
-            with sqlite3.connect(tmp_manifest) as conn:
-                conn.execute("INSERT INTO data_sources (id, source_type) VALUES (1, 'local')")
-            engine.define_target_table(
-                db_name="test",
-                table_name="vectors",
-                schema_from_class=SimpleChunkSchema,
-                primary_key="id",
-            )
-            chunks = [make_chunk(FILE_PATH_A, "c1", "First chunk", ordinal=1)]
-            engine.reconcile([make_file(FILE_PATH_A, chunks)])
-
-        assert chunk_count(tmp_manifest, FILE_ID_A) == 1
 
     def test_reconcile_only_touches_given_files(self, engine, tmp_manifest):
         engine.reconcile([

@@ -5,6 +5,12 @@ import sqlite3
 from .models import ChunkWrapper, File
 
 
+def connect(path: str) -> sqlite3.Connection:
+    conn = sqlite3.connect(path)
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS data_sources (
