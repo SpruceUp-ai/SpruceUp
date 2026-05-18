@@ -6,7 +6,7 @@ def init_db(db_path: str) -> None:
     con.execute(
         """
             CREATE TABLE IF NOT EXISTS files
-            (id INTEGER PRIMARY KEY, inode INTEGER, file_path TEXT, hash_value BLOB);
+            (id BLOB PRIMARY KEY, file_content_hash BLOB, file_identifier INT, file_mtime FLOAT, file_extension TEXT);
         """
     )
     con.execute(
