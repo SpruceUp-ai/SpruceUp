@@ -51,7 +51,7 @@ def _fmt(values: list) -> list:
 
 psycopg.connect = lambda connstr, **kwargs: _MockPgConn()
 
-from sync_engine import (  # noqa: E402
+from Capstone.SpruceUp.sync_engine.sync_engine import (  # noqa: E402
     ChunkWrapper,
     File,
     SyncEngine,
