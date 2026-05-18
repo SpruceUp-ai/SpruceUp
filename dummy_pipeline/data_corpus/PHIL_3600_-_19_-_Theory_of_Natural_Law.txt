@@ -1,0 +1,123 @@
+# PHIL 3600 - 19 - Theory of Natural Law
+
+[Slide 1] The Theory of Natural Law
+
+[Slide 2] Background Direct vs. indirect responsibility Theory of Natural Law, summarized Teleology Explanation Defense Morality-from-Function The Artifact Analogy The Argument from Human Function Objections
+
+[Slide 3] What is the connection between God and ethics / morality ? … is ethics primarily a religious matter? … is God the source of morality – and, if so, in what sense? … and if there’s no God, does that mean there are no moral rules?
+
+[Slide 4] The theist, obviously, wants to say, God is ultimately responsible for morality .
+
+[Slide 5] Divine Command Theory is the view that morality comes directly from God . It says, “ morality consists in acting in accordance with God’s Will, in following God’s List of Universal Rules of Behavior . ” This is the view we talked about last week. The key contrast with the view we’re going to talk about today is that DCT describes morality as flowing directly from God’s Will [finish this thougt]
+
+[Slide 6] This module, we’ll talk about 2 other views according to which God is indirectly responsible for morality . … Let me give you a quick case to illustrate the difference
+
+[Slide 7] Suppose you program a Twitter bot to automatically tweet spoilers at people. Someone tweets, “ OMG finally gonna tackle the Harry Potter boo ks ! ” The bot tweets “ @___ SNAPE KILLS DUMBLEDORE ”. Someone says, “ Never seen Lion King! Nobody tell me anything! ” The bot tweets “ @____ SAME PLOT AS HAMLET ” Someone’s like “First time reading the New Testament! Excited!” The bot tweets “ @___ JESUS DIES BUT THEN HE COMES BACK ” Here’s an analogy
+
+[Slide 8] You set the bot loose on the world and then forget about it. One night, 5 years later, your friend starts yelling obscenities at his computer because, “Some fucking bot on the internet just tweeted spoilers at me and ruined Avengers: Endgame .” With a sinking feeling, you realize that was your bot.
+
+[Slide 9] You aren’t directly responsible for spoiling Avengers . You’re directly responsible for the bot, a nd the bot is directly responsible for spoiling Avengers. That makes you indirectly responsible for spoiling Avengers .
+
+[Slide 10] Th is is what the Theory of Natural Law says about the relationship between God & morality . God is directly responsible for the natural order . The natural order is directly responsible for morality . So, God is indirectly responsible for morality .
+
+[Slide 11] Theory of Natural Law What’s morally right is for each thing to fulfill its assigned role , to act only in accordance with its natural function . Here’s the Cliff Notes version of the view. …
+
+[Slide 12] Teleology all natural things possess a specific & fixed purpose or function Morality from Function morality consists in things acting in accordance with their function The Theory of Natural Law consists of two independent claims: As with DCT, I think it’s helpful and important to break up the Theory of Natural Law into 2 distinct and independent claims… As we did with DCT, we’ll talk today about what each of these claims means and why we might think each claim is plausible
+
+[Slide 13] Teleology Let’s start with that first claim, Teleology. For a lot of you, this may be your first time encountering this concept. But it’s an important idea. I’d hazard: one really can’t understand this history of Western thought without understand Teleology.
+
+[Slide 14] ‘ Telos’ (τέλος) is the Greek word for ‘purpose’ or ‘goal’. Hence, ‘teleology’ literally means, the study of things’ purposes . … That’s the literal meaning. The view is just that all natural things have purposes. (Thus, someone who says, “I’m a teleologist” isn’t saying “I study purposes.” They’re saying “I believe that each natural thing has an intrinsic purpose.”) This idea that all natural things have purposes dates back to Aristotle . (Aristotle was a Greek philosopher around the year 300 BCE, and was t he student of Plato, whom we read last week.) And, it’s historically important b/c it was THE dominant view of the natural world in the West for 2000+ years. (From Aristotle until, basically, Darwin)
+
+[Slide 15] Teleology all natural things possess a specific & fixed purpose or function
+
+[Slide 16] The view really is supposed to apply to all natural things. Each type of plant has a natural purpose/function
+
+[Slide 17] As does every type of animal
+
+[Slide 18] Including humans!
+
+[Slide 19] As do natural processes like rain
+
+[Slide 20] And inanimate things like rocks
+
+[Slide 21] And celestial bodies. According to Teleology … (next slide)
+
+[Slide 22] For Aristotle, T eleology is a lso an important explanatory principle . He says, basically, “ T he best way to the understand a thing is by understanding its purpose, by understanding what it’s designed to do . ”
+
+[Slide 23] Teleology all natural things possess a specific & fixed purpose or function (and that function explains why each particular thing exists!) Each of these things has a specific and unchanging function – each things exists for a reason and has a particular job to do, a specific role to play in the natural order. The role of rain is to nourish living things – plants and animals. That’s why there’s rain. The role of trees is to flourish and grow and to provide food, shelter, and resources to other living things. That’s why there are trees. Etc. Teleology tells us everything has a job to do , and each thing exists because that job needs doing. That’s what the view says. But why would anyone think that’s true?
+
+[Slide 24] The fundamental motivation for teleology is an analogy between human artifacts and natural objects. Well...
+
+[Slide 25] Quiz Think about the design of a stapler for a second. Think about what it’s purpose is; think about how it’s design facilitates its accomplishing that. QUIZ QUESTION: Contemplate this stapler. What are some things you notice? And how do those things facilitate the stapler’s accomplishing its function of stapling? ... e.g. there’s a rough surface on top for no-slip grip! The staple-head is close enough to the bottom that it would be hard to get a finger in there. The metal plate that the staples are pushed into has two settings, but you have to push up on the plate to switch between t hem. That way, it won’t accidentally flip while you’re stapling The handle is long to give you more torque for pushing through larger stacks of paper. There’s a little window on the side of the staple-head so you can see if there are any staples in there Etc Obviously, there’s nothing special about staplers in this respect! Pick any human-crafted artifact – a piano, a blender, a trowel, a semi-truck – and you can do this same exercise. You can make sense of its various features as intentional design decisions, aimed at improving the artifact’s functionality.
+
+[Slide 26] Here’s something interesting: We can even do this with things that we’ve never seen before and don’t know the function of. Probably you don’t recognize this thing in the image. BUT you do know it’s man-made, that it was intentionally and carefully designed with some function in mind . This thing cleary has a clear purpose – you just probably don’t know what that is. In this case, t his is a watchmaker’s staking set (for punching holes and other fine detail work)
+
+[Slide 27] Likewise, you probably don’t know what this is and what’s it’s for. BUT you do know that it’s for something. It very clearly has a purpose and is designed with that purpose in mind. (This is an olde timey carpet stretcher – a tool for laying carpet, for st retching it tight as you nail it down)
+
+[Slide 28] Here’s another example. Clearly for something or other .
+
+[Slide 29] This is a nixie tube – a cold cathode display
+
+[Slide 30] Quiz One more example. This one’s fun: QUIZ QUESTION: What is this? ... It’s a romper that was zipped up wrong
+
+[Slide 31] By analogy, we might reason, Man-made objects have purposes and are carefully designed to fulfill them... maybe n atural objects have purposes and are carefully designed to fulfill them. Aristotle was really impressed by this line of reasoning. When you look at a man-made object, you can just tell that it has a function, that it was made for a reason and that it’s features and characteristics support that function. That’s cool and interesting. And, Aristotle thought, if you look at natural objects (i.e. one’s not made by people), a lot of them give off the same vibe. … We might not know, yet, what exactly everything is for, but it seems likely that they’re for something
+
+[Slide 32] Think about the eye. We can do the same exercise here that we did with stapler. It sure looks like all the parts have been designed to work together to fulfill the eye’s function (viz. sight) E.g. The lens is flexible to allow light to be focused on the retina, regardless of how far away the object is The cone cells come in 3 different varieties, each with a different range of light frequency sensitivities, to allow for complex color discrimination etc.
+
+[Slide 33] “ If therefore purposes [are] present in man-made things, [they’re] present also in nature. The best illustration is a doctor doctoring himself: nature is like that. ” – Aristotle … A perfect doctor could keep herself alive forever. Nature is like that. Nature is both agent and patient; is self-organizing; self-perpetuating. All natural objects have a function, a purpose, and their ultimate purpose is to perpetuate the natural order. E ach part of nature has a job to play in sustain nature as a whole.
+
+[Slide 34] “ If a house, e.g., had been a thing made by nature, it would have been made in the same way as it is now by [humans]; and if things made by nature were made not only by nature but also by [humans], they would come to be in the same way as by nature. ” – Aristotle … In other words, Aristotle thinks, if nature grew its own houses, they would look just like ours. They would have doors and insulated walls and water-proof roofs. Those things are all necessary for a house to serve it’s intended function.
+
+[Slide 35] Teleology all natural things possess a specific & fixed purpose or function (and that function explains why each particular thing exists!) That’s how Aristotle got to Teleology. First, he notices some facts about human artifacts. (a saw’s job is to cut. It is carefully designed to fulfill that function. Saws only exist because there is some cutting that needs doing.) Then, he notices that natural objects seem to have the same flavor. So he concludes they follow the same principles. (An eye’;s job is to see. It is carefully designed to fulfill that function. Eyes only exist because there is a need for vision.)
+
+[Slide 36] Christian and Islamic theology took this idea and added God . Aristotle wasn’t a Christian. He was a Macedonian living 300 years before Christ. But Christians (and Muslims!) really liked Aristotle. They thought he was right about pretty much everything. (If you read any old Islamic philosophy, you’ll quickly notice that they refer to Aristotle as simply, ‘ THE Philosopher’ (!!!) And so it was that Teleology got enshrined in Western thought for a couple thousand years. The only major change was the addition of God to the story.
+
+[Slide 37] “ We see that things which lack knowledge, such as natural bodies, act for an end , and this is evident from their acting always, or nearly always, in the same way, so as to obtain the best result. Hence it is plain that they achieve their end, not fortuitously, but designedly . Now whatever lacks knowledge cannot move towards an end, unless it be directed by some being endowed with knowledge and intelligence; as the arrow is directed by the archer. Therefore, some intelligent being exists by whom all natural things are directed to their end; and this being we call God . ” — St. Thomas Aquinas … This is a pretty obvious an easy extension of Teleology. Aristotle insists that everything in nature has a specific and fixed purpose. Where did those come from? He says, Nature itself put them there to perpetuate itself. Later theists said, Nah. God put those functions there.
+
+[Slide 38] The lower-order beings exist for the sake of the higher-order beings. That’s their function . What results is this sort of hierarchical picture of the universe. The rains fall to nourish the plants. The plants grow to nourish the animals. The animals and plants grow to nourish humans. Humans thrive to bring glory to God.
+
+[Slide 39] Teleology all natural things possess a God-given purpose or function Morality from Function morality consists in things acting in accordance with their function The Theory of Natural Law consists of two independent claims: So that’s Teleology. (here I’ve modified my wording of the view to point out that we’re interested in the religious version of Teleology which says that the functions come from God ) Let’s turn now to the second part of The Theory of Natural Law, the claim I’m calling Morality from Function. This is how the Theory of Natural Law connects teleology (a descriptive claim about the natural world) to morality . It says, what’s morally good is for each thing to correctly and only perform its god-given function; what’s morally bad is for a thing to incorrectly perform its God-given function. So let’s talk about that. Why would you think that’s true?
+
+[Slide 40] Morality-from-Function
+
+[Slide 41] Argument # 1 – The Artifact Analogy Let me offer two different, historically popular arguments for this idea that what’s morally good is for things to do their assigned function.
+
+[Slide 42] Notice, a bad artifact is one that doesn’t do its job very well .
+
+[Slide 46] By analogy, we might reason, Man-made objects are bad when they fail to accomplish their purpose... maybe n atural objects are morally bad when they fail to accomplish their purpose. … which is what Morality-from-Function says. As before, we might be really impressed by the symmetry between human-made objects and God-made objects A human-made object sucks when it doesn’t actually do the thing it was meant to do. So maybe a god-made object sucks in the same circumstances.
+
+[Slide 47] Argument #1 – The Artifact Analogy Argument # 2 – The Argument from Human Function That’s the first argument for Morality-from-Function. The second fleshes out the analogy by attempting to spell out what the human function is.
+
+[Slide 48] The function of rain is to nourish the plants. Drought is the evil that occurs when this function goes un-perform ed. Let’s start with other sorts of function-failures, as they appear to a Teleologist.
+
+[Slide 49] The function of plants is to nourish the animals. Famine is the evil that occurs when this function goes un-performed.
+
+[Slide 50] What’s the function of people? Maybe moral evil is what occurs when this function goes un-performed? What about humans? A turn of the city scene
+
+[Slide 51] Aristotle’s suggestion was that we humans are, fundamentally, social animals . That’s our essential nature and function . … His thought is that we exist for the sake of each other, our function is to live together, successfully and cooperatively. (at on
+
+[Slide 52] The Argument from Human Function P1) The function of humans is being social (i.e. being friendly, cooperative, compassionate ) P2) If the function of humans is being social & if human immorality mostly amounts to various social failures , then Morality-from-Function is plausibly true P3) Human immorality does mostly amount to various sorts of social failure (e.g. acts of violence, abuse, theft, neglect, domination, etc.) C) Morality-from-Function is plausibly true.
+
+[Slide 53] Teleology all natural things possess a specific & fixed purpose or function Morality from Function morality consists in things acting in accordance with their function The Theory of Natural Law consists of two independent claims: So that’s Morality from Function.
+
+[Slide 54] Theory of Natural Law What’s morally right is for each thing to fulfill its assigned role , to act only in accordance with its natural function . Zooming back out, these two claims together form the view commonly known as the theory of natural law.
+
+[Slide 55] Some quick objections to TNL While the Theory of Natural Law was historically very popular, very few people accept it today. It has, shall we say, a few problems. I’ll run through some, but I’ll try to be quick about it. Dead horses and all that.
+
+[Slide 56] Objection The Theory of Natural Law is, on its face, hella ableist. … According to TNL, there’s a particular way that each thing in the universe ought to be and any deviations from those ideals are not just unfortunate but morally bad. That includes human bodies. On TNL, human bodies ought to be capable of sight, of hearing, of bipedal locomotion. And human bodies that can’t do those things are defective and in a morally bad way. Which is… not a view that’s likely to appeal to your average, 21st century college student
+
+[Slide 57] Objection The claim, each natural thing is good and intended , has lots of counter-examples. (e.g. rabies, tribalism, selfishness) … Recall, the theory of natural law tells us that the world is carefully designed such that everything naturally and by default tends towards the good, toward doing its own important function. Except… there are lots of natural things that suck. Rabies is natural, but it’s surely not morally good for rabies to do its thing. Likewise, there are a bunch of natural human tendencies that seem positively bad – tendencies that we must fight to overcome, if we want our world to be a minimally decent place. Things like tribalism and selfishness.
+
+[Slide 58] Objection The claim, anything contrary-to-function is wicked , has lots of counter-examples. (e.g. holding things in your mouth, having sex while infertile/gay/etc., harvesting solar power) … Historically, christian thinkers have used this claim as a reason to condemn homosexuality and sorts non-procreative sexual activities. That’s, again, not a great look here in the 21st century! There are other less grave counterexamples, too. (mouths aren’t for holding, but it’s not wicked if you use them that way. Sunlight isn’t for charging batteries but it’s not wicked to use it that way) The general concern is this: finding a surprising and unintended function for an old thing does not seem intrinsically wicked. That’s a serious problem for Morality-from-Function.
+
+[Slide 59] Objection It’s not obvious what counts as natural (droughts? cancer?) or that everything has a function (vestigial structures?) or that the world is well-designed . (c.f. the Problem of Evil) Another issue (or, really, 3 separate issues)....
+
+[Slide 60] Objection TNL conflicts with our best science (indeed, offers explanations that are backwards! ) Finally, the Big Objection is that the Theory of Natural Law is incompatible with our best science. Most notably, it reverses the explanations we get from the Theory of Evolution – which is the lynchpin of our best biology
+
+[Slide 61] Trait : Long necks Function : Reach foliage that other herbivores can’t Quiz Here’s a concrete example. Consider functionality of the giraffe’s neck. It’s genuinely useful for the species to have this trait. But the story we get from biology about how this highly functional trait arose and the story we get from The Theory of Natural Law are, basically, opposites. They reverse the order of explanation. Can you see why? THink about it for a sec: why is the story from the TNL backwards from the story we get from modern evolutionary biology?
+
+[Slide 62] Modern Biology – “ First, some mammals randomly ended up with a long-neck mutation. That trait turned out to be f itness-enhancing – i.e. found a function . So it was passed on. ” Theory of Natural Law – “ First, there was a need for animals to make use of that high foliage . It was to fill that role that giraffes were created and given such long necks.” … Notice these explanations point in opposite directions. The modern biology explanation says that the trait occurred first, and then stuck around because there happened to be a function it could serve. The TNL explanation says that there was first a function that needed to be filled and that’s why the trait was brought about.
+
+[Slide 63] Objection TNL conflicts with our best science (indeed, offers explanations that are backwards! ) … TNL also conflicts with our best science in other ways. For instance, our best science tells us that speciation is not end-directed – i.e there is no goal or designer guiding the creation of different species, just random and statistical processes and differential fitness success. TNL says otherwise,. Likewise, our best science tells us that bad design is going to be quite common – with systems that don’t work quite right or are overly complicated or are finicky or cost-prohibitive or simply inefficient. That’s inevitable given how evolution works, a series of ever-agglomerating small changes. TNL says the opposite. So yeah. The Theory of Natural Law has some problems; not too many people these days accept it. But it’s historically super significant, and I think that alone make it worth the price of admission.
+
+[Slide 64] This module, we’re talking about 2 other views according to which God is indirectly responsible for morality . As always, there’s so much more to be said about all of this. But i’ll leave off here. Recall: the big picture though: the Theory of Natural Law is an attempt to explain the connection between God and Morality. It says God is indirectly responsible for morality – God created the natural world, the natural world gives rise to morality. In the next video, we’ll look at one other way of assigning indirect responsibility to God.

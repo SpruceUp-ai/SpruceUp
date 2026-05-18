@@ -1,0 +1,135 @@
+# PHIL 1000 - 11 - The Ethics of Belief
+
+[Slide 1] The Ethics of Belief This marks our entry into Unit 2 of this course. In one way, today’s lecture will be very different from what’s come before while in another way, it really won’t. We’re no longer going to be concerned with whether God exists – i.e. we’re not doing metaphysics. We’re going to talk about what we should believe about the existence of God. So the topic will stay the same, while the focus will shift. Later in this unit, we’ll turn away from questions about God and look at a variety of other topics in Epistemology – questions about belief and evidence and justification and knowledge.
+
+[Slide 2] Clifford’s wrongful belief principle A case An objection A reply The Anti-Faith Argument 4 Objections “Faith” means “knowledge” Junk facts as counterexamples Irrational beliefs can be morally good Doesn’t this apply to atheism?
+
+[Slide 3] A shipowner is preparing one of his ships for a trans-Atlantic voyage, its cargo a host of emigrants seeking better economic opportunities in a new country. He knows the ship is old and was never well-built. Reliable employees have suggested she needs repairs before she sails again. Doubt gnaws at the shipowner, and he wonders if he should cancel the voyage and have her overhauled and refit. Is time infinite or did God create the universe at some point?
+
+[Slide 4] With some effort he manages to put these concerns aside. He tells himself, “She’s already seen many safe journeys, weathered many storms, and surely God would not allow these poor emigrants to die at sea.” He fosters in himself a sincere conviction that the vessel is safe and seaworthy, and he watches her departure with a light heart. Is time infinite or did God create the universe at some point?
+
+[Slide 5] When the ship later sinks, killing all aboard, he quietly collects the insurance money. Is time infinite or did God create the universe at some point?
+
+[Slide 6] Clifford Obviously , the shipowner has behaved immorally.
+
+[Slide 7] But what exactly did he do wrong?
+
+[Slide 8] Is it that he killed a bunch of people?
+
+[Slide 9] No – not exactly. Even if the ship had safely made the crossing, he would still be guilty. Lucky, but guilty.
+
+[Slide 10] Is it that he sent the ship to sea?
+
+[Slide 11] Not really. He genuinely believed the ship was safe! And there’s nothing wrong with sending a ship to sea that you believe to be safe.
+
+[Slide 12] Seemingly, what he did wrong was forming the belief that his ship was safe . He acted wrongly when he willed himself to believe something that the evidence didn’t support.
+
+[Slide 13] The Take-away There are ethical constraints not only on what we may do , but also on what we may believe .
+
+[Slide 14] The Dude Objection But… they’re just, like, our opinions, MAN. Surely we can believe whatever we want? I think this is a pretty common reaction to this move of Cliffords, to his attempt to moralize our beliefs.
+
+[Slide 15] Clifford Beliefs have moral weight because what we believe determines what we do (and what we do is, of course, morally significant.) Here’s Clifford’s reply. I think this is actually quite plausible. Let me offer a few cases in support.
+
+[Slide 16] If you ’ re an oncologist who believes in the curative powers of healing crystals, you’re going to kill a shit-ton of your patients. Here’s a case in which in irresponsible belief leads to irresponsible behavior I don’t feel the pull of saying “But they’re just like, YOUR BELIEFS, man” when it comes to my doctor. I think my doctor is required to belief, you know, whatever our best medical science supports as probably true. (Which does not include a belief in healing crystals.)
+
+[Slide 17] If you’re a dictator who believes that a particular demographic group is sub-human, you may decide it’s okay to deprive them of basic human rights . Again, I’m not inclined to say of a legislator or a president or judge that they can believe whatever they want. Their beliefs influence how they govern and bad beliefs may well mean bad governance!
+
+[Slide 18] If you’re a new parent who thinks babies need crib-knives for safety, you’re likely to wake up to a bleedy baby. Here, too, bad beliefs in a parent can lead to very bad behavior, can lead to real harm done to the child.
+
+[Slide 19] If you’re a Senator who believes the continued existence of snow somehow proves that climate change is a hoax... I don’t know if you recall this from a few years ago... A senator brought a snowball with him into the Senate building as proof that climate change isn’t real. Then he held it up! In front of the nation! Like an argument! A snowball argument against climate change. Whatever one thinks about climate change, it’s pretty clear that climate change can be real at the same time that snow is real. To believe otherwise is, I submit, irresponsible. Especially in a US Senator. (!!!!!)
+
+[Slide 20] So, no. Beliefs are not innocuous . Having bad beliefs can be, and often is, harmful and blameworthy.
+
+[Slide 21] “It is wrong always, everywhere, and for anyone, to believe anything upon insufficient evidence .” – William K. Clifford Here’s the lesson Clifford draws. (Notice this is pretty strong, a rather forceful statement of the view.)
+
+[Slide 22] This claim can be used to attack theism. Quiz Can you see how that’s going to go? Take a sec and think about it.
+
+[Slide 23] P1) It is always, everywhere, and for anyone wrong to believe anything on the basis of insufficient evidence. P2) To have faith in a religion is, by definition, to believe on the basis of insufficient evidence. Why think that’s true? That claim of Clifford’s is going to serve as the first premise in an important and influential argument against theism
+
+[Slide 24] Having faith indicates a kind of belief that falls short of having knowledge.
+
+[Slide 25] You don’t have faith that Subway sells sandwiches. You know that it does.
+
+[Slide 26] You don’t have faith that your parents had sex to conceive you. You know they did. (You weren’t there, but you know how these things work.)
+
+[Slide 27] You don’t have faith that you were alive last Tuesday. You know you were.
+
+[Slide 28] Typically, religions ask us to have faith . Which is tantamount to admitting, There’s not enough evidence to know that our religion is true.
+
+[Slide 29] “Now faith is confidence in what we hope for and assurance about what we do not see.” – Hebrews, 11:1 We see some religions literally requesting their adherents to have faith. In this passage, the bible clarifies that “faith” involves “hope and assurance”. That definitely doesn’t sound like knowledge. (You don’t have hope and assurance that Subway sells sandwiches. You have dead-eyed confidence)
+
+[Slide 30] P1) It is always, everywhere, and for anyone wrong to believe anything on the basis of insufficient evidence. P2) To have faith in a religion is, by definition, to believe on the basis of insufficient evidence. C) It is wrong to have faith in a religion The Anti-faith Argument Here is, unsurprisingly, how the argument concludes. It’s a simple argument – but, as you can see, a surprisingly powerful one. That conclusion is pretty forceful and rather surprising – most people, even atheists, are inclined to think that it’s morally inappropriate to belong to a religion.
+
+[Slide 31] Some objections
+
+[Slide 32] Objection – By ‘faith’ religious people just mean belief in a higher power. It’s possible to have faith AND to know that one is correct. One common worry about the argument is this: that it is employing the word ‘faith’ in a sneaky and unfair way. Maybe “faith” just means, like, “religious belief”. If that’s right, then you can’t infer that someone lacks evidence merely from the fact that they have faith.
+
+[Slide 33] Reply – To know something, that thing needs to be actually true. But most religions are false. So most theists don’t have knowledge . But that doesn’t obviously work! The problem is this... There are two key claims here. Let’s take them one at a time.
+
+[Slide 34] Does your friend know that he’s a glass of orange juice? Let me illustrate with a few cases. Suppose one of your (human) friends tells you that he knows he is a glass of orange juice. He tells you about all the very convincing evidence he has for this. First of all, he feels like a glass of orange juice. Also, when he looks at himself, he sees a glass of orange juice. Finally, he is sure that were he to lie down, he would spill orange juice everywhere.
+
+[Slide 35] Does John know that Santa exists? John is 17 years old and genuinely believes that Santa exists. He believes this because his parents insist that it’s true, and John has found in the past that his parents are highly trustworthy, super-reliable sources of information. Other people say Santa doesn’t exist, but John trusts his parents more than he trusts those people.
+
+[Slide 36] Reply – To know something, that thing needs to be actually true. But most religions are false. So most theists don’t have knowledge . But what about that second claim? Why are most religions false?
+
+[Slide 37] There are real, substantive disagreements between world religions.
+
+[Slide 38] Is God minded, and personal ? Or is God an impersonal force ?
+
+[Slide 39] Does time stretch back to infinity... Is time infinite or did God create the universe at some point?
+
+[Slide 40] Or was the universe created at some particular point?
+
+[Slide 41] Was Joseph Smith a prophet? Was Joseph Smith a prophet of God?
+
+[Slide 42] Is the Quran the word of God? Does the Quran come from God?
+
+[Slide 43] When we die...
+
+[Slide 44] Do we return to the world in another form? Does the Quran come from God?
+
+[Slide 45] Does Anubis weigh our heart against a feather? Does the Quran come from God?
+
+[Slide 46] How is salvation possible?
+
+[Slide 47] Does it require a personal relationship with Christ?
+
+[Slide 48] Does it require the shedding of the self through meditation?
+
+[Slide 49] We can’t all be right. Either the universe has a beginning or it doesnt Either we go to heaven when we die or we don’t Either Jesus is the only path to salvation or he isn’t
+
+[Slide 50] The biggest religion in the world (Christianity) includes only 31% of humanity. Thus, at a minimum, 69% of people believe in a false religion. All of those people have faith but not knowledge . If any other religion is the correct one, then far more than 69% of people are wrong. Whichever religion is correct, then, most people have faith and not knowledge because most people are wrong.
+
+[Slide 51] Objection – By ‘faith’ religious people just mean belief in a higher power. It’s possible to have faith AND to know that one is correct. So to sum up: I don’t think this objection works! Most religions are wrong, so most people are wrong. WHich means they don’t have knowledge. What they have is faith.
+
+[Slide 52] P1) It is always, everywhere, and for anyone wrong to believe anything on the basis of insufficient evidence. P2) To have faith in a religion is, by definition, to believe on the basis of insufficient evidence. C) It is wrong to have faith in a religion The Anti-faith Argument So that’s doesn’t help us deal with this argument. But let’s look at some other objections.
+
+[Slide 53] Objection – Some facts are “junk facts” that don’t matter. It’s surely not wrong to have beliefs about junk facts on the basis of insufficient evidence. Here’s one! Let me give you some examples of “junk facts”
+
+[Slide 54] The fastest land speed ever attained by a chubby turtle on a Monday. There’s a fact of the matter! God knows it; we don’t. But I invite you to believe whatever you want about this. It doesn’t matter! Nothing you ever do will be affected by what you believe about this.
+
+[Slide 55] The day when I ate Pringles for the third time.
+
+[Slide 56] The exact number of people in the U.S. who saw a live badger in Ohio between 1989 and 1991.
+
+[Slide 57] It’s morally acceptable to believe whatever we want about these things! So, Clifford is wrong. Sometimes it’s OK to believe on the basis of insufficient evidence. These facts don’t matter. They are junk .
+
+[Slide 58] Objection – Some facts are “junk facts” that don’t matter. It’s surely not wrong to have beliefs about junk facts on the basis of insufficient evidence. Quiz This is probably true,. But it’s not enough to save the theist. Why doesn’t this objection help the theist defend her faith?
+
+[Slide 59] Reply – Sure! Maybe we can believe whatever we want about junk facts. But facts about religion aren’t junk facts!
+
+[Slide 60] P1) It is always, everywhere, and for anyone wrong to have a belief about a non-junk-fact on the basis of insufficient evidence. P2) To have faith in a religion is, by definition, to believe something about a non-junk fact on the basis of insufficient evidence. C) It is wrong to have faith in a religion The Anti-faith Argument (revised) So we can just patch up the argument. This version has the same conclusion and avoids the junk facts objection. Let’s look at another objection
+
+[Slide 61] Objection – It’s fine to believe on the basis of insufficient evidence if the belief is necessary for achieving a good result
+
+[Slide 62] Your BFF tells you she’s gonna quit smoking. This is the 10 th time she’s tried, and so far she’s never made it more than a week. But she seems really confident, and you want to be supportive! So you nod and will yourself to honestly believe that this is the one; this time she’ll quit!
+
+[Slide 63] Plausibly, it’s morally good to believe in your friend, even though you have insufficient evidence. Here’s what I want to say about the case. THis seems plausible to me.
+
+[Slide 64] Objection – It’s fine to believe on the basis of insufficient evidence if the belief is necessary for achieving a good result If that’s right, then this should seem plausible. Sometimes it’s ok to belief things on insufficient evidence – at least, if the consequences of doing so are expected to be good.
+
+[Slide 65] Reply – Do we really want to defend faith in God along those lines? “Yes, my faith is technically unjustified, but that’s okay b/c it’s good for me!” Maybe. But that feels pretty unsatisfying, I think.
+
+[Slide 66] Objection – This is as much a problem for atheists as for theists. The evidence concerning God is mixed ! Thus, having any belief is objectionable. Here’s one last objection.
+
+[Slide 67] P1) It is always, everywhere, and for anyone wrong to believe anything on the basis of insufficient evidence. P2) Given the conflicting evidence about the existence of God, any firm belief on this matter is based on insufficient evidence. C) It is wrong to positively believe or disbelieve in God. The Anti-faith Argument (generalized) Meaning agnosticism is the morally best position. Notice, this, too, does not really defend theism. It just gets more people in trouble. Next time we’ll look at a more robust response to this concern. We’ll look at a defense of the rationality of faith.

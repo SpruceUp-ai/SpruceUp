@@ -1,0 +1,105 @@
+# PHIL 1000 - The Problem of Evil
+
+[Slide 1] The Problem of Evil
+
+[Slide 2] Recap Ingredients for the Problem of Evil The 3-O God What to expect when you’re expecting a 3-O God Necessary vs. unnecessary suffering The Problem of Evil
+
+[Slide 3] So far we’ve looked at arguments for the existence of God.
+
+[Slide 4] The Ontological Argument : Consider the properties that define God. Surely we must conclude that a non-existent God is impossible. Thus, God exists. The Fine-tuning Argument : Look at the universe. See how elegant and fragile it is? It seems very, very unlikely that such a thing could exist by accident. The best explanation is that the universe was carefully designed by God.
+
+[Slide 5] Today we’ll look at an argument against the existence of God. (the best and most important one) You might wonder: Not fair! Two arguments for but only one against? I’m not stacking the deck, I promise. The argument we’ll look at today is A BIG DEAL. I dare say, far far more philosophers have been persuaded by today’s argument than by either of the pro-God arguments we’ve looked at.
+
+[Slide 6] Defining God (again) As usual, before we look at the argument, we’re going to need to set up the game board – define some terms, draw some distinctions, trace some implications. Recall our earlier conversation about how we define God.
+
+[Slide 7] The Greatest Being God God is the greatest possible being – the being than which none greater can be conceived . This was Anselm’s definition.
+
+[Slide 8] The Creator God God is that being who was responsible for fine-tuning the universe to support life . This was the definition at issue when we talked about the Fine-tuning argument. (notice how sparse it is! We don’t learn much about God from the Fine-tuning argument.)
+
+[Slide 9] The 3-O God God is O mnipotent God is O mniscient God is O mnibenevolent God can bring about any logically possible state of affairs God knows, always and already, all of the knowable facts God is maximally morally good, is morally perfect in every detail Here’s one very popular definition of God. (This seems to be what most major Western religions mean by ‘God’. Though, of course, one could define God in other ways – with more properties, with fewer or different properties.) ANd this is definition we’ll be using today.
+
+[Slide 10] Why the 3-O ’s? Why Omnipotence ? Wouldn’t it be weird if God were straight-up powerless to do various possible tasks? Why Omniscience ? Wouldn’t it be weird if God were straight-up oblivious of certain knowable facts? Why Omnibenevolence ? Wouldn’t it be weird if God were straight-up wicked – or even just indifferent to evil? “Hey God can you help me out with this?” “Mmm… literally, no. Sorry. I’m incapable.” “Hey God what’s up with this – can you explain it?” “Sorry. I actually don’t know about that. Out of my area.” “Hey God what’s your plan for the universe like?” “Just trying to have a good time, bro.” or “Fucking whatever, not my problem anymore”
+
+[Slide 11] What sort of world would the 3-O God create? Here’s a good starting point. Think about the 3-O God for a second – a being of maximal power, complete knowledge, and perfect goodness. What sort of world would such a being create?
+
+[Slide 12] A world with lots of natural beauty
+
+[Slide 13] A world with stunning diversity
+
+[Slide 14] A world that’s pleasant to inhabit, to experience.
+
+[Slide 15] A world where humans can grow and learn and achieve great things.
+
+[Slide 16] A world with cooperation
+
+[Slide 17] A world with art and culture
+
+[Slide 18] A world with talent and excellence
+
+[Slide 19] A world with diversity and richness
+
+[Slide 20] A world with profound technological and human triumphs
+
+[Slide 21] Indeed, maybe more than just one world – a whole universe of these things
+
+[Slide 22] What sort of world would we not expect? Here’s a useful contrast question. Think again about the 3-O God: the being with maximal power, complete knowledge, and a morally perfect will. What sorts of things would we *not* expect to find in a world of that being’s creation? That is, what sorts of things would seem incompatible with such a being?
+
+[Slide 23] We’d not expect a world with lots of brutal war.
+
+[Slide 24] Or a world with weapons of mass destruction.
+
+[Slide 25] A world with torture
+
+[Slide 26] A world with genocide
+
+[Slide 27] A world with uncontrollable natural disasters
+
+[Slide 28] A world with predators – that is to say, creatures who depend for their own survival on killing other sentient beings – not praying on their corpses, but killing them at any age, whenever they can.
+
+[Slide 29] A world with disease – this is an illustration of Alzheimer’s, which is a particularly awful disease. Here and in the next picture you are seeing one woman’s declining ability to write her own name, as her alzheimer’s progresses.
+
+[Slide 31] Why these expectations? If God is Omnipotent ... She’s never powerless to stop suffering. If God is Omniscient. ... She’s never oblivious of suffering. If God is Omnibenevolence ... She's always motivated to reduce suffering. What unites all of the examples of things we wouldn’t expect to find in the world is that all of them involve suffering of some sort of other. Let me just note that by “suffering” here, I just mean actively unpleasant experiences, of any sort – anything from pangs of anxiety to the pain of a hangnail to the agony of a burn victim to the misery of person whose home was just destroyed by flood waters
+
+[Slide 32] The shorthand version of the problem of evil is simply this, If the 3-O God exists, then why is the world so full of suffering? This observation is at the heart of the Problem of Evil: We would not expect the 3-O to create a world with lots of suffering in it. But… our world has lots of suffering in it. So… what’s up with that?
+
+[Slide 33] P1) If the 3-O God exists, we won’t find suffering in the world. P2) We do find suffering in the world C) So, the 3-O God does not exist The Problem of Evil (an imperfect first pass) This isn’t quite right. Here’s a first pass at the problem of evil argument. As it happens, though, that first premise isn’t quite right. It’s too strong.
+
+[Slide 34] Necessary vs. Unnecessary Suffering So let’s draw a distinction. It turns out there are two different kinds of suffering that we see in the world, and only one of those kinds seems incompatible with the existence of the 3-O God.
+
+[Slide 35] There are some kinds of suffering that we wouldn’t expect the 3-O God to stop. If you think about it for a second, it quickly becomes obvious that a 3-O God probably would allow some suffering to occur.
+
+[Slide 36] There are some kinds of suffering that we wouldn’t expect the 3-O God to stop. Consider the pain involved in receiving a vaccination shot. Clearly, it would be silly for us to argue, “Vaccines exist. Therefore, God isn’t real” It’s silly because vaccines are not a bad thing. The world would not be better without vaccines. Yes they hurt a little but God would be doing us no favors by plucking vaccines out of the world.
+
+[Slide 37] There are some kinds of suffering that we wouldn’t expect the 3-O God to stop. Likewise, the fact that there are root canals is not evidence against the existence of the 3-O God. It would be confused to ask “If God is so great, then how come there are dentists?” Dentistry hurts but we need dentistry in order to secure mouth-health – which, I’m told, is important. Again, God would be doing us no favors by plucking all the dentists out of the world.
+
+[Slide 38] There are some kinds of suffering that we wouldn’t expect the 3-O God to stop. Exercise is also not evidence against the existence of God. Exercise is good and important, even if it sometimes hurts. “If God is so good, then how come running a marathon feels bad ?” is a stupid argument for atheism
+
+[Slide 39] There are some kinds of suffering that we wouldn’t expect the 3-O God to stop. THIS CLASS is not evidence for atheism. You may find it tedious and boring, but you still need it to secure something important: namely, a degree or a collegiate level education
+
+[Slide 40] Some kinds of suffering are necessary . The problem of evil is about unnecessary suffering . Suffering is unnecessary when it, (a) doesn’t prevent some greater bad AND (b) doesn’t secure a greater good. To sum up, we are only concerned with certain kinds of suffering. Think back on all the examples we just looked at. Why don’t vaccines count as unnecessary suffering? Because we need them to prevent some greater bad (namely, disease) Why doesn’t exercise count as unnecessary suffering ? Because we need to exercise to secure a greater good (namely, physical health)
+
+[Slide 41] Quiz Why is thirst an instance of necessary suffering?
+
+[Slide 42] Quiz Why is middle school an instance of necessary suffering?
+
+[Slide 43] P1) If the 3-O God exists, there could never be even one instance of unnecessary suffering . (b/c She would know about it, want to prevent it, and be able to) P2) There has been at least one instance of unnecessary suffering . The Problem of Evil So this is the refined version of P1. And then, we get P2. A very straightforward and plausible claim about the world.
+
+[Slide 44] Why think there’s unnecessary suffering ? Let’s talk a bit more about P2
+
+[Slide 45] Really, we can just point to the same examples we looked at before. Is every war – and every act committed in every war – an instance of necessary suffering? It’s hard to see how they could be! (Some wars may be justified, but not ALL wars! Some acts committed in war may be justified but surely not ALL such acts!
+
+[Slide 46] Is torture necessary suffering? (I don’t mean the kind of torture where there’s like a ticking bomb and we need information so we torture someone to get it. I mean the kind of torture that people do for pleasure or out of cruelty and spite. Like in this photo from Abu Ghraib. Torture-for-pleasure does not seem to prevent a greater suffering nor achieve a greater benefit. It seems like unnecessary evil.)
+
+[Slide 47] Likewise genocide. It’s REALLY NOT OBVIOUS that every genocide in the history of mankind was necessary for achieving some greater good or preventing some greater evil. (WHAT GREATER EVIL? Genocide is like the greatest evil. What evil could possibly be so bad that we have to Commit Genocide to prevent it?)
+
+[Slide 48] What about things like floods, mudslides, tornadoes, hurricanes, volcano eruptions, and droughts? What greater benefit or greater evil do these things get us?
+
+[Slide 49] What about diseases like Alzheimer’s? What is the greater good that Alzheimer’s gets us? What is the greater evil it prevents?
+
+[Slide 50] “Suppose in some distant forest lightning strikes a dead tree, resulting in a forest fire. In the fire a fawn is trapped, horribly burned, and lies in terrible agony for several days before death relieves its suffering… There does not appear to be any greater good… nor does there seem to be any equally bad or worse evil so connected to the fawn's suffering that it would have had to occur had the fawn's suffering been prevented.” – William Rowe Here’s a case from the Rowe reading for this week. This will turn out to be one of hardest cases for us to make sense of. (It’s worth noting, although Rowe’s case is fictional – he’s not reporting on some event he witnessed – the case is very very plausible. It is overwhelmingly likely that something like this has happened in the world. In fact, it is overwhelmingly like that this has happened thousands upon thousands of times.)
+
+[Slide 51] P1) If the 3-O God exists, there could never be even one instance of unnecessary suffering . (b/c She would know about it, want to prevent it, and be able to) P2) There has been at least one instance of unnecessary suffering . C) The 3-O God does not exist The Problem of Evil And here’s the full argument.
+
+[Slide 52] What exactly does the Problem of Evil purport to show us? Quiz Quiz Question: Does the Problem of Evil argument conflict with the Fine-tuning argument?
+
+[Slide 53] What exactly does the Problem of Evil purport to show us? The conclusion is rather limited: the 3-O God does not exist. There could still be a 2-O God ! Or a Creator God ! Turns out: No. You can accept both the Fine-tuning Argument and the Problem of Evil without contradiction. … Of course, we’d have to think carefully about which O we jettison. Maybe God is not all-knowing – is ignorant or oblivious? Maybe God is not all-powerful – has real limitation in what She can accomplish? Maybe God is not perfectly good – is wicked or indifferent to suffering? Maybe God is simply not here. Maybe She made the universe and then left or died. That’s perfectly compatible with the God of the Fine-tuning argument. Maybe She fine tuned the universe and then peaced out. And that’s why there’s so much unnecessary suffering.

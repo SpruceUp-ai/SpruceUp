@@ -1,0 +1,79 @@
+# PHIL 1000 - 13 - Skepticism
+
+[Slide 1] External World Skepticism
+
+[Slide 2] Ingredients Skepticism The JTB account of knowledge The evidence principle, revisited The Argument for External World Skepticism The Dream Hypothesis The Evil Demon Hypothesis The Brain-in-a-vat Hypothesis
+
+[Slide 3] René Descartes (1596-1650), while not himself a skeptic, famously introduced some powerful skeptical arguments in his Meditations . These arguments support a strong form of External World Skepticism . Here’s our man. Descartes made important contributions to mathematics, science, and metaphysics. It’s worth noting: he was not himself a skeptic, and skepticism itself predates Descartes by more than a thousand years.
+
+[Slide 4] Skepticism
+
+[Slide 5] Skepticism is a family of philosophical views, according to which, We think have knowledge that __, but we don’t. We get different forms or varieties of skepticism, depending on what we fill into the blank.
+
+[Slide 6] Other Minds Skepticism says that, We think we know that other people have minds – i.e. rich inner lives like ours – but we don’t. We get different forms or varieties of skepticism, depending on what we fill into the blank.
+
+[Slide 7] Religious Skepticism says that, We think we know some religious truths, but we don’t. We encountered an argument for this a week or two ago.
+
+[Slide 8] Inductive Skepticism says that, We think we know that the laws of nature are unchanging – and that the future will resemble the past – but we don’t. This is variety we’ll talk about in the next lecture
+
+[Slide 9] External World Skepticism says that, We think we know things about the external world (i.e. the parts of reality outside of our own minds), but we don’t. This is variety we’ll talk about today.
+
+[Slide 10] On Knowledge
+
+[Slide 11] Skepticism is a family of philosophical views, according to which, We think have knowledge that __, but we don’t. What is knowledge , anyway? Before we look at those argument though – before we consider whether Descartes is right that we lack knowledge of the external world – we need to get clear on what knowledge is. (How can we tell if we lack it, if we don’t know what it is?)
+
+[Slide 12] Historically, most philosophers have accepted, the J ustified, T rue, B elief ( JTB ) Account having knowledge = having a belief that is justified and true . I want to spend a bit of time talking about this account, motivating it as plausible
+
+[Slide 13] Historically, most philosophers have accepted, the J ustified, T rue, B elief ( JTB ) Account having knowledge = having a belief that is justified and true . Why think that knowledge requires belief?
+
+[Slide 14] Does a flat-earther know that the Earth is a globe? You and I, I assume, know that the earth is a globe. Does the flat-earther also know that? Seemingly not. She doesn’t even believe that it’s a globe, so how could she know it?
+
+[Slide 15] Aristotle thought the world and everything in it was composed of just 4 elements, fire, air, water, and earth . Did Aristotle know that water is actually decomposable into hydrogen and oxygen ? How could he? He didn’t even believe it.
+
+[Slide 16] Historically, most philosophers have accepted, the J ustified, T rue, B elief ( JTB ) Account having knowledge = having a belief that is justified and true . That suggests that knowledge at least requires belief.
+
+[Slide 17] Does a flat-earther know that the Earth is flat ? Or consider the flat-earther again. Seemingly not. The earth isn’t flat… so how can she know that it is?
+
+[Slide 18] Historically, most philosophers have accepted, the J ustified, T rue, B elief ( JTB ) Account having knowledge = having a belief that is justified and true . That suggests that knowledge at least requires belief.
+
+[Slide 19] Does Elma know that Napoleon’s favorite color was blue? Does Raul know ? Elma believes in her gut – has always believed – that Napoleon’s favorite color was blue. When asked why she believes this, Elma has no reasons to give, no evidence to cite – she didnt hear that it was from anyone trustworthy or read about it somewhere. She just believes it. Now consider another person, Raul. Raul is a historian. He has read innumerable books and documents about Napoleon – both from primary and secondary sources. He has come to believe quite firmly that Napoleon’s favorite color was blue. This is supported by many texts. Let us suppose that Elma’s favorite color really was blue. Seemingly, Elma’s belief doesn’t count as knowledge because she doesn’t have any evidence or justification. She’s just making shit up about history and, in this case, she happened to get lucky. Raul on the other hand, really has evidence. He knows his stuff.
+
+[Slide 20] Historically, most philosophers have accepted, the J ustified, T rue, B elief ( JTB ) Account having knowledge = having a belief that is justified and true . That suggests that knowledge finally requires some justification.
+
+[Slide 21] The Evidence Principle, revisited So you’ll notice I’ve defined knowledge in terms of justification and you might be thinking “Great! If I was shaky on what knowledge is supposed to be I’m even shakier on what justifiation is supposed to be” So let me link up justificaiton to a notion that’s already come up a few times this semester: the notion of evidence.
+
+[Slide 22] What is justification ? Basically, justification amounts to the possession of evidence . Your belief that ___ is justified just in case you have evidence for ___.
+
+[Slide 23] Recall the “ Evidence Principle ” used in the Fine-tuning Argument . With small modification, we can turn it into a definition of evidence . A definition of ‘ evidence ’ An observation, O, is evidence for P over not-P (and is justification for a belief that P) when O is more likely or probable under P than under not-P.
+
+[Slide 24] They don’t smell like bananas. They don’t smush when you hit stuff. They haven’t gone rotten yet. They don’t peel very good. They aren’t yellow, waxy, and stupid. What’s your evidence that your hands aren’t bananas? Each of these observation is more likely in a world in which your hands are NOT bananas than in a world where your hands are bananas. Thus, each of these is a bit of evidence that your hands are not bananas. Each of these facts justifies your belief that your hands aren’t bananas.
+
+[Slide 25] External World Skepticism Back to external world skepticism
+
+[Slide 26] External World Skepticism is the view that We think we know things about the external world but we don’t. have j ustified, t rue b eliefs So, returning to our topic for today: The external world skeptic believes that we don’t have justified and true beliefs about the external world. That’s the position.
+
+[Slide 27] External World Skepticism is the view that We think we know things about the external world but we don’t. have j ustified, t rue b eliefs Quiz The Skeptic has 3 options, then. She can argue that we don’t believe things about the external world She can argue that all that we believe about the external world is false (i.e. not-true) She can argue that we have no good justification for believing in the external world QUIZ: Which of these is the most promising? Hopefully, you can already see which of these paths is the easiest, which path the skeptic is likely to take. It’s not plausibel to argue we don’t believe It won’t be easy to argue that it’s false that….
+
+[Slide 28] … because we don’t have any justification or evidence. External World Skepticism is the view that We think we know things about the external world but we don’t. So this is the full view. It’s a denial of justification.
+
+[Slide 29] The Argument for External World Skepticism
+
+[Slide 30] P1) By definition, knowledge requires justification . ( K = JTB ) P2) By definition, to have justification for a belief that P, you must have evidence that supports P over not-P. P3) We have no evidence that supports E over not-E . (E = there is an external world, and it’s basically the way we think it is. ) The Argument for External World Skepticism
+
+[Slide 31] Why P3? Why think there’s no evidence?
+
+[Slide 32] The Dream Hypothesis My senses seem to give me information about the world outside my body. That info is inaccurate when I’m asleep. Thus, if I’m not sure that I’m awake, I can’t be sure that my sensory info is accurate. I can’t ever be sure that I’m awake. Thus, I can’t ever be sure that my senses are providing me with accurate info. When I’m dreaming, I am prone to believe my senses – i.e. I confuse my dream experiences with experiences of reality. But of course, dream experiences do not represent an external reality . The things I dream aren’t the way I dream them to be; the events I dream do not actually happen. There is no sure way to tell whether I am dreaming and, if I am, for how long I’ve been dreaming.
+
+[Slide 33] The Dream Hypothesis My senses seem to give me information about the world outside my body. That info is inaccurate when I’m asleep. Thus, if I’m not sure that I’m awake, I can’t be sure that my sensory info is accurate. I can’t ever be sure that I’m awake. Thus, I can’t ever be sure that my senses are providing me with accurate info. Some of you may be thinking, But what if I can tell that i’m not dreaming? Aren’t there ways to tell? Maybe. But consider: How often in dreams are you aware that you’re dreaming? Hardly ever, for most of us. Most of us really do think in our dreams that we’re experiencing real stuff. That’s the concern. Maybe we’re in one of those bad cases right now!
+
+[Slide 34] The Evil Demon Hypothesis My senses seem to give me information about the world outside my body. That info would be inaccurate if I were being mind-controlled by an evil demon. Thus, if I can’t rule out the demon possibility, I can’t be sure my senses are accurate. I can’t ever rule out the demon possibility. Thus, I can’t be sure my senses are accurate.
+
+[Slide 35] The Brain-in-a-vat Hypothesis My senses seem to give me information about the world outside my body. That info would be inaccurate if I were a brain in a vat, controlled by a supercomputer. Thus, if I can’t rule out the vat scenario, I can’t be sure my senses are accurate. I can’t ever rule out the vat scenario. Thus, I can’t be sure my senses are accurate. Here’s an updated version of the same scenario: Maybe when you were just 5 days old, some evil scientists removed your brain from your body. They placed your brain into a sophisticated Brain-Sustaining Vat and hooked you up to a very, very powerful supercomputer. Since then, the computer has been interacting with your brain constantly. It has been perfectly simulating for you all the experiences and brain states you would have had had you remained embodied. You’ve lived your whole life like this: interacting with simulated people, working at simulated jobs, perceiving a simulated world. The simulation tech is so good that there is no way to tell that this is what’s going on – no consistent and obvious signs that the things you’re experiencing aren’t real. This might seem surprising, given what you know about computers, but the world being simulated for you has less-sophisticated technology than the actual world. (i.e. the supercomputers in your version of the world aren’t powerful enough to do what the supercomputers in the actual world are actually doing to you .)
+
+[Slide 36] You have two live hypotheses, H1 – John Green is the killer. H2 – John Red is the killer. You find a note in the victim’s hand, “I’m being stalked by a man named John.” This is equally compatible with H1 & H2. So the note provides no new evidence . Imagine you’re investigating a murder and you’ve narrowed it down to suspects: John Brown and John Green. A new clue is discovered. A note turns up in the victim’s handwriting claiming a man named ‘John’ is trying to kill her. In this case, the clue provides you with NO NEW EVIDENCE because it’s equally compatible with both available options.
+
+[Slide 37] Consider these two hypotheses, H1 – My experiences are caused by normal, external world things. H2 – My experiences are caused by a vast supercomputer. Everything I’ve ever experienced is equally compatible with both scenarios. Thus, I have no evidence for H1 over H2. This is how ALL our evidence looks! ALL OF OUR EVIDENCE is compatible with our living in the real world and with our being plugged into the Matrix. All evidence is like finding a note that says “John is trying to kill me” – which is to say, no new evidence at all.
+
+[Slide 38] H1 – My experiences are caused by normal, external world things. H2 – My experiences are caused by a vast supercomputer. Suppose someone argued, “ What about, like, a really good taco? Surely the experience of eating a taco is evidence for H1 over H2. ” Why is that confused? Why doesn’t that work? Quiz This is how ALL our evidence looks! ALL OF OUR EVIDENCE is compatible with our living in the real world and with our being plugged into the Matrix. All evidence is like finding a note that says “John is trying to kill me” – which is to say, no new evidence at all.
+
+[Slide 39] P1) By definition ( K = JTB ), knowledge requires justification . P2) By definition, to have justification for a belief that P, you must have evidence that supports P over not-P. P3) We have no evidence that supports E over not-E . (E = there is an external world, and it’s basically the way we think it is. ) C) Therefore, we don’t know if there’s an external world nor what it’s like. The Argument for External World Skepticism

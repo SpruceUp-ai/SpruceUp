@@ -1,0 +1,73 @@
+# PHIL 1000 - Objections to the Fine-tuning Argument
+
+[Slide 1] Objections to the Fine-tuning Argument
+
+[Slide 2] Review of the Fine tuning Argument Three Objections The God-of-the-gaps Objection + A Reply The Anthropic Principle Objection + A Reply The Multiverse Objection + A Reply
+
+[Slide 3] Recall: the universe was compared to a pocketwatch – something intricate and delicate that almost certainly wouldn’t come to be by natural accident.
+
+[Slide 4] P1) Fine tuning : The laws of the universe could have been a little different, and if they had been, the universe would be uninhabitable P2) Evidence Principle : Take two competing hypotheses, H 1 and H 2 . An observation, O, is strong evidence for H 1 when O is far more likely under H 1 than under H 2 (i.e. when O is far more likely in an H 1 -world than an H 2 -world) P3) Fine-tuning is far more likely under H 1 (H 1 = God exists) than under H 2 (H 2 = God does not exist) C) So, fine-tuning is strong evidence for the existence of God. The Fine-tuning Argument And here’s the full argument. P1 is an observation from physics. P2 tells us how we should assess observations as evidence P3 tells us how this observation compares, given two different hypotheses – that God exists or doesn’t.
+
+[Slide 5] The “God of the Gaps” Objection
+
+[Slide 6] You can’t explain that. Here’s an example of a particular kind of theistic argument to get us started.
+
+[Slide 7] This clip is *funny* – and was widely mocked – because the central claim that scientists can’t explain the tides is on its face: very silly.
+
+[Slide 8] Early Christian Theists “Why do the planets move about the sky? You can’t explain that! Therefore God.” This is part of a more general pattern of argument/objection that we can see recurring throughout history.
+
+[Slide 9] Isaac Newton *chuckles* “Well actually …”
+
+[Slide 10] Isaac Newton “But where did the planets all come from? You can’t explain that! Therefore God.”
+
+[Slide 11] Simon Laplace *chuckles* “Well actually …”
+
+[Slide 12] “[It’s a mistake] to use God as a stop-gap for the incompleteness of our knowledge. [As] the frontiers of knowledge are being pushed further and further back… God is being pushed back with them, and is therefore continually in retreat. We are to find God in what we know, not in what we don't know.” – Dietrich Bonhoeffer, German theologian Hopefully you can see why this sort of theistic argument is bad news. Here’s a nice quote from the german theologian Bonhoeffer that captures the problem.
+
+[Slide 13] These are sometimes called, “ god of the gaps ” arguments. The problem is that they collapse as soon as science fills in the gap.
+
+[Slide 14] Modern Theists “Fragile universe? You can’t explain that! Therefore God.” So this is
+
+[Slide 15] Future Scientists *chuckles* “Well actually …”
+
+[Slide 16] The God of the Gaps Objection Reply – Science probably won’t fill in this gap.
+
+[Slide 17] ATHEIST: “While we can’t yet explain the universe’s fine tuning, I’m willing to bet we’ll eventually find a General Law of Universal Structure that explains why the universe had to be this way. THEIST: “Yeah, ok, but can’t we just ask the same question about the General Law ? Why that law? Couldn’t it have been different? Is it not finely tuned?” ATHEIST: “Well – and I’m speculating here – maybe there’s some General, General Law that forced the General Law to be like that? THEIST: “But that just raises the very same questions: Why that law? Couldn’t it have been different? Is it not finely tuned? And don’t try to posit another law; I’ll just ask the same questions.” Maybe the best way to get the idea across is by imagining the dialectic as a conversation between a theist and an atheist.
+
+[Slide 18] The Anthropic Principle Objection
+
+[Slide 19] It’s THE FUTURE. 100 years ago, the Earth underwent a nuclear annihilation event, and now Cleveland is the only place fit for human habitation. (Literally, leaving Cleveland will kill you in seconds.) This is all common knowledge You wake up one day with no recollection of your past or present situation except that there was a bad accident. Whoa! How are you still alive? You reason, Either I got lucky or God is personally protecting me!
+
+[Slide 20] You wake up from a coma. Whoa, how are you still alive? H1: God protected you ! H2: You got lucky. Framing the case as we did last time, we can state our two hypotheses like this:
+
+[Slide 21] Observation: You’re in Cleveland! The only safe place. H2: You got lucky. Quiz H1: God protected you ! You ask someone where you are, and they tell you that you’re in Cleveland. You think: “Wow! 99.99…% of the earth is uninhabitable. Basically, nowhere is safe. But here I am! In Cleveland! The only safe place. What are the chances? Unimaginably small. That demands explanation. The only plausible explanation is that God exists and is personally protecting me.” This is a example of bad reasoning. Why?
+
+[Slide 22] Given that you’re alive, what are the chances you’d find alive yourself in Cleveland? If H1 is true? If H2 is true? If H1 is true: 100% – God can’t set you down anywhere but cleveland. So if God’s protected you, you’re basically guaranteed to find yourself in Cleveland If H2 is true: 100% – If God’s not protecting you, then again, there’s only one place where you can be alive: Cleveland. All living people are in Cleveland, so given that you’re alive, you must be too. So the observation that you’re in Cleveland isn’t evidence for either hypothesis. All living beings are in Cleveland; you exist, therefore you are in Cleveland. So you don’t learn anything new when you learn that you are in Cleveland, and you certainly don’t get important evidence that God is watching out for you.
+
+[Slide 23] Being in a fine-tuned universe is like discovering that you’re in Cleveland. Since only Cleveland supports life, all observers are in Cleveland. Since only fine-tuned universes support life, all observers are in fine-tuned universes. The Anthropic Principle Objection This is known as the anthropic principle: Since all possible observers exist in life-supporting universes, all observers will find that they live in a life-supporting universe.
+
+[Slide 24] What are the chances that we’d find ourselves in a finely-tuned universe? 100%! The fine-tuning of the universe is not evidence that God exists It has to be fine-tuned. (since we’re alive in it!) The Anthropic Principle Objection The Fine-tuner asks:... This objection replies:...
+
+[Slide 25] Reply – This Objection misstates our evidence. The Anthropic Principle Objection Does this objection succeed? Well in this case, the proponent has a very plausible rejoinder. And that is that the Anthropic Princ Obj mistates our evidence
+
+[Slide 26] What’s our evidence? The universe we’re in supports life. OR There is a universe that supports life. Quiz The Anthropic Principle Objection The problem with the Anthropic Principle Objection is that it’s done a sneaky little bait-n-switch. We have to very careful about restating what exactly is being claimed by the original Fine-tuning Argument. QUIZ: Which of these is the evidence that the proponent of the Fine-tuning argument is trying to point to?
+
+[Slide 27] What’s our evidence? The universe we’re in supports life. OR There is a universe that supports life. This isn’t surprising. This is. The Anthropic Principle Objection The first claim isnt surprising. OF COURSE, the universe that we’re in supports life. We’re in it! We are life! Thus, our universe must support us. But that’s not the claim at issue. The second claim is the one that’s at issue in the Fine-tuning argument – and that seems genuinely surprising in a universe that happened by accident. What’s crazy is that there is any life at all – when there might very easily have been none. Given that there’s a universe that supports life, we would of course find ourselves there. But it’s still surprinsg that there’s a universe like that.
+
+[Slide 28] The Multiverse Objection
+
+[Slide 29] We live in a universe. Could there be others? With different laws?
+
+[Slide 30] We live in a universe. Could there be others? With different laws? Maybe the universe works like this… ANd maybe each time the universe is reborn with a big bang, there are different physical laws and constants.
+
+[Slide 31] We live in a universe. Could there be others? With different laws? Maybe there’s a multiverse like this… ANd maybe each individual universe in the multiverse has its own set of physical laws and constants
+
+[Slide 32] To get at the objection, consider an analogy case: Imagine you have the ability to teleport. It works like this: you snap your fingers, and you disappear and reappear somewhere else. But, like, you’re not very good at it. You basically reappear at a random location in a 500 mile radius. If you snap your fingers and reappear at home, ON THE VERY FIRST TRY, that would be pretty weird, right? But what if you appeared at home after a solid year of trying? (everyday, *snap* nope *snap* nope *snap* nope.)
+
+[Slide 33] Suppose we live in a multiverse where each universe has different constants. Is it surprising that one supports life? That depends on how many there are! The Multiverse Objection With a bajillion universes, there’s a bajillion chances to get things just right. SO if there are lots of universes each with different physical law and constants, then its not surprising that one of them supports life. And it’s not surprising that we live in that universe. Thta’s like finding yourself teleported back home after a year of failed attempts.
+
+[Slide 34] The Fine-tuning Argument only works if we assume there’s one universe. But there might be bajillions. So, the Fine-tuning Argument fails. The Multiverse Objection
+
+[Slide 35] Reply – This is pure speculation . At best, it shows that our evidence supports 2 hypotheses: God created the universe OR There’s a bajillion universes The Multiverse Objection Here is what the proponent of the fine-tuning argument is going to say in reply, though.
+
+[Slide 36] Reply – We can ask our original question about the multiverse itself: Why does the multiverse support life? Might it have been otherwise? The Multiverse Objection Moreover, the proponent of the fine-tuning argument is going to want to ask the original question about the multiverse itself. Suppoes there is a multi-verse. Fine. Let’s imagine that’s true. We can still ask...

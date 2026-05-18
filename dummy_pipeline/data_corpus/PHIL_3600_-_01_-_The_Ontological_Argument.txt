@@ -1,0 +1,101 @@
+# PHIL 3600 - 01 - The Ontological Argument
+
+[Slide 1] The Ontological Argument
+
+[Slide 2] Unit Overview Ingredients for the Ontological Argument Two distinctions : Possible vs. impossible beings, actual vs. possible beings Definition: God Definition: Great-making properties The Ontological Argument
+
+[Slide 3] Unit 1 – Theistic Arguments Module 1: The Ontological Argument Module 2: The Kalām Cosmological Argument Module 3: The Fine-tuning Argument
+
+[Slide 4] The Ontological Argument was first suggested by Saint Anselm of Canterbury (1033 - 1109 C.E.) He argues that God’s very properties entail that She must exist – i.e. it’s incoherent to imagine God as non-existent.
+
+[Slide 5] Two Distinctions
+
+[Slide 6] Things that actually exist Things that don’t exist Venice Will Smith iPhone 10 Whales Atlantis Will Smith’s evil twin iPhone 9 Centaurs Imagine a line. On one side are things which do actually exist. On the other are things which do not actually exist.
+
+[Slide 7] Things that actually exist Things that don’t exist Venice Will Smith iPhone 10 Whales Atlantis Will Smith’s evil twin iPhone 9 Centaurs For most of the things, on both sides of the line, it is not difficult to imagine that they might have been on the opposite side. Whales exist, but it is no strain to imagine a world where they do not. Likewise with centaurs: they do not exist, but it is not hard to imagine them in a world like ours.
+
+[Slide 8] Things that actually exist Things that don’t exist but could Things that don’t exist and couldn’t A round square A number that’s even & odd A dog that’s taller than itself A married batchelor Venice Will Smith iPhone 10 Whales Atlantis Will Smith’s evil twin iPhone 9 Centaurs There are a few things, though, on the Does Not Exist side of the line that seem to belong there of necessity. That is, there are some non-existent things that we cannot imagine as real. Let’s draw another line to separate these off from the possible non-existents.
+
+[Slide 9] Things that actually exist A round square A number that’s even & odd A dog that’s taller than itself A married batchelor Category 1 Category 2 Category 3 Venice Will Smith iPhone 10 Whales Atlantis Will Smith’s evil twin iPhone 9 Centaurs Things that don’t exist but could Things that don’t exist and couldn’t Let’s give these three categories some names. (Not very creative names, but Names anyway) One more important point: everything belongs somewhere on this chart. This chart is exhaustive
+
+[Slide 10] Things that actually exist A round square A number that’s even & odd A dog that’s taller than itself A married batchelor Category 1 Category 2 Category 3 Venice Will Smith iPhone 10 Whales Atlantis Will Smith’s evil twin iPhone 9 Centaurs Things that don’t exist but could Things that don’t exist and couldn’t Let’s give these three categories some names. (Not very creative names, but Names anyway) One more important point: everything belongs somewhere on this chart. This chart is exhaustive
+
+[Slide 11] Possible things A round square A number that’s even & odd A dog that’s taller than itself A married batchelor Category 1 Category 2 Category 3 Impossible things Venice Will Smith iPhone 10 Whales Atlantis Will Smith’s evil twin iPhone 9 Centaurs Using these categories we can describe two important distinctions. First, there is an important distinction between Possible Things and Impossible Things ... Everything in Cat 1 and Cat 2 is possible. Those beings are coherent and imaginable . Some of them are real (like Will Smith) and some of them are not (like centaurs) but they’re all possible and coherent. Cat 3, on the other hand, is full of impossible things things are straight up incoherent and unimaginable.
+
+[Slide 12] Real things A round square A number that’s even & odd A dog that’s taller than itself A married batchelor Category 1 Category 2 Category 3 Not real things Venice Will Smith iPhone 10 Whales Atlantis Will Smith’s evil twin iPhone 9 Centaurs The second important distinction is between Category 1 (containing all the REAL THINGS, which actually exist in our world) and the other 2 categories, which are full of things that don’t exist. QUIZ QUESTION: Multiple choice: Which of these belongs in Cat 2: (a) Florida (b) The smallest positive number (c) Harry Potter (d) Man buns
+
+[Slide 13] Real things A round square A number that’s even & odd A dog that’s taller than itself A married batchelor Category 1 Category 2 Category 3 Not real things Venice Will Smith iPhone 10 Whales Atlantis Will Smith’s evil twin iPhone 9 Centaurs Quiz QUIZ QUESTION: Which of these belongs in Cat 2: (a) Florida (b) The smallest positive number (c) Harry Potter (d) Man buns
+
+[Slide 14] Defining God
+
+[Slide 15] Does God exist? This is our question. And I want to make a few preliminary remarks about what we’re really asking. The word ‘God’ picks out a variety of different ideas. (which is to say, different people use this same word ‘God’ to pick out a number of very different ideas.
+
+[Slide 16] Does God exist? Some people have in mind some sort of impersonal creative force – a “first-mover” being who made or designed the universe
+
+[Slide 17] Does God exist? others imagine some sort of spiritual essence that pervades everything in the universe
+
+[Slide 18] Does God exist? others have in mind a personal God like the one depicted in the Bible – a God who loves us, cares about us, has plans for us, and wants a relationship with us.
+
+[Slide 19] Does the universe contain anything that can aptly described as God ? When we ask “Does God exist?”, we are trying to simultaneously ask about all of those things. Our question is something like, Does the universe contain anything that may aptly be called ‘God’? Theists think the answer to that question is Yes; atheists think the answer is No.
+
+[Slide 20] If it turns out that there was a powerful divine creator, who made the universe and then peaced out, then the answer is yes. Yes, there is a being in existence who can aptly be described as god. If it turns out that the Christian God is real, then the answer is, obvs, Yes. God exists If we find out that Zeus exists or that the ancient Egyptian Ra exists, then the answer is Yes. Again, that would mean there something in the universe that can aptly be described as God. (That particular ‘Yes’ Is of course going to be disappointing to pretty much everyone, of course. Neither theists nor atheists would be excited to find out that Zeus is real. But the point is: If Zeus is real, then it will be true to say, “God exists.”)
+
+[Slide 21] The Ontological Argument is intended to demonstrate that a very particular sort of God exists. The conclusion of the Ontological Arg is that ‘God exists’ and that means something very specific. There’s a particular definition of God at play in this argument.
+
+[Slide 22] The Greatest Being God God is the greatest possible being – the being than which none greater can be conceived . Here’s the definition that we’ll be working with today. This is how Anselm is understanding ‘God’. When Anselm says “God exists” what he means is, There is in our actual universe a being who meets this description. He’s calling that being ‘god’. (But, we could call the being ‘George’ instead and the argument would still work just the same. In that case, The Ontological Argument would demonstrate that George exists, where ‘George’ is the name of the greatest possible being) 3 points need to made here. By “great”, we mean “better” or “more admirable” or “more perfect” – God is the perfectest being. Also bear in mind that what’s relevant here is possibility, rather than actuality. So the class of things than which God is greater is all the possible things; all the things not in category 3, in other words. I cannot stress this enough: This is NOT THE ONLY POSSIBLE WAY OF UNDERSTANDING GOD. I am not claiming that this is THE definition of God. I am not claiming this is the best definition of God. Rather, this is how we’ll define God for the purposes of the Ontological Argument . This is what St. Anselm has in mind when he says ‘God’. When Anselm says ‘God exists’, he means ‘the greatest possible being exists.’ A s we’ll see in future lectrues, there are other good ways of defining God that are genuinely distinct from this definition. Other people might say ‘God exists’ and mean something like, ‘there was a powerful being who created our universe – that being exists.’
+
+[Slide 23] Possible things A round square A number that’s even & odd A dog that’s taller than itself A married batchelor Category 1 Category 2 Category 3 Impossible things Venice Will Smith iPhone 10 Whales Atlantis Will Smith’s evil twin iPhone 9 Centaurs God is better than all this stuff. Ok so: For today, we’re thinking of God as the greatest possible being. To put this in terms of our earlier categories, what that means is...
+
+[Slide 24] Great-making Properties
+
+[Slide 25] Let’s define a great-making property as follows, a great-making property is such that when we consider adding this property to a being which lacks it, we invariably make that being greater. By “great” here, we mean something very generic like “more admirable” or “more valuable” or “improved” Thus, we could also describe a great-making property is a property that is always an improvement, always an upgrade when you add that property to beings which lack it. I know that’s a bit telescopic, so we’ll look at some examples.
+
+[Slide 26] Is greenness a great-making property ? Greenness is a property. Some objects are green; they ahve this property. Other objects are not green; they lack this property.
+
+[Slide 27] Is greenness a great-making property ? Imagine a chunk of gray basalt. Would it be greater if it were green? Seemingly not.
+
+[Slide 28] Is greenness a great-making property ? Or imagine ketchup – is it greater when it’s green?
+
+[Slide 29] Is greenness a great-making property ? No . If anything we’ve made it worse. Revolting stuff. Since adding greennes to a being doesn’t necessarily make it greater, greenness is not a great-making property.
+
+[Slide 30] Is kindness a great-making property ?
+
+[Slide 31] Is kindness a great-making property ? Imagine something that’s unkind – like Martin Shkreli. (He famously grabbed up the patent for an important anti-parasite drug and then raised prices by over 5000%.) He’s not kind right now. But imagine giving him the property of kindness . We asking, Is he greater now? It seems like it to me! It seems to make Martin Shkreli genuinely better
+
+[Slide 32] Is kindness a great-making property ? Of course, we don’t ahve to restrict ourselves to actual things. Great-making properties are suppose to improve all beings which lack them – not just the real ones. So think about Severus Snape. He’s a douche. Isn’t he greater when we imagine adding the property of kindness to him?
+
+[Slide 33] Is kindness a great-making property ? You might be wondering, “What about ketchup again? Surely kind ketchup is no better than regular ketchup? And if that’s right, doesn’t that mean kindness isn’t great-making? Because it doesn’t always make things greater?” That’s an interesting case. Here’s what I think we should say. When we imagine adding the property of kindness to ketchup… we fail. The thing that we imagine is just plain old ketchup. It doesn’t do anything on it’s own, so it doesn’t do any kind or mean things. Since we aren’t actually imagining kind ketchup, it’s not the case that we’re imagining kind ketchup as no greater than plain ketchup. (COMPARE: Imagine there was a walkin, talking bottle of ketchup who’s kind of of douche. Now it seems like we CAN imagine a version of that ketchup who’s kind. But, then, doesn’t it also seem like the kind ketchup-man is better than the unkind one?)
+
+[Slide 34] Is kindness a great-making property ? Almost certainly. (I haven’t proven this. There could be some counter-example cases that I’m simply overlooking. Nevertheless it seems v plausible to me.)
+
+[Slide 35] Is physical strength a great-making property ? No . Quiz Remember the question is this: Does adding physical strength to a being ALWAYS AND EVERY TIME mark an improvement? Imagine a cat, Tibbles, who likes to knock things down off of other things. (e.g. your glasses off the table) Now imagine him SUPER STRONG. So strong he easily knocks, idk, your house off its foundation. Surely Tibbles is not greater as a strong thing. Or imagine an evil robot – Mecha-Hitler – who is physically very weak. V killable. Now imagine that same robot but very very strong. Surely Mecha-Hitler is not greater as a strong thing.
+
+[Slide 36] Is wisdom a great-making property ? Maybe? Quiz Not sure what to say about this one. Anselm thinks it’s clear that wisdom is great-making. But what about, like, a serial killer? Does adding wisdom to a serial killer make him better ? Idk.
+
+[Slide 37] One last idea
+
+[Slide 38] For Anselm, existence is a great-making property . Let me offer you a few examples to try to make this sound plausible.
+
+[Slide 39] Consider Superman. He’s pretty cool but he’s not real. Wouldn’t Superman be greater if he had the property “actually exists”? Superman+ (the one who’s real) is greater than Superman (the one who’s not)
+
+[Slide 40] Consider a pegasus. Wouldn’t a pegasus be greater if he had the property “actually exists”? Pegasus+ (the one who’s real) is greater than Pegasus (the one who’s not)
+
+[Slide 41] Consider a hot and fresh pizza sitting right now on your kitchen counter. Wouldn’t that pizza be greater if he had the property “actually exists”? (i.e. actually is right now sitting on your kitchen counter)
+
+[Slide 42] For Anselm, existence is a great-making property . Anselm thinks this is true. It’s a provocative idea, and it’s one that, we’ll see in a second, plays a key role in the Ontological Argument.
+
+[Slide 43] The Ontological Argument (finally)
+
+[Slide 44] P1) God is either a Category 1 , a Category 2 , or a Category 3 entity. The Ontological Argument
+
+[Slide 45] Things that actually exist A round square A number that’s even & odd A dog that’s taller than itself A married batchelor God? Category 1 Category 2 Category 3 Venice Will Smith iPhone 10 Whales God? Atlantis Will Smith’s evil twin iPhone 9 Centaurs God? Things that don’t exist but could Things that don’t exist and couldn’t
+
+[Slide 46] P1) God is either a Category 1 , a Category 2 , or a Category 3 entity. P2) God is not logically impossible C1) God is not a Category 3 entity (b/c we can imagine God!) The Ontological Argument
+
+[Slide 47] Things that actually exist A round square A number that’s even & odd A dog that’s taller than itself A married batchelor God Category 1 Category 2 Category 3 Venice Will Smith iPhone 10 Whales God? Atlantis Will Smith’s evil twin iPhone 9 Centaurs God? Things that don’t exist but could Things that don’t exist and couldn’t
+
+[Slide 48] P1) God is either a Category 1 , a Category 2 , or a Category 3 entity. P2) God is not logically impossible C1) God is not a Category 3 entity (b/c we can imagine God!) P3) By definition, Category 2 beings don’t have the property of existence P4) Existence is a great-making property C2) Thus, all Category 2 beings lack at least one great-making property P5) By definition, God is the greatest possible being C3) God is not a Category 2 entity (else he would lack a great-making property ) C4) So God must be a Category 1 entity (i.e. God actually exists. ) The Ontological Argument What happens next is exactly what you expect: Anselm argues that God is not in Category 2 either. On P3) to be in Cat 2 is to be a possible thing that could exist but doesn’t actually exist. Centaurs are Cat 2. They could exist but don’t actually. That’s true by definition of all Cat 2 beings. On P5): You can think of this as the claim the God is unimprovable : he’s the greatest possible being so he must already be at peak performance, perfect in every way, completely and utterly unimprovable.
+
+[Slide 49] Things that actually exist A round square A number that’s even & odd A dog that’s taller than itself A married batchelor God Category 1 Category 2 Category 3 Venice Will Smith iPhone 10 Whales God Atlantis Will Smith’s evil twin iPhone 9 Centaurs God Things that don’t exist but could Things that don’t exist and couldn’t Visually, here’s how the argument works.
+
+[Slide 50] P1) God is either a Category 1 , a Category 2 , or a Category 3 entity. P2) God is not logically impossible C1) God is not a Category 3 entity (b/c we can imagine God!) P3) By definition, Category 2 beings don’t have the property of existence P4) Existence is a great-making property C2) Thus, all Category 2 beings lack at least one great-making property P5) By definition, God is the greatest possible being C3) God is not a Category 2 entity (else he would lack a great-making property ) C4) So God must be a Category 1 entity (i.e. God actually exists. ) The Ontological Argument Quiz QUIZ QUESTION: Which of these best characterizes your present reaction to the Ontological Argument: (a) I’m lost. What just happened? (b) Cool argument. (c) That’s messed up. (d) Seems right to me. (e) I don’t care about this.

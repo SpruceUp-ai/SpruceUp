@@ -1,0 +1,85 @@
+# PHIL 1000 - 21 - Technological Unemployment
+
+[Slide 1] Technological Unemployment
+
+[Slide 2] Background – changes in technology, changes in employment The ETU On the value of work Danaher’s argument Pt 1 – on why the ETU is better for non-workers Pt 2 – on why the ETU is better for workers
+
+[Slide 3] Advances in technology routinely eliminate certain jobs & industries while creating others
+
+[Slide 4] There used to be people employed as rat catchers. Not so much any more.
+
+[Slide 5] We have sanitation workers now though. (and exterminators!)
+
+[Slide 6] We used to hire people to set up bowling pins.
+
+[Slide 7] We have automatic machines for bowling now, but we DO have video game designers – that’s a new job
+
+[Slide 8] There used to be people called “knocker-uppers” who you’d pay to come to your house at 6am or whenever you wanted to wake up and tap on your window. Now we have alarm clocks.
+
+[Slide 9] But there are electrical engineers now – that’s a new job
+
+[Slide 10] We used to have people whose job was to compile and print phone books. Mostly that’s gone now.
+
+[Slide 11] But we now have digital media consultants. That’s a new job.
+
+[Slide 12] Advances in technology eliminate some jobs/industries while creating others Jobs lost due to advances in robotics / A.I. may well outpace jobs gained in new industries.
+
+[Slide 13] Technological development is accelerating Reason #1: We know what’s happened *previously* but… is that an accurate reflection of the future? The temptation to say “We’ve always been able to find other work in the past” is dampened by the fact that the future may not much resemble the past.
+
+[Slide 14] Technological development is accelerating Relatedly: it takes time to retrain workers to do new jobs So if tech keeps changing and at an accelerating rate, the losses due to technical change will happen too quickly for workers to find replacement work
+
+[Slide 15] Old industries are trending toward lower employment Here’s another trend that suggests new job growth may not keep up with unemployment: Even as the global population continues to grow, the total % of the world’s people who are employed in, say, agriculture continues to drop.
+
+[Slide 16] Old industries are trending toward lower employment As Amazon has replaced traditional booksellers, the number of people employed in the book retail industry has cratered.
+
+[Slide 17] New industries employ fewer people. One more suggestive trend: the new industries that tech creates tend to employ fewer people than the old industries tech destroys. GE employed ~325k people in 2008. Google employed 100k people in 2018. (But is worth 2X as much!) Facebook employs ONLY 35k people!
+
+[Slide 18] Advances in technology eliminate some jobs/industries while creating others Jobs lost due to advances in robotics / A.I. may well outpace jobs gained in new industries.
+
+[Slide 19] The ETU
+
+[Slide 20] Imagine a plausible future where human workers have mostly been replaced by non-humans – such that most of us are unable to find alternative work . work =df the performance of some act/skill in return for economic reward (or hope of receiving same) Call this the, Era of Technological Unemployment or ( ETU ) Let’s suppose that’s how things actually work out.
+
+[Slide 21] Question Would it be bad for us to live in an ETU ?
+
+[Slide 22] An Obvious Concern That would be terrible. Everyone would be desperately poor. As things now stand, it looks pretty likely that the future will be one with lots of income inequality. All those unemployed people will wind up desperately poor – because they don’t have any income! – while the Jeff Bezos’ who displaced them wind up unimaginably rich. That would be a terrible outcome.
+
+[Slide 23] “ I simply assume that the distributional problem can be solved: the technologically unemployed future will be one of abundance, not deprivation. This is a significant assumption. It means that everything I say below is conditional on the assumption that people won’t be suffering from great hardship due to the lack of an income. ” – John Dahaner But that’s not the concern that Dahaner wants to talk about. He wants to know whether it would be good for us to live in an an ETU if we all had adequate access to resources
+
+[Slide 24] Question Would it be bad for us to live in an ETU ( assuming we had adequate access to resources?) OR Is it intrinsically bad to be unemployed? Quiz Temperature check – how are you leaning right now?
+
+[Slide 25] On the value of work
+
+[Slide 26] “ In [our] contemporary economic-political [situation:] work is something that one must do in order to access the basic necessities and luxuries that make life possible and worth living. In other words, in the contemporary economy, work is intrinsically compulsory in nature. [The claims] is not that we are wage-slaves. We are not physically or legally obliged to work. Rather, work (and the pursuit of work) is a practical and economic necessity , even in the absence of physical or legal obligation. ” – John Dahaner Why?
+
+[Slide 27] In our era, unemployment is very bad for you.
+
+[Slide 28] In our era, unemployment is very bad for you. Work is the best way to secure… adequate resources People who don’t work usually don’t have the resources they need to maintain an acceptable quality of life.
+
+[Slide 29] What about welfare? In the U.S. “Welfare” is a govt program you can only be on for 60 months of your life (that 5 years of your life TOTAL) and which YOU CAN ONLY BE ON IF YOU’RE ACTIVELY LOOKING FOR WORK (!!!)
+
+[Slide 30] Work is the best way to secure… opportunities to develop excellence A lot of philosophers think that *being excellent at things* – all else equal – makes your life go better for you. Since work is the place that most adults spend the preponderance of their time, most adults are primarily only excellent at things that they practice a lot in their work.
+
+[Slide 31] Work is the best way to secure… opportunities for status/community respect Most people want to be respected by their community members, to be admired. But… which kinds of people do we MOST respect? ANS: People with certain kinds of JOBS. Which kinds of people are LEAST respected in our society? ANS: The homeless. Playboys. Prisoners.
+
+[Slide 32] Work is the best way to secure… opportunities to contribute to society A lot of people want to feel like their life matters and was important . One of the primary ways people try to make their lives matter is through their work.
+
+[Slide 33] But these all seem like contingent facts about unemployment.
+
+[Slide 34] What effect would unemployment have in an ETU ? … on one’s resources? … on one’s social status? … on the development of excellence? (i) By stipulation, the ETU is a place where everyone has enough to live, regardless of the work they do (ii) In a world where NO ONE WORKS, surely social status would be determined by and acquired through other means than one’s job. (iii) In a world where no one works, people would still be able to develop excellence, to acquire skills and hone them to perfection. They would just have more freedom to decide what skills to pursue (they won’t be locked into developing skills that are necessary for their job. Like, I PERSONALLY have developed some skill at putting together slide decks. I don’t think I would have bothered trying to develop that skill, if I weren’t required to for my job teaching philosophy.) (iv)
+
+[Slide 35] What effect would unemployment have in an ETU ? … on one’s resources? … on one’s social status? … on one’s ability to contribute to society? … on the development of excellence? Quiz What about this last one? What will contributing to society look like in the ETU? Will we still be able to do that? [MAYBE. One could still make art. One could still raise a family. One could still have loving relationships with neighbors and friends. Those are all ways of contributing to society without necessarily needing to work. But we might wonder: will those options be open to everyone ? How would a person who is not artistic, who does not make friends easily, or have a family, contribute to society?
+
+[Slide 36] Danaher’s Argument
+
+[Slide 37] Dahaner’s Argument (pt. 1) P1) In our era, the primary downside for people who’d prefer to not-work is that one needs to work to obtaining a number of critical human goods. P2) In an ETU , one won’t need to work to obtain those critical human goods [ P3) If the ETU eliminates the primary downside of not working, the ETU will be better for people who’d prefer to not-work] C) So in an ETU , people who’d prefer to not-work will be better off So those observations give rise to the first part of Dahaner’s argument: Think about those people who would, at the end of the day, really prefer not to work. For them, he argues, the ETU is probably better and at least no worse
+
+[Slide 38] Dahaner’s Argument (pt. 2) P1) In an ETU , people will be able to choose to do work-like activities but won’t be forced to; in our era, people are effectively forced to. P2) All else equal, it’s better to choose to be in a circumstance, C, than to be forced into C. (even for those who’d ultimately prefer C anyway) But what about the people who DO want to work? Is the ETU bad for them? Again, Dahaner argues: No.
+
+[Slide 39] It’s better to fast than to starve .
+
+[Slide 40] It’s better to choose solitude than to be forcibly isolated
+
+[Slide 41] Dahaner’s Argument (pt. 2) P1) In an ETU , people will be able to choose to do work-like activities but won’t be forced to; in our era, people are effectively forced to. P2) All else equal, it’s better to choose to be in a circumstance, C, than to be forced into C. (even for those who’d ultimately prefer C anyway) C) So in an ETU , people who’d prefer to work will be better off
+
+[Slide 42] Dahaner’s Argument P1) If the ETU would be bad for people, it must be bad for either the people who’d prefer to work or for the people who’d prefer not to work . (that’s all the people there are!) P2) The ETU won’t be bad for the people who’d prefer to work . (it’s better to choose to do work-like activities than to be forced to!) P3) The ETU won’t be bad for the people who’d prefer not to work . (they’ll be able to secure the same critical human goods, w/o needing jobs!) C) So the ETU won’t be bad for people. Combining those two sub-arguments, we get this:

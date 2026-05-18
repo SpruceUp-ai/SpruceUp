@@ -1,0 +1,67 @@
+# PHIL 1000 - 01 - Intro to Arguments
+
+[Slide 1] Intro to Arguments Arguments are the bread-and-butter of philosophy. Almost everything we do in this class will be focused on particular arguments – arguments about all sorts of things. Since our goal will be to understand and grapple with these arguments, it’s worth spending some time at the outset of the course familiarizing ourselves with what arguments are and what makes them good or bad.
+
+[Slide 2] Arguments & their parts On propositions Definition: argument Metrics of Goodness: Validity & Soundness
+
+[Slide 3] An Argument, Dissected
+
+[Slide 4] If the Earth were flat, we could visit the under-Earth We can’t visit the under-Earth Therefore, the Earth is not flat
+
+[Slide 5] If the Earth were flat, we could visit the under-Earth We can’t visit the under-Earth The Earth is not flat Conclusion The conclusion is the claim that the argument is an argument for. An argument’s reason-for-existing is getting you to accept its conclusion .
+
+[Slide 6] If the Earth were flat, we could visit the under-Earth We can’t visit the under-Earth The Earth is not flat Premises A premise is a claim introduced to get you to accept the conclusion . The premises are evidence for the conclusion . Premises give you reasons for thinking the conclusion is true.
+
+[Slide 7] Every argument is essentially saying, “ Look at these premises . We agree that they’re true. And look: if the premises are true, then the conclusion should be true, too. Thus, the fact that you accept the premises means you should also accept the conclusion . ”
+
+[Slide 8] Observation Philosophers call such statements, ‘ propositions ’ The premises and conclusion of every argument must have truth values. If the truth of the premises is intended to provide evidence for the truth of the conclusion, then the premises and conclusion both better *be the sorts of things that can be true*
+
+[Slide 9] On propositions
+
+[Slide 10] Proposition =df a statement that bears a truth-value – either true or false You can think of propositions as sentences that claim something about the world – about the way it is, was, will be, should be, or might be. A proposition is TRUE just in case the world actually is (was/will be) that way. A proposition is FALSE just in case the world is NOT that way. By “the world” I just mean, like, REALITY. The universe and everything that actually exists in it. You’ll notice, there’s nothing particular spooky or mystical or special about Truth on this definition. That’s a good thing! To say that something is “true” is just to say that there is a correspondence between what we say about the world and the way the world actually is.
+
+[Slide 11] It’s raining right now in Boulder.
+
+[Slide 12] If you die at Olive Garden, do you die in real life?
+
+[Slide 13] The first star to form in the early, cooling universe was Miley Cyrus.
+
+[Slide 14] A single strand of spaghetti by itself is called a ‘spaghetto’.
+
+[Slide 15] Don’t talk to me or my complimentary breadsticks ever again.
+
+[Slide 16] Propositions are the little bits out of which arguments are constructed. Again, this is why we’re talking about this. Propositions are the component parts of arguments. And it matters that they have truth values. Much of our discussion in this class will find us debating whether particular propositions are true or false.
+
+[Slide 17] If the Earth were flat, we could visit the under-Earth We can’t visit the under-Earth Therefore, the Earth is not flat Look at our example again: 3 propositions. Each of these claims clearly has a truth value. Recap:Every argument has some premises (at least one) and a conclusion (exactly one) and the former are supposed to provide evidence for the latter. Both must be propositions.
+
+[Slide 18] We are now in a position to properly define ‘ argument ’. Argument =df a collection of propositions, some of them (the premises ) being offered as evidence for the truth of another of them (the conclusion )
+
+[Slide 19] What makes an argument good ?
+
+[Slide 21] Argument =df a collection of propositions, some of them (the premises ) being offered as evidence for the truth of another one of them (the conclusion ) In essence, a good argument is one that does a good job making its conclusion seem true. That’s what an argument is. But in this course, one of our primary tasks will be assessing arguments. So we should ask: What makes an argument a good one?
+
+[Slide 22] The two most common metrics of goodness are validity and soundness An argument is valid iff the truth of the premises is sufficient for (or guarantees ) the truth of the conclusion. An argument is sound iff it is valid and has true premises. These are genuinely tough concepts. But they’re also pretty important. Put differently, a valid argument is one’s whose premises were they true, would guarantee the truth of the conclusion. N.B.: That means, a valid argument can have false premises! Validity isn’t about truth or falsity per se. It’s about the relationship between the truth of the premises and the truth of the conconclusion. This can be a bit challenging to wrap one’s head around, so we’ll look at a bunch of examples. Soundness is easier than validity. Soundness is just validity + true premises. (thus, all invalid argument are unsound) Soundness is, hopefully you can see, basically the metric of success. If an argument is sound, then you should accept its conclusion. (If you agree that an argument is sound, you agree that all its premises are true and that the premises guarantee the truth of the conclusion. Thus, you must accept the conclusion.)
+
+[Slide 23] P1) All humans die eventually P2) Madonna is a human C) Madonna will die eventually [Work through this verbally myself] Valid? (We ask: is there any way for the premises to be true and the conclusion false?) Sound? (We ask: Is it valid and are the premises all true?)
+
+[Slide 24] P1) All humans die eventually P2) Seabiscuit the Racehorse is a human C) Seabiscuit will die eventually Valid? (We ask: is there any way for the premises to be true and the conclusion false?) Sound? (Notice: The fact that P2 is false doesn’t affect the validity!)
+
+[Slide 25] P1) All flerns die eventually P2) Sgoozi is a flern C) Sgoozi will die eventually Here’s an important thing to note about validity: You don’t need to know anything about the truth of the premises to assess validity. This is valid! I have no idea if it’s sound.
+
+[Slide 26] An Elaborate Analogy Imagine you live in a town surrounded on all sides by manure lagoons (i.e. big pits where livestock feces is stored.) Your town needs fresh, clean water, but all the available water sources are on the far side of the manure lagoons. So pipes must be constructed to carry water from a distant spring, through the pits, to the town. Obviously, you won’t be willing to drink the water unless you’re sure that the pipes are perfectly tight, perfectly shit-excluding, and perfectly good at preserving the cleanliness of the water. That’s not enough, though! For the town’s water to be drinkable, you also need assurances that the original spring water actually is clean. (After all, if you put nasty water in the World’s Best Pipes, you’ll get nasty water out the other end.) In short, good, drinkable water requires both good pipes and good source water.
+
+[Slide 27] Validity is like good pipes . Good pipes are cleanliness-preserving :: A valid argument is truth-preserving Shit can’t slip into good pipes :: Falsity can’t slip into a valid argument Good pipes aren’t enough to guarantee drinkable water :: Validity isn’t enough to guarantee a true conclusion
+
+[Slide 28] True premises are like clean spring water. Soundness is like drinkable output. Drinkable output requires good pipes :: A sound argument requires validity AND Drinkable output requires clean input :: A sound argument requires true premises
+
+[Slide 29] P1) Everything is ducks P2) Some people have hats C) You have a hat
+
+[Slide 30] P1) Everything is ducks P2) Some people have hats C) You are ducks Notice, P1 is sufficient for the conclusion all by itself. The argument is valid because there is not way for the premises to be true and the conclusion false. (you might notice: there is one sense in which the argument is defective though: the second premise is unnecessary, isn’t doing anything to support that conclusion. That’s a real defect! But it doesn’t affect the argument’s validity.)
+
+[Slide 31] P1) Everything is ducks P2) Some people have hats C) Some ducks have ducks
+
+[Slide 32] P1) The human body is ~15% bones P2) Bones are ~33% water P3) I only respect the part of you that is bone water C) I only respect about ~5% of you
+
+[Slide 33] Why does this matter?
+
+[Slide 34] Philosophers almost exclusively work with valid arguments . This makes philosophy simple. To decide if an argument is sound , we simply ask, Are all of the premises true? We will do the same. In this course, I’ll by-and-large present valid arguments for our consideration, and our question will be just that, Are all of the premises true?

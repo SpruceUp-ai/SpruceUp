@@ -1,0 +1,63 @@
+# PHIL 3600 - 05 - The Fine-tuning Argument
+
+[Slide 1] The Fine-tuning Argument
+
+[Slide 2] Ingredients for the Fine-tuning Argument An analogy The evidence for fine-tuning An easy principle about evidence The Fine-tuning Argument
+
+[Slide 3] The Ontological Argument : Let’s examine the properties that define God. Surely we must conclude that a non-existent God is impossible. Thus, God exists. The Kalām Cosmological Argument: Consider the universe – a thing that is but might not have been. Surely the universe began to exist at some point, and that event requires an explanation. Why did that happen? Call the explanation, ‘God’ . The Fine-tuning Argument : Look at the universe. See how elegant and fragile it is? It seems very, very unlikely that such a thing could exist by accident. The best explanation is that the universe was carefully designed by God.
+
+[Slide 4] You’re walking along the beach when you stumble across this really exquisite bit of driftwood. It’s a beautifully gnarled thing, all sharp curves and jagged spirals. Its surface is mottled in streaks of browns and blacks and greys, worn down to a smooth sheen. You think, WOW - What are the chances that this was created by natural processes? Well, pretty high, you realize. It IS a beautiful piece of wood, but nothing about it strikes you as obviously unlikely.
+
+[Slide 5] You continue walking. Further along the beach you spy a small pocket watch glinting in the sun. You pick it up. It has a long chain comprising hundreds of tiny gold links and, inside, you can see a number of finely meshed gears, all turning in perfect rhythm. On its outer cover has been etched with a picture of wild vines. You wonder again, What are the chances that this was created by natural processes? Very very low, you judge. It’s not literally impossible, of course. Yet thousands of things would need to go just perfectly, exactly right for this watch to look and function as it does. It’s just overwhelmingly more likely that this watch is the product of a watchmaker and not natural chance.
+
+[Slide 6] Our best physics suggests, this is what the universe is like. If we randomly selected values for the universe’s laws/constants, the chance of the universe supporting life would be very, very, tiny. Our best physics suggests that the physical universe needed to be just perfectly, exactly right for it to support life. While it’s possible that it happened by chance, it’s very very unlikely. If the physical constants had been selected at random, the chance that the universe would support life is rather like the chances of trying to hit a 1-inch dartboard with a dart while standing on the opposite side of the universe.
+
+[Slide 7] P1) Fine tuning : The laws of the universe could have been a little different, and if they had been, the universe would be uninhabitable The Fine-tuning Argument Here’s how the fine-tuning argument starts.
+
+[Slide 8] In defense of P1 (i.e. Fine-tuning ) Here I’m just going to cite some physics facts offered up in the Collins article. I am not a physicist, so am not in a position to critically assess these facts. But our best physicists seem to agree that these things are true.
+
+[Slide 9] “If the initial explosion of the Big Bang had differed in strength by as little as 1 part in 10 60 , the universe would have either quickly collapsed back on itself, or expanded too rapidly for stars to form. In either case, life would be impossible.” Examples of fine-tuning
+
+[Slide 10] “If the strong nuclear force, the force that binds protons and neutrons together in an atom, had been stronger or weaker by as little as 5% , life would be impossible.” Examples of fine-tuning
+
+[Slide 11] “If gravity had been stronger or weaker by 1 part in 10 40 , then life-sustaining stars like the sun could not exist. This would most likely make life impossible.” Examples of fine-tuning
+
+[Slide 12] “If the neutron were not about 1.001 times the mass of the proton, all protons would have decayed into neutrons or all neutrons would have decayed into protons, and thus life would not be possible.” Examples of fine-tuning
+
+[Slide 13] “If the electromagnetic force were slightly stronger or weaker , life would be impossible, for a variety of different reasons.” Examples of fine-tuning
+
+[Slide 14] “The initial entropy of the universe must have been exceedingly low… Universes resembling the one in which we live populate only one part in 10 10123 of the available phase space volume. ” Examples of fine-tuning
+
+[Slide 15] P1) Fine tuning : The laws of the universe could have been a little different, and if they had been, the universe would be uninhabitable P2) Evidence Principle: Take two competing hypotheses, H 1 and H 2 . An observation, O, is strong evidence for H 1 when O is far more likely under H 1 than under H 2 (i.e. when O is far less surprising in an H 1 -world) The Fine-tuning Argument
+
+[Slide 16] In support of P2 (i.e. the Evidence Principle )
+
+[Slide 17] We all already intuitively understand of how evidence works. The Evidence Principle is supposed to formalize those intuitions.
+
+[Slide 18] You find an object on the beach. Where did it come from? H2: Natural processes made this object H1: A person made this object
+
+[Slide 19] Observation : This little object has tiny, interlocking gears H1: A person made this object H2: Natural processes made this object We ask, Which is more surprising? Tiny gears when H1 is true or tiny gears when H2 is true? Obviously, the latter. Thus, our observation is strong evidence for H1. It’s not impossible that the gears were made by nature, but damn would that be surprising.
+
+[Slide 20] You get an email from a strange account. Who sent this??? H1: It’s from someone I know! H2: It’s spam.
+
+[Slide 21] Observation: The message includes the words ‘pen1s’ and ‘hot singels’ H1: It’s from someone I know! H2: It’s spam. We ask, Which is more surprising? Hot singels when H1 is true or hot singels when H2 is true? Obviously, the former. Thus, our observation is strong evidence for H2 It’s not impossible that the email is from, like, your mom, but damn would that be surprising.
+
+[Slide 22] You wake to noises downstairs. Who’s there??? H1: It’s your roommate. H2: It’s a no-good burglar.
+
+[Slide 23] H1: It’s your roommate. H2: It’s a no-good burglar. Observation: Your apartment is starting to smell like burned popcorn. Quiz We ask, Which is more surprising? Burned popcorn when H1 is true or burned popcorn when H2 is true? Obviously, the latter. Thus, our observation is strong evidence for H1 It’s not impossible that someone broke into your apt and used your microwave to burn popcorn… but it would be very surprising.
+
+[Slide 24] This is what the Evidence Principle is meant to capture. An observation is evidence for one hypothesis over another when there’s in difference in how surprising that observation would be under each hypothesis. The evidence principle says that the observation is evidence for whichever hypothesis makes the observation less surprising (if you like, you can think of the evidence principle as telling us to minimize the degree of mismatch between our evidence and our beliefs, or telling us to minimize surprise – we should adopt whatever beliefs are least surprising given our evidence
+
+[Slide 25] P1) Fine tuning : The laws of the universe could have been a little different, and if they had been, the universe would be uninhabitable P2) Evidence Principle : Take two competing hypotheses, H 1 and H 2 . An observation, O, is strong evidence for H 1 when O is far more likely under H 1 than under H 2 (i.e. when O is far more likely in an H 1 -world than an H 2 -world) P3) Fine-tuning is far more likely under H 1 (H 1 = God exists) than under H 2 (H 2 = God does not exist) The Fine-tuning Argument P3 is just supposed to be intuitively correct. That was the whole point of the pocketwatch analogy, after all. Delicate things are more likely to result from intentional acts of creation than from random processes.
+
+[Slide 26] Why does the universe support life??? H1: God made it that way! H2: It’s a natural accident.
+
+[Slide 27] Observation: It’s finely tuned ! Tiny changes in the natural laws or physical constants would lead to a lifeless universe. H1: God made it that way! H2: It’s a natural accident. We ask, Which is more surprising? Fine-tuning when God made the universe or fine-tuning by accident? Obviously, the latter. Thus, our observation is strong evidence for H1
+
+[Slide 28] P1) Fine tuning : The laws of the universe could have been a little different, and if they had been, the universe would be uninhabitable P2) Evidence Principle : Take two competing hypotheses, H 1 and H 2 . An observation, O, is strong evidence for H 1 when O is far more likely under H 1 than under H 2 (i.e. when O is far more likely in an H 1 -world than an H 2 -world) P3) Fine-tuning is far more likely under H 1 (H 1 = God exists) than under H 2 (H 2 = God does not exist) C) So, fine-tuning is strong evidence for the existence of God. The Fine-tuning Argument P3 is just supposed to be intuitively correct. That was the whole point of the pocketwatch analogy, after all. Delicate things are more likely to result from intentional acts of creation than from random processes.
+
+[Slide 29] What exactly does the Fine-tuning Argument purport to show us? Quiz QUIZ (select all that apply): God is all powerful God is at least powerful enough to create a universe God at least existed for awhile – long enough to create the universe God exists today God is morally good and cares about us God has a deep understanding of physics God is singular – i.e. there is a single being God, who made the universe.
+
+[Slide 30] The Designer God God is the being that tailored our universe to support life What do we mean by “God” in the Fine-tuning Arg? Something like this: God is the being who fine-tuned the universe. It’s is absolutely imperative to note that this is not equivalent to the Greatest Possible Being God we talked about in conj w/ the ontological arg. The fine-tuning arg does not (and does not try to) prove that God is the greatest possible being. The fact the universe was fine-tuned does not show that God is unimprovable. It only shows that God has enough power to finely-tune a universe. Thus, the God we get from the Fine-Tuning ARgument is very similar to the God we get from the Cosmological Argument – it’s a Creator God. This being is responsible for causing the universe to be (and causing it to support life ) but beyond that, we cannot say much.
+
+[Slide 31] What exactly does the Fine-tuning Argument purport to show us? The conclusion is rather limited: there was a fine-tuner . We don’t know much about God’s whereabouts, intentions, or powers. For all that the Fine-tuning Argument shows us, God might have up and left. Or died. Or maybe She’s still around but she hates humans and is trying to destroy us. Or maybe “God” wasn’t a single being but a committee of powerful beings who together made the universe. We don’t know! All we’ve learned is that some powerful thing at at some point fine-tuned the universe!

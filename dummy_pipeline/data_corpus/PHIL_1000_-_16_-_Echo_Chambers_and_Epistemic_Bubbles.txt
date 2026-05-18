@@ -1,0 +1,105 @@
+# PHIL 1000 - 16 - Echo Chambers and Epistemic Bubbles
+
+[Slide 1] Epistemic Bubbles & Echo Chambers
+
+[Slide 2] On political disagreement On Epistemic Bubbles On Echo Chambers An argument against the Post-truth Thesis
+
+[Slide 3] Political disagreement seems to be getting worse – both in terms of how much we disagree and how fundamental those disagreements are. This is a hard thing to prove – we don’t have any great numbers quantifying all social disagreements for different points in time – but we can point to some suggestive data points.
+
+[Slide 4] Did President Bush have advance knowledge of 9/11? Republicans – 87% 26% – Democrats “ No. ” According to a 2007 Rasmussen poll.. (Anyone want to guess?)
+
+[Slide 5] Is former President Obama a U.S. citizen? Republicans – 28% 83% – Democrats “ Yes. ” According to a 2016 NBC poll,
+
+[Slide 6] Did Russia hack U.S. voting machines to rig the 2016 elections? Republicans – 96% 48% – Democrats “ No. ” According to a 2019 Washington Post poll…
+
+[Slide 7] Did Ukrainian companies work with Clinton to frame Russia? Republicans – 49% 91% – Democrats “ No. ”
+
+[Slide 8] Political disagreement seems to be getting worse – both in terms of how much we disagree and how fundamental those disagreements are.
+
+[Slide 9] Though, this is funny.
+
+[Slide 10] Political disagreement seems to be getting worse – both in terms of how much we disagree and how fundamental those disagreements are. Why?
+
+[Slide 11] The Post-Truth Thesis Disagreement is worse b/c people increasingly don’t care about truth or facts. You’ve probably heard of this idea before. (here are 3 recent books)
+
+[Slide 12] C. Thi Nguyen The Post-Truth Thesis is wrong. A better explanation is that new media has hastened the emergence of echo chambers – which phenomenon is critically distinct from (but often confused with) epistemic bubbles . Today I want to consider an alternative expl offer by CThiNguyen in the artle assigned for this week. This is Nguyen’s thesis. ( i shuold note, nguyen is trying to describe two distinct phenomena, and he is using these two familiar terms to pick them out. He is not arguing that you and I actually mean different things when we use these two ideas. You and I may in fact use these two notions interchangably. He is trying to convince us to use them to pick out different things.)
+
+[Slide 13] Epistemic Bubbles
+
+[Slide 14] What are they? How do they form? Why are they bad? How do we fix them?
+
+[Slide 15] What are they? How and why do they form? Why are they bad? How do we fix them?
+
+[Slide 16] Epistemic bubble =df an informational network from which relevant voices have been omitted.
+
+[Slide 17] Imagine a political prisoner held in confinement on a remote island. The prison guards won’t talk to him, so his only source of information is the facility library – which is full of nothing but back issues of Teen Vogue, Girls’ Life, and Zoobooks. Why is this an epistemic bubble?
+
+[Slide 18] What are they? How and why do they form? Why are they bad? How do we fix them?
+
+[Slide 19] Epistemic bubbles form mostly by accident, as a result of tastes/personalization.
+
+[Slide 20] This happens, e.g. in an social network feed – b/c we’re friends with people similar to us; we follow people we like; and the network’s algorithm tries to fill our feed with stuff we want to look at (which mostly involves stuff we agree with)
+
+[Slide 21] This happens in our news diets as we find ourselves frequenting sources (blogs, journals, magazines, papers) that we enjoy – usually ones that agree with us (This chart is trying to graph different media organizatiouns according to their quality and partisan lean I have no idea if this chart is accurate. The point is that most of us probably get most of our new from a few places, places which probably cluster together on this map.
+
+[Slide 22] This happens even in simple google searches since google tracks all of our activity and personalizes our content – our search results, our ads, etc.
+
+[Slide 23] To what extent did epistemic bubbles exist before the internet? Quiz
+
+[Slide 24] I should think: Epistemic bubbles have been the norm for most of human history. If you lived in 13th centure France, or whatever, probably your community was a few hundred or a few thousand people, and, given how poor communication technology was back then, you mostly didn’t have access to important information – about anything. You didn’t know about current events. You didn’t know about scientific research. You didn’t know about politics or other religions.
+
+[Slide 25] In this respect, I think, the 20th century was really the exception. For the first time in human history, most people had access to the same high quality information sources. It’s only in the last decade or so that we’ve regressed back into a period of epistemic bubbles. (And even still, our current bubbles seem way smaller and way less concerning, than the bubbles that existed in 13th century france or whatever.
+
+[Slide 26] What are they? How and why do they form? Why are they bad? How do we fix them?
+
+[Slide 27] Nguyen lists two reasons, Ignorance Overconfidence (1) is obvious. If you aren’t getting all the informaiton, you don’t know all the relevant facts. Almost by definition, if you’re trapped in an epistemic bubble, you’re ignorant of important information. (2) is a bit more subtle. The basic thought is: if I’m trapped in an epistemic bubble, there’s a very serious risk that I won’t realize it. That’s not good. I may false conclude that I do have access to all the relevant information, and so I may have a false degree of confidence in my beliefs. (I’ve seen all there is to see, so my beliefs couldn’t possibly be false.)
+
+[Slide 28] What are they? How and why do they form? Why are they bad? How do we fix them? Quiz How do we?! [Straightforwardly: expose people to the information they are lacking.]
+
+[Slide 29] Echo Chambers So Nguyen wants to contrast the Epistemic Bubble with a different phenomenon that he terms the ‘echo chamber’
+
+[Slide 30] What are they? How do they form? Why are they bad? How do we fix them? Again we ask the same four questions.
+
+[Slide 31] What are they? How and why do they form? Why are they bad? How do we fix them?
+
+[Slide 32] Echo chamber =df a social structure in which relevant, outside voices are actively discredited.
+
+[Slide 33] Your mother has pushed you into an echo chamber . As long as you can remember, your mom’s been telling you that everyone in the world – everyone but you and her – is a robot. You two are the only real people in a sea of malicious automatons. She’s warned you, “Don’t let your guard down and don’t let yourself get fooled. They’re gonna act like people. They might tell you that they are people. They might get mad if you let on that you know. (“Hey! Fuck you! I’m not robot!”) But that’s how they get you. It’s just you and me, kiddo.”
+
+[Slide 34] Your mother has pushed you into an echo chamber . How will you react when other people try to tell you you’re wrong? Presumably, you’ll entirely dismiss them. You’ll think ‘Nice try, you robot bastard’ You might even increase your level of confidence that everyone else is a robot. (Which is pretty messed up, when you think about it. It’s weird to respond to someone telling you “Hey I’m not a robot!” by becoming more confident that they are, in fact, a robot.)
+
+[Slide 35] What’s going to happen to Robin (and her faith) in college? Quiz Here’s another example. Robin’s family belongs to a quasi-Christian religious sect known as the “Disciples of No Contest”. What distinguishes this group from other Christian sects is their belief that disagreement and argumentation – of any variety – are sins against God. (To argue with a member of this sect is thereby to commit crimes against the Lord) Homeschooled through high school and firm in her faith, Robin leaves home for the first time at 18 to attend her state’s flagship university. Presumably, she’s going to become more confident that her religion is true – when people try to argue with her, she’ll take that as evidence that they are sinners and so not to be trusted. (Again, that’s really messed up!)
+
+[Slide 36] In an echo chamber , outside voices are heard ; t hey just aren’t believed. The echo chambered person is immune to disagreement .
+
+[Slide 37] To check if I’m trapped in an echo chamber , I need only ask myself, Does the mere fact that someone disagrees with me seem like strong evidence that they are untrustworthy?
+
+[Slide 38] What are they? How and why do they form? Why are they bad? How do we fix them?
+
+[Slide 39] Echo Chambers form mostly by design. Someone has to argue you into the chamber : “Our Team is good and right and trustworthy. Their Team is bad and wrong and lying.”
+
+[Slide 40] All else equal, the order in which you receive evidence should be rationally irrelevant – shouldn’t affect your final credences. Echo chambers arise when people mistake earlier evidence for better evidence. C. Thi Nguyen More than that, he says, the mistake is this.
+
+[Slide 41] Case #1 : Your mom spends 18 years telling you that everyone is a robot, starting from when you’re 2 . Other people all insist that they’re not robots. Case #2 : Your mom spends 18 years telling you that everyone is a robot, starting from when you’re 20 . Other people all insist that they’re not robots. Recall the robot case from earlier. You have the same evidence in each case. But only in one of them do you get stuck in an echo chamber. (This is largely because children are very susceptible to this mistake: treating earlier evidence as better evidence.)
+
+[Slide 42] What are they? How and why do they form? Why are they bad? How do we fix them? I don’t much more needs to be said about this. An echo chmaber by definition is epistemically awful. If you are trapped in one you are immune to new evidence. That’s bad! You won’t be able to fix whatever false beliefs you have! (and, recalling the point Clifford made earlier this semester, you might be more likely therefore to do bad thing)
+
+[Slide 43] What are they? How and why do they form? Why are they bad? How do we fix them?
+
+[Slide 44] ¯\_(ツ)_/¯ I have no idea. Nguyen has some suggestions but they’re pretty rough and not super actionable.
+
+[Slide 45] Political disagreement seems to be getting worse – both in terms of how much we disagree and how fundamental those disagreements are. Why? Recall our original Question.
+
+[Slide 46] The Post-Truth Thesis Disagreement is worse b/c people increasingly don’t care about truth or facts. The Post-Truth Thesis Disagreement is worse b/c people increasingly don’t care about truth or facts. And this popular answer...
+
+[Slide 47] C. Thi Nguyen The Post-Truth Thesis is wrong. A better explanation is that new media has hastened the emergence of echo chambers – which phenomenon is critically distinct from (but often confused with) epistemic bubbles . This is Nguyen’s thesis. We haven’t actually seen his argument yet!!! We’ve only introduced his two key concepts.
+
+[Slide 48] So… why should we reject the Post-truth Thesis?
+
+[Slide 49] “ Listen to what it actually sounds like when people reject the plain facts – it doesn’t sound like brute irrationality. One side points out a piece of economic data; the other side rejects that data by rejecting its source. They think that newspaper is biased, or the academic elites generating the data are corrupt… In many ways, echo-chamber members are following reasonable and rational procedures of enquiry. They are engaging in critical reasoning... It’s simply that their basis for evaluation – their background beliefs about whom to trust – are radically different. They are not irrational, but systematically misinformed about where to place their trust.” – C. Thi Nguyen
+
+[Slide 50] P1) If the Post-Truth Thesis is true, we should observe brute irrationality – i.e. a complete disregard for evidence, reasoning, and critical thinking. P2) We do not observe brute irrationality. C) So the Post-Truth Thesis is false. Nguyen’s argument against the PTT
+
+[Slide 51] “ Echo chambers don’t trade in vague, ambiguous pseudo-speech. We should expect [rather, that those in] echo chambers would deliver crisp, clear, unambiguous claims about who is trustworthy and who is not. And this… is exactly what we find: clearly articulated conspiracy theories, and crisply worded accusations of an outside world rife with untrustworthiness and corruption.” – C. Thi Nguyen
+
+[Slide 52] P1) If the Echo Chamber explanation is correct, we will observe partisans rejecting outsiders by appealing to conspiracies and corruption. P2) We do in fact observe this. C) So the Echo Chamber explanation is correct Nguyen’s argument for the Echo Chamber explanation
