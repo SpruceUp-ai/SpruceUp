@@ -74,11 +74,28 @@ def upsert_chunks(conn: sqlite3.Connection, chunks: list[tuple[bytes, ChunkWrapp
     )
 
 
+def ensure_file_row_exists(conn: sqlite3.Connection, file_id: bytes) -> None:
+    """Insert a skeleton file row if one does not already exist.
+
+    Called before writing chunks so the FK constraint on chunks.file_id is
+    satisfied immediately. The row's other columns are left NULL and filled in
+    by upsert_file_row at the end of reconcile.
+    """
+    conn.execute("INSERT OR IGNORE INTO files (id) VALUES (?)", (file_id,))
+
+
 def upsert_file_row(conn: sqlite3.Connection, file: File) -> None:
+    # ON CONFLICT DO UPDATE performs an in-place update rather than DELETE+INSERT,
+    # so it does not trigger the ON DELETE CASCADE on chunks.file_id.
     conn.execute(
-        """INSERT OR REPLACE INTO files
-               (id, transform_hash, content_hash, mtime, data_source_id, file_type)
-           VALUES (?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO files (id, transform_hash, content_hash, mtime, data_source_id, file_type)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT (id) DO UPDATE SET
+                   transform_hash = excluded.transform_hash,
+                   content_hash   = excluded.content_hash,
+                   mtime          = excluded.mtime,
+                   data_source_id = excluded.data_source_id,
+                   file_type      = excluded.file_type""",
         (file.file_id, file.transform_hash, file.content_hash,
          file.mtime, file.data_source_id, file.file_type),
     )

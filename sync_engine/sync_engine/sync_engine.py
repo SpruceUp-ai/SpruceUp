@@ -66,6 +66,9 @@ class SyncEngine:
                     elif prev["user_chunk_object_hash"] != curr.user_chunk_object_hash:
                         target_upserts.append((file.file_id, curr))
 
+            for file in files:
+                manifest_db.ensure_file_row_exists(manifest_conn, file.file_id)
+
             with psycopg.connect(self._pg_connstr) as pg_conn:
                 target_db.ensure_table_exists(pg_conn, self._config)
                 target_db.upsert_chunks(pg_conn, [c for _, c in target_upserts], self._config)
