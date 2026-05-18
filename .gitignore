@@ -1,9 +1,7 @@
 **/.env
 **/*.pyc
-**/*.venv
-
-poetry.lock
-pyproject.toml
+**/.venv
+.pytest_cache/
 pyrightconfig.json
 
 Notes.md
