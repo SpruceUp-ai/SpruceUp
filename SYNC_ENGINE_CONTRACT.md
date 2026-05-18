@@ -1,7 +1,7 @@
 # Sync Engine Interface Contract
 
 ## Overview
-The Sync Engine owns all writes to the Postgres vector table and most (all?) writes to the SQLite manifest. It receives data from two sources (other than the dbs): the **user's pipeline file** (which configures the engine at startup) and the **Coordination Layer** (which drives sync operations at runtime).
+The Sync Engine owns all writes to the Postgres vector table and most (all?) writes to the SQLite manifest. It receives data from three sources (other than the dbs): the **user's pipeline file** (which configures the engine at startup), the **Coordination Layer** (which drives sync operations at runtime), and the **Monitor** (which watches files for changes).
 
 ---
 
@@ -93,9 +93,9 @@ class ChunkWrapper:
 
 ---
 
-### `delete_file(file_id: bytes) -> None`
-(IS THIS ACTUALLY CALLED BY THE MANIFEST, RATHER THAN THE COORD LAYER?)
+## Wire 3 — Monitoring Layer
 
+### `delete_file(file_id: bytes) -> None`
 Called when a file has been removed from the corpus.
 
 - `file_id` must be computed with the exported `hash_file_path(file_path)`
