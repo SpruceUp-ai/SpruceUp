@@ -11,32 +11,6 @@ def connect(path: str) -> sqlite3.Connection:
     return conn
 
 
-def init_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS data_sources (
-            id   INTEGER PRIMARY KEY AUTOINCREMENT,
-            source_type VARCHAR(25) NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS files (
-            id             BLOB PRIMARY KEY,
-            transform_hash BLOB,
-            content_hash   BLOB,
-            mtime          REAL,
-            data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
-            file_type      VARCHAR(10)
-        );
-
-        CREATE TABLE IF NOT EXISTS chunks (
-            id                      BLOB PRIMARY KEY,
-            file_id                 BLOB REFERENCES files(id) ON DELETE CASCADE,
-            transform_hash          BLOB,
-            user_chunk_object_hash  BLOB,
-            user_chunk_object       BLOB
-        );
-    """)
-
-
 def get_chunks_for_file(conn: sqlite3.Connection, file_id: bytes, pk_col: str) -> list[dict]:
     """Return all manifest chunk records for a file.
 
