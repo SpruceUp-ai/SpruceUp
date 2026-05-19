@@ -72,20 +72,18 @@ def upsert_file_row(conn: sqlite3.Connection, file: SpruceFile) -> None:
     # so it does not trigger the ON DELETE CASCADE on chunks.file_id.
     conn.execute(
         """INSERT INTO files
-               (id, file_path, inode, transform_hash, content_hash, mtime, data_source_id, file_type)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               (id, file_path, inode, content_hash, mtime, data_source_id, file_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (id) DO UPDATE SET
                file_path      = excluded.file_path,
                inode          = excluded.inode,
-               transform_hash = excluded.transform_hash,
                content_hash   = excluded.content_hash,
                mtime          = excluded.mtime,
                data_source_id = excluded.data_source_id,
                file_type      = excluded.file_type""",
         (
             file.file_id, file.file_path, file.inode,
-            file.transform_hash, file.content_hash,
-            file.mtime, file.data_source_id, file.file_type,
+            file.content_hash, file.mtime, file.data_source_id, file.file_type,
         ),
     )
 
@@ -99,17 +97,17 @@ def move_file_row(conn: sqlite3.Connection, old_file_id: bytes, new_file_id: byt
       3. Delete the old file row (chunks already moved, so no cascade).
     """
     row = conn.execute(
-        "SELECT inode, transform_hash, content_hash, mtime, data_source_id, file_type FROM files WHERE id = ?",
+        "SELECT inode, content_hash, mtime, data_source_id, file_type FROM files WHERE id = ?",
         (old_file_id,),
     ).fetchone()
     if row is None:
         return
-    inode, transform_hash, content_hash, mtime, data_source_id, file_type = row
+    inode, content_hash, mtime, data_source_id, file_type = row
     conn.execute(
-        """INSERT OR REPLACE INTO files
-               (id, file_path, inode, transform_hash, content_hash, mtime, data_source_id, file_type)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (new_file_id, new_path, inode, transform_hash, content_hash, mtime, data_source_id, file_type),
+        """INSERT INTO files
+               (id, file_path, inode, content_hash, mtime, data_source_id, file_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (new_file_id, new_path, inode, content_hash, mtime, data_source_id, file_type),
     )
     conn.execute(
         "UPDATE chunks SET file_id = ? WHERE file_id = ?",

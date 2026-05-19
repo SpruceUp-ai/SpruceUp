@@ -21,7 +21,7 @@ class EmbeddingProvider:
 class OpenAIProvider(EmbeddingProvider):
     """OpenAI embedding provider implementation. Client is reused across calls."""
 
-    def __init__(self, model: str = "text-embedding-3-small", encoding_format: str = "float", dimensions: int = 512):
+    def __init__(self, model: str = "text-embedding-3-small", encoding_format: str = "float", dimensions: int = 1536):
         super().__init__("openai", model, encoding_format)
         OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
@@ -67,7 +67,7 @@ class Embedder:
 
     Attributes:
     -----------
-    provider: Object?
+    provider: Object
         The provider to use for embedding.
     max_batch_size: int
         Max number of chunks to embed in a single batch.
@@ -149,15 +149,15 @@ class Embedder:
 # embedder = Embedder(provider=provider)
 # vectors = await embedder.process_chunks(["abc", "def", ... ])
 
-async def main():
-    provider = OpenAIProvider()
-    embedder = Embedder(provider=provider, max_batch_size=2, max_concurrent_batches=2)
-    chunks = ["hello world", "foo bar", "lorem ipsum", "spruce keeps vectors fresh", "the fifth chunk"]
-    vectors = await embedder.process_chunks(chunks)
-    print(f"input: {len(chunks)} chunks")
-    print(f"output: {len(vectors)} vectors")
-    print(f"dimension: {len(vectors[0])}")
-    # print(f"vectors: {vectors}")
+# async def main():
+#     provider = OpenAIProvider()
+#     embedder = Embedder(provider=provider, max_batch_size=2, max_concurrent_batches=2)
+#     chunks = ["hello world", "foo bar", "lorem ipsum", "spruce keeps vectors fresh", "the fifth chunk"]
+#     vectors = await embedder.process_chunks(chunks)
+#     print(f"input: {len(chunks)} chunks")
+#     print(f"output: {len(vectors)} vectors")
+#     print(f"dimension: {len(vectors[0])}")
+#     # print(f"vectors: {vectors}")
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# if __name__ == "__main__":
+#     asyncio.run(main())

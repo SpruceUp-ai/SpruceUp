@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import logging
 
 import registry
 from coordinator import Coordinator
@@ -8,22 +9,38 @@ from embedding import Embedder, OpenAIProvider
 from monitoring.monitor import LocalFileWatcher, Monitor
 from sync_engine import SyncEngine
 
-DB_PATH = "sync.db"
-PG_CONNSTR = "postgresql://localhost:5432/spruceup"  # hardcoded for MVP
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
+
+MANIFEST_PATH = "sync.db"
+PG_CONNSTR = "postgresql://localhost:5432/spruce_lecture_rag"  # hardcoded for MVP
 
 # Importing the pipeline triggers the @file_transform / @chunk_transform decorators,
 # which register both functions with registry.tracker.
 pipeline = importlib.import_module("spruceup_pipeline")
 
 # Now that the functions are registered, point the tracker at the real db.
-registry.tracker.configure(DB_PATH)
+registry.tracker.configure(MANIFEST_PATH)
 
 
 async def main() -> None:
-    init_db(DB_PATH)
-    force_reindex = registry.tracker.any_changed()
+    init_db(MANIFEST_PATH)
+    log.info(
+        "SpruceUp starting — manifest=%s  target=%s/%s",
+        MANIFEST_PATH, pipeline.TARGET_DB, pipeline.TARGET_TABLE,
+    )
 
-    sync_engine = SyncEngine(manifest_path=DB_PATH, pg_connstr=PG_CONNSTR)
+    force_reindex = registry.tracker.any_changed()
+    if force_reindex:
+        log.info("Transform functions changed — full reindex scheduled")
+    else:
+        log.info("Transform functions unchanged — incremental sync")
+
+    sync_engine = SyncEngine(manifest_path=MANIFEST_PATH, pg_connstr=PG_CONNSTR)
     sync_engine.define_target_table(
         db_name=pipeline.TARGET_DB,
         table_name=pipeline.TARGET_TABLE,
@@ -36,14 +53,13 @@ async def main() -> None:
 
     coordinator = Coordinator(
         queue=queue,
-        chunk_content=registry.file_transform_fn,
-        build_chunks=registry.chunk_transform_fn,
+        file_transform=registry.file_transform_fn,
+        chunk_transform=registry.chunk_transform_fn,
         embedder=embedder,
         sync_engine=sync_engine,
-        transform_hash=registry.tracker.current_hash(),
     )
 
-    monitor = Monitor(queue, DB_PATH)
+    monitor = Monitor(queue, MANIFEST_PATH)
     monitor.add_watcher(LocalFileWatcher(pipeline.WATCHED_DIR))
     startup_done = asyncio.Event()
 
@@ -51,8 +67,9 @@ async def main() -> None:
     coordinator_task = asyncio.create_task(coordinator.run())
 
     await startup_done.wait()
+    log.info("Startup complete — watching %s for changes", pipeline.WATCHED_DIR)
     if force_reindex:
-        registry.tracker.record_all()
+        registry.tracker.update_transform_hashes()
 
     await asyncio.gather(monitor_task, coordinator_task)
 

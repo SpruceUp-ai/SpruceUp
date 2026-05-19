@@ -129,11 +129,9 @@ def make_file(file_path: str, chunks: list[ChunkWrapper], mtime: float = 1_000_0
         inode=0,
         mtime=mtime,
         content_hash=fid,
-        transform_hash=fid,
         file_type=file_path.rsplit(".", 1)[-1],
         data_source_id=1,
         raw_content=b"",
-        parsed_content=None,
         chunk_strs=[],
         chunks=chunks,
     )
@@ -278,7 +276,7 @@ class TestDeleteFile:
         init_db(tmp_manifest)
         engine = SyncEngine(manifest_path=tmp_manifest, pg_connstr="dbname=test")
         with pytest.raises(AssertionError):
-            engine.delete_file(FILE_ID_A)
+            engine.delete_file(FILE_PATH_A)
 
     def test_sends_chunk_pks_to_postgres(self, engine, pg):
         chunks = [
@@ -288,7 +286,7 @@ class TestDeleteFile:
         engine.reconcile([make_file(FILE_PATH_A, chunks)])
         pg.reset()
 
-        engine.delete_file(FILE_ID_A)
+        engine.delete_file(FILE_PATH_A)
         assert set(pg.deleted_ids()) == {"c1", "c2"}
 
     def test_removes_chunks_from_manifest(self, engine, tmp_manifest):
@@ -297,16 +295,16 @@ class TestDeleteFile:
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
         ]
         engine.reconcile([make_file(FILE_PATH_A, chunks)])
-        engine.delete_file(FILE_ID_A)
+        engine.delete_file(FILE_PATH_A)
         assert chunk_count(tmp_manifest, FILE_ID_A) == 0
 
     def test_removes_file_row_from_manifest(self, engine, tmp_manifest):
         chunks = [make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1)]
         engine.reconcile([make_file(FILE_PATH_A, chunks)])
-        engine.delete_file(FILE_ID_A)
+        engine.delete_file(FILE_PATH_A)
         assert file_row(tmp_manifest, FILE_ID_A) is None
 
     def test_unknown_file_does_not_call_postgres(self, engine, pg):
         pg.reset()
-        engine.delete_file(FILE_ID_A)  # never reconciled, no chunks in manifest
+        engine.delete_file(FILE_PATH_A)  # never reconciled, no chunks in manifest
         assert pg.deleted_ids() == []

@@ -18,7 +18,6 @@ def init_db(db_path: str) -> None:
             id             BLOB PRIMARY KEY,
             file_path      TEXT NOT NULL,
             inode          INTEGER,
-            transform_hash BLOB,
             content_hash   BLOB,
             mtime          REAL,
             data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
@@ -39,8 +38,7 @@ def init_db(db_path: str) -> None:
     con.execute(
         """
         CREATE TABLE IF NOT EXISTS transform_hashes (
-            func_name   TEXT PRIMARY KEY,
-            source_hash BLOB
+            transform_hash BLOB PRIMARY KEY
         )
         """
     )

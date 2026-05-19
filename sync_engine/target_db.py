@@ -2,7 +2,7 @@ import typing
 
 import psycopg
 
-from .models import ChunkWrapper, TargetTableConfig
+from models import ChunkWrapper, TargetTableConfig
 
 _PY_TO_PG: dict[type, str] = {
     str:   "TEXT",
@@ -51,7 +51,8 @@ def upsert_chunks(conn: psycopg.Connection, chunks: list[ChunkWrapper], config: 
         f"ON CONFLICT ({config.primary_key}) DO UPDATE SET {update_set}"
     )
     rows = [[getattr(chunk.user_chunk, col) for col in col_names] for chunk in chunks]
-    conn.executemany(sql, rows)
+    with conn.cursor() as cur:
+        cur.executemany(sql, rows)
 
 
 def delete_chunks(conn: psycopg.Connection, chunk_ids: list, config: TargetTableConfig) -> None:

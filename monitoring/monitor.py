@@ -1,19 +1,14 @@
 import asyncio
+import logging
 import pathlib
-import hashlib
 import sqlite3
 from abc import ABC, abstractmethod
 
 from watchfiles import awatch, Change
+from hashing import hash_file_content
 from .tasks import SyncTask
 
-
-def _hash_file(p: pathlib.Path) -> bytes:
-    h = hashlib.blake2b(digest_size=16)
-    with open(p, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.digest()
+log = logging.getLogger(__name__)
 
 
 async def _with_retry(
@@ -34,7 +29,7 @@ async def _with_retry(
 
 
 class _BufferedQueue:
-    """Routes puts to an internal buffer until flush() is called, then goes live."""
+    """during catch-up phase, directs calls to `put` to an internal buffer until flush() is called, then goes live."""
 
     def __init__(self, target: asyncio.Queue):
         self._target = target
@@ -59,30 +54,33 @@ class BaseWatcher(ABC):
     async def run(
         self,
         queue: asyncio.Queue,
-        db_path: str,
+        manifest_path: str,
         force_reindex: bool = False,
         startup_done: asyncio.Event | None = None,
     ) -> None: ...
 
 
 class Monitor:
-    def __init__(self, queue: asyncio.Queue, db_path: str):
+    def __init__(self, queue: asyncio.Queue, manifest_path: str):
         self._watchers: list[BaseWatcher] = []
         self._queue = queue
-        self._db_path = db_path
+        self._manifest_path = manifest_path
 
     def add_watcher(self, watcher: BaseWatcher) -> None:
         self._watchers.append(watcher)
 
     async def run(self, force_reindex: bool = False, startup_done: asyncio.Event | None = None) -> None:
+        """fire all watchers concurrently → wait until they've all finished
+        startup → tell main.py we're live → then just keep the watcher tasks
+        alive forever."""
         watcher_events = [asyncio.Event() for _ in self._watchers]
         tasks = [
             asyncio.create_task(
-                _with_retry(w.run, self._queue, self._db_path, force_reindex, e)
+                _with_retry(watcher.run, self._queue, self._manifest_path, force_reindex, event)
             )
-            for w, e in zip(self._watchers, watcher_events)
+            for watcher, event in zip(self._watchers, watcher_events)
         ]
-        await asyncio.gather(*[e.wait() for e in watcher_events])
+        await asyncio.gather(*[event.wait() for event in watcher_events])
         if startup_done:
             startup_done.set()
         await asyncio.gather(*tasks)
@@ -95,14 +93,14 @@ class LocalFileWatcher(BaseWatcher):
     async def run(
         self,
         queue: asyncio.Queue,
-        db_path: str,
+        manifest_path: str,
         force_reindex: bool = False,
         startup_done: asyncio.Event | None = None,
     ) -> None:
         buf = _BufferedQueue(queue)
-        watch_task = asyncio.create_task(self._watch(buf, db_path))
+        watch_task = asyncio.create_task(self._watch(buf, manifest_path))
         try:
-            await self._catch_up(queue, db_path, force_reindex)
+            await self._catch_up(queue, manifest_path, force_reindex)
             await buf.flush()
             if startup_done:
                 startup_done.set()
@@ -112,43 +110,54 @@ class LocalFileWatcher(BaseWatcher):
             raise
 
     async def _catch_up(
-        self, queue: asyncio.Queue, db_path: str, force_reindex: bool = False
+        self, queue: asyncio.Queue, manifest_path: str, force_reindex: bool = False
     ) -> None:
-        con = sqlite3.connect(db_path)
+        log.info("Scanning %s …", self._root_path)
+        con = sqlite3.connect(manifest_path)
         cur = con.cursor()
         seen_inodes = set()
+        n_upserts = n_moves = n_deletes = 0
 
-        for p in pathlib.Path(self._root_path).rglob("*"):
-            if not p.is_file():
+        for path in pathlib.Path(self._root_path).rglob("*"):
+            if not path.is_file():
                 continue
-            inode = p.stat().st_ino
-            current_path = str(p)
+            inode = path.stat().st_ino
+            current_path_str = str(path)
             seen_inodes.add(inode)
             if force_reindex:
-                await queue.put(SyncTask("local", current_path, "upsert"))
+                await queue.put(SyncTask("local", current_path_str, "upsert"))
+                n_upserts += 1
             else:
                 row = cur.execute(
                     "SELECT file_path, content_hash FROM files WHERE inode = ?", (inode,)
                 ).fetchone()
                 if row is None:
-                    await queue.put(SyncTask("local", current_path, "upsert"))
+                    await queue.put(SyncTask("local", current_path_str, "upsert"))
+                    n_upserts += 1
                 else:
                     db_path_val, db_hash = row[0], row[1]
-                    if db_hash != _hash_file(p):
-                        await queue.put(SyncTask("local", current_path, "upsert"))
-                    elif db_path_val != current_path:
-                        await queue.put(SyncTask("local", current_path, "move", old_identifier=db_path_val))
+                    if db_hash != hash_file_content(path):
+                        await queue.put(SyncTask("local", current_path_str, "upsert"))
+                        n_upserts += 1
+                    elif db_path_val != current_path_str:
+                        await queue.put(SyncTask("local", current_path_str, "move", old_identifier=db_path_val))
+                        n_moves += 1
 
         for db_inode, db_path_val in cur.execute(
             "SELECT inode, file_path FROM files"
         ).fetchall():
             if db_inode not in seen_inodes:
                 await queue.put(SyncTask("local", db_path_val, "delete"))
+                n_deletes += 1
 
         con.close()
+        log.info(
+            "Catch-up complete — %d upsert(s)  %d move(s)  %d delete(s)",
+            n_upserts, n_moves, n_deletes,
+        )
 
-    async def _watch(self, queue: _BufferedQueue, db_path: str) -> None:
-        con = sqlite3.connect(db_path)
+    async def _watch(self, queue: _BufferedQueue, manifest_path: str) -> None:
+        con = sqlite3.connect(manifest_path)
         async for changes in awatch(self._root_path):
             deleted_paths  = {path for change_type, path in changes if change_type == Change.deleted}
             added_paths    = {path for change_type, path in changes if change_type == Change.added}
@@ -169,13 +178,23 @@ class LocalFileWatcher(BaseWatcher):
             moved_old = {old for old, _ in moves}
             moved_new = {new for _, new in moves}
 
+            n_upserts = n_moves = n_deletes = 0
+
             for old_path, new_path in moves:
                 await queue.put(SyncTask("local", new_path, "move", old_identifier=old_path))
+                n_moves += 1
 
             for path in deleted_paths - moved_old:
                 await queue.put(SyncTask("local", path, "delete"))
+                n_deletes += 1
 
             for path in (added_paths - moved_new) | modified_paths:
-                if pathlib.Path(path).exists():
+                if pathlib.Path(path).is_file():
                     await queue.put(SyncTask("local", path, "upsert"))
+                    n_upserts += 1
+
+            log.info(
+                "Change detected — %d upsert(s)  %d move(s)  %d delete(s)",
+                n_upserts, n_moves, n_deletes,
+            )
         con.close()

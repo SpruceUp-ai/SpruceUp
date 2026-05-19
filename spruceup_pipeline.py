@@ -5,8 +5,8 @@ Define your two transform functions using the provided decorators, then set
 the configuration constants below.
 
   @file_transform   — parses a file's content into embeddable chunk strings
-  @chunk_transform  — builds schema objects from those chunk strings
-                      (chunk_embedding is left empty; the framework fills it in)
+  @chunk_transform  — builds schema objects from those chunk strings;
+                      call embed(chunk_strs) to get embeddings and assign them yourself
 """
 
 import hashlib
@@ -36,11 +36,12 @@ class LectureChunk:
 # ---------------------------------------------------------------------------
 
 @file_transform
-def chunk_content(content: str, filename: str) -> list[str]:
+def chunk_content(*, file_props: dict) -> list[str]:
     """Parse and chunk a file into embeddable text strings."""
-    ext = pathlib.Path(filename).suffix.lower()
+    content = file_props["raw_content"]
+    ext = pathlib.Path(file_props["file_path"]).suffix.lower()
     if ext == ".txt":
-        triples = chunk_txt_file(content, pathlib.Path(filename).name)
+        triples = chunk_txt_file(content, pathlib.Path(file_props["file_path"]).name)
         return [enriched for _, _, enriched in triples]
     if ext == ".md":
         triples = chunk_qa_md(content)
@@ -50,18 +51,19 @@ def chunk_content(content: str, filename: str) -> list[str]:
 
 
 @chunk_transform
-def build_chunks(chunk_strs: list[str]) -> list[LectureChunk]:
-    """Build LectureChunk objects from chunk strings (chunk_embedding filled by framework)."""
-    chunks = []
-    for text in chunk_strs:
-        chunk_id = hashlib.blake2b(text.encode(), digest_size=16).hexdigest()
-        chunks.append(LectureChunk(
-            id=chunk_id,
+async def build_chunks(chunk_strs: list[str], *, embed) -> list[LectureChunk]:
+    """Build LectureChunk objects from chunk strings, embedding them via the provided callable."""
+    embeddings = await embed(chunk_strs)
+    return [
+        LectureChunk(
+            id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
             chunk_text=text,
-            chunk_embedding=[],
+            chunk_embedding=embedding,
             lecture_title="",
-        ))
-    return chunks
+        )
+        for text, embedding in zip(chunk_strs, embeddings)
+    ]
+
 
 
 # ---------------------------------------------------------------------------

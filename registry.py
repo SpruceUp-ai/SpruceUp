@@ -18,7 +18,7 @@ from typing import Callable
 
 from monitoring.capture import TransformTracker
 
-# Singleton tracker — db_path is empty until main.py calls tracker.configure()
+# Singleton tracker — _manifest_path is empty until main.py calls tracker.configure()
 tracker: TransformTracker = TransformTracker("")
 
 file_transform_fn: Callable | None = None
