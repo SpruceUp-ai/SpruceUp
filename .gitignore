@@ -6,4 +6,4 @@ pyrightconfig.json
 
 Notes.md
 tenacity_test.py
-sync.db
+spruceup_manifest.db

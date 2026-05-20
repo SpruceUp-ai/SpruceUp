@@ -7,6 +7,7 @@ from .models import ChunkWrapper, SpruceFile
 from .monitoring.tasks import SyncTask
 from .hashing import hash_chunk_id, hash_file_path, hash_object
 from .sync_engine import SyncEngine
+from .validation import validate_schema_objects
 import asyncio
 
 log = logging.getLogger(__name__)
@@ -55,12 +56,16 @@ class Coordinator:
         transform,
         embedder,
         sync_engine: SyncEngine,
+        schema_class: type,
+        primary_key: str,
         data_source_id: int = 1,
     ):
         self._queue = queue
         self._transform = transform
         self._embedder = embedder
         self._sync_engine = sync_engine
+        self._schema_class = schema_class
+        self._primary_key = primary_key
         self._data_source_id = data_source_id
         self._fetcher_registry = FetcherRegistry()
         self._active_tasks = set()
@@ -98,6 +103,7 @@ class Coordinator:
             },
             embed=self._embedder.process_chunks,
         )
+        validate_schema_objects(schema_objs, self._schema_class, self._primary_key)
         log.info("[upsert] %s — %d chunk(s)", filename, len(schema_objs))
 
         chunks = [

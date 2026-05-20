@@ -56,6 +56,8 @@ async def main() -> None:
         transform=registry.transform_fn,
         embedder=embedder,
         sync_engine=sync_engine,
+        schema_class=pipeline.CHUNK_SCHEMA,
+        primary_key=pipeline.PRIMARY_KEY,
     )
 
     monitor = Monitor(queue, manifest, transform_tracker=registry.tracker)

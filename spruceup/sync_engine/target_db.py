@@ -25,6 +25,7 @@ def _py_to_pg_type(tp) -> str:
 
 
 def ensure_table_exists(conn: psycopg.Connection, config: TargetTableConfig) -> None:
+    conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
     hints = typing.get_type_hints(config.schema_class)
     col_defs = []
     for col_name, col_type in hints.items():
