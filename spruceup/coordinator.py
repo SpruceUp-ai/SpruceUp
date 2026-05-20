@@ -7,6 +7,7 @@ from .models import ChunkWrapper, SpruceFile
 from .monitoring.tasks import SyncTask
 from .hashing import hash_chunk_id, hash_file_path, hash_object
 from .sync_engine import SyncEngine
+import asyncio
 
 log = logging.getLogger(__name__)
 
@@ -62,11 +63,16 @@ class Coordinator:
         self._sync_engine = sync_engine
         self._data_source_id = data_source_id
         self._fetcher_registry = FetcherRegistry()
+        self._active_tasks = set()
 
-    async def process_task(self) -> None:
-        task: SyncTask = await self._queue.get()
+    async def process_task(self, task: SyncTask) -> None:
         filename = pathlib.Path(task.identifier).name
+        try:
+            await self._process_task(task, filename)
+        except Exception:
+            log.exception("[error] %s — task failed", filename)
 
+    async def _process_task(self, task: SyncTask, filename: str) -> None:
         if task.change_type == "delete":
             log.info("[delete] %s", filename)
             self._sync_engine.delete_file(task.identifier)
@@ -110,4 +116,7 @@ class Coordinator:
 
     async def run(self) -> None:
         while True:
-            await self.process_task()
+            next_task: SyncTask = await self._queue.get()
+            asyncio_task = asyncio.create_task(self.process_task(next_task))
+            self._active_tasks.add(asyncio_task)
+            asyncio_task.add_done_callback(self._active_tasks.discard)

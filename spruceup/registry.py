@@ -8,16 +8,14 @@ Exposes one decorator the user applies in their spruceup_pipeline.py:
                 signature: (*, file_props: dict, embed) -> list[SomeChunk]
 
 When spruceup_pipeline.py is imported, the decorator fires and registers the
-function with the module-level tracker. main.py then calls
-tracker.configure(manifest_path) before any database access.
+function with the module-level tracker.
 """
 
 from typing import Callable
 
 from .monitoring.capture import TransformTracker
 
-# Singleton tracker — _manifest_path is empty until main.py calls tracker.configure()
-tracker: TransformTracker = TransformTracker("")
+tracker: TransformTracker = TransformTracker()
 
 transform_fn: Callable | None = None
 

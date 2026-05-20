@@ -3,17 +3,17 @@ import pathlib
 
 import psycopg
 
-from . import manifest as manifest_db
 from . import target_db
 from ..hashing import hash_file_path
+from ..manifest import Manifest
 from ..models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
 
 log = logging.getLogger(__name__)
 
 
 class SyncEngine:
-    def __init__(self, manifest_path: str, pg_connstr: str) -> None:
-        self._manifest_path = manifest_path
+    def __init__(self, manifest: Manifest, pg_connstr: str) -> None:
+        self._manifest = manifest
         self._pg_connstr = pg_connstr
         self._config: TargetTableConfig | None = None
 
@@ -49,10 +49,10 @@ class SyncEngine:
         manifest_deletes: list[bytes] = []
         target_deletes: list = []
 
-        with manifest_db.connect(self._manifest_path) as manifest_conn:
+        with self._manifest.connect() as conn:
             for file in files:
-                prev_chunks = manifest_db.get_chunks_for_file(
-                    manifest_conn, file.file_id, self._config.primary_key
+                prev_chunks = self._manifest.get_chunks_for_file(
+                    conn, file.file_id, self._config.primary_key
                 )
 
                 chunks_by_id: dict[bytes, dict] = {
@@ -79,17 +79,17 @@ class SyncEngine:
                         target_upserts.append(curr)
 
             for file in files:
-                manifest_db.ensure_file_row_exists(manifest_conn, file.file_id, file.file_path)
+                self._manifest.ensure_file_row_exists(conn, file.file_id, file.file_path)
 
             with psycopg.connect(self._pg_connstr) as pg_conn:
                 target_db.upsert_chunks(pg_conn, target_upserts, self._config)
                 target_db.delete_chunks(pg_conn, target_deletes, self._config)
 
-            manifest_db.upsert_chunks(manifest_conn, manifest_upserts)
-            manifest_db.delete_chunks(manifest_conn, manifest_deletes)
+            self._manifest.upsert_chunks(conn, manifest_upserts)
+            self._manifest.delete_chunks(conn, manifest_deletes)
 
             for file in files:
-                manifest_db.upsert_file_row(manifest_conn, file)
+                self._manifest.upsert_file_row(conn, file)
 
         log.info(
             "Synced %s — %d upserted  %d deleted",
@@ -106,8 +106,8 @@ class SyncEngine:
         """
         old_file_id = hash_file_path(old_path)
         new_file_id = hash_file_path(new_path)
-        with manifest_db.connect(self._manifest_path) as manifest_conn:
-            manifest_db.move_file_row(manifest_conn, old_file_id, new_file_id, new_path)
+        with self._manifest.connect() as conn:
+            self._manifest.move_file_row(conn, old_file_id, new_file_id, new_path)
         log.info(
             "Moved manifest row: %s → %s",
             pathlib.Path(old_path).name,
@@ -119,9 +119,9 @@ class SyncEngine:
         assert self._config is not None, "Call define_target_table() before delete_file()"
 
         file_id = hash_file_path(file_path)
-        with manifest_db.connect(self._manifest_path) as manifest_conn:
-            chunks = manifest_db.get_chunks_for_file(
-                manifest_conn, file_id, self._config.primary_key
+        with self._manifest.connect() as conn:
+            chunks = self._manifest.get_chunks_for_file(
+                conn, file_id, self._config.primary_key
             )
             manifest_chunk_ids = [c["manifest_chunk_id"] for c in chunks]
             pg_pks = [c["user_pk"] for c in chunks]
@@ -129,6 +129,6 @@ class SyncEngine:
             with psycopg.connect(self._pg_connstr) as pg_conn:
                 target_db.delete_chunks(pg_conn, pg_pks, self._config)
 
-            manifest_db.delete_chunks(manifest_conn, manifest_chunk_ids)
-            manifest_db.delete_file_row(manifest_conn, file_id)
+            self._manifest.delete_chunks(conn, manifest_chunk_ids)
+            self._manifest.delete_file_row(conn, file_id)
         log.info("Deleted %d chunk(s) for %s", len(pg_pks), pathlib.Path(file_path).name)

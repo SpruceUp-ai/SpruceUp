@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 
 from spruceup.db import init_db
+from spruceup.manifest import Manifest
 from spruceup.models import UserDefinedChunkSchema
 from spruceup.sync_engine import (
     ChunkWrapper,
@@ -114,7 +115,7 @@ def tmp_manifest(tmp_path):
 @pytest.fixture
 def engine(tmp_manifest, pg):
     init_db(tmp_manifest)
-    e = SyncEngine(manifest_path=tmp_manifest, pg_connstr="dbname=test")
+    e = SyncEngine(manifest=Manifest(tmp_manifest), pg_connstr="dbname=test")
     e.define_target_table(
         db_name="test",
         table_name="vectors",
@@ -186,7 +187,7 @@ class TestReconcile:
 
     def test_requires_define_target_table(self, tmp_manifest, pg):
         init_db(tmp_manifest)
-        engine = SyncEngine(manifest_path=tmp_manifest, pg_connstr="dbname=test")
+        engine = SyncEngine(manifest=Manifest(tmp_manifest), pg_connstr="dbname=test")
         with pytest.raises(AssertionError):
             engine.reconcile([])
 
@@ -320,7 +321,7 @@ class TestDeleteFile:
 
     def test_requires_define_target_table(self, tmp_manifest, pg):
         init_db(tmp_manifest)
-        engine = SyncEngine(manifest_path=tmp_manifest, pg_connstr="dbname=test")
+        engine = SyncEngine(manifest=Manifest(tmp_manifest), pg_connstr="dbname=test")
         with pytest.raises(AssertionError):
             engine.delete_file(FILE_PATH_A)
 

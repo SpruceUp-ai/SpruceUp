@@ -1,12 +1,13 @@
 import asyncio
 import logging
 import pathlib
-import sqlite3
 from abc import ABC, abstractmethod
 
 from watchfiles import awatch, Change
 from ..hashing import hash_file_content
 from .tasks import SyncTask
+
+from ..manifest import Manifest
 
 log = logging.getLogger(__name__)
 
@@ -54,17 +55,17 @@ class BaseWatcher(ABC):
     async def run(
         self,
         queue: asyncio.Queue,
-        manifest_path: str,
+        manifest: "Manifest",
         force_reindex: bool = False,
         startup_done: asyncio.Event | None = None,
     ) -> None: ...
 
 
 class Monitor:
-    def __init__(self, queue: asyncio.Queue, manifest_path: str, transform_tracker=None):
+    def __init__(self, queue: asyncio.Queue, manifest: "Manifest", transform_tracker=None):
         self._watchers: list[BaseWatcher] = []
         self._queue = queue
-        self._manifest_path = manifest_path
+        self._manifest = manifest
         self._transform_tracker = transform_tracker
 
     def add_watcher(self, watcher: BaseWatcher) -> None:
@@ -77,13 +78,13 @@ class Monitor:
         watcher_events = [asyncio.Event() for _ in self._watchers]
         tasks = [
             asyncio.create_task(
-                _with_retry(watcher.run, self._queue, self._manifest_path, force_reindex, event)
+                _with_retry(watcher.run, self._queue, self._manifest, force_reindex, event)
             )
             for watcher, event in zip(self._watchers, watcher_events)
         ]
         await asyncio.gather(*[event.wait() for event in watcher_events])
-        if force_reindex and self._transform_tracker:
-            self._transform_tracker.update_transform_hashes()
+        if force_reindex and self._manifest and self._transform_tracker:
+            self._manifest.update_transform_hashes(self._transform_tracker.hashes)
         if startup_done:
             startup_done.set()
         await asyncio.gather(*tasks)
@@ -96,14 +97,14 @@ class LocalFileWatcher(BaseWatcher):
     async def run(
         self,
         queue: asyncio.Queue,
-        manifest_path: str,
+        manifest: "Manifest",
         force_reindex: bool = False,
         startup_done: asyncio.Event | None = None,
     ) -> None:
         buf = _BufferedQueue(queue)
-        watch_task = asyncio.create_task(self._watch(buf, manifest_path))
+        watch_task = asyncio.create_task(self._watch(buf, manifest))
         try:
-            await self._catch_up(queue, manifest_path, force_reindex)
+            await self._catch_up(queue, manifest, force_reindex)
             await buf.flush()
             if startup_done:
                 startup_done.set()
@@ -113,10 +114,10 @@ class LocalFileWatcher(BaseWatcher):
             raise
 
     async def _catch_up(
-        self, queue: asyncio.Queue, manifest_path: str, force_reindex: bool = False
+        self, queue: asyncio.Queue, manifest: "Manifest", force_reindex: bool = False
     ) -> None:
         log.info("Scanning %s …", self._root_path)
-        con = sqlite3.connect(manifest_path)
+        con = manifest.connect()
         cur = con.cursor()
         seen_inodes = set()
         n_upserts = n_moves = n_deletes = 0
@@ -159,8 +160,8 @@ class LocalFileWatcher(BaseWatcher):
             n_upserts, n_moves, n_deletes,
         )
 
-    async def _watch(self, queue: _BufferedQueue, manifest_path: str) -> None:
-        con = sqlite3.connect(manifest_path)
+    async def _watch(self, queue: _BufferedQueue, manifest: "Manifest") -> None:
+        con = manifest.connect()
         async for changes in awatch(self._root_path):
             deleted_paths  = {path for change_type, path in changes if change_type == Change.deleted}
             added_paths    = {path for change_type, path in changes if change_type == Change.added}
