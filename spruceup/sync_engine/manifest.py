@@ -15,9 +15,9 @@ def get_chunks_for_file(conn: sqlite3.Connection, file_id: bytes, pk_col: str) -
     """Return all manifest chunk records for a file.
 
     Each record contains:
-      manifest_chunk_id      – our internal chunk_id (bytes), the manifest PK
-      user_chunk_object_hash – for change-detection in reconcile
-      user_pk                – the user's primary key value, needed for Postgres deletes
+      manifest_chunk_id      - our internal chunk_id (bytes), the manifest PK
+      user_chunk_object_hash - for change-detection in reconcile
+      user_pk                - the user's primary key value, needed for Postgres deletes
     """
     cursor = conn.execute(
         "SELECT id, user_chunk_object_hash, user_chunk_object FROM chunks WHERE file_id = ?",
