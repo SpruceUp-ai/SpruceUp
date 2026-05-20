@@ -24,7 +24,7 @@ class SyncEngine:
         schema_from_class: type,
         primary_key: str,
     ) -> None:
-        """Register the user's chunk schema and target Postgres table.
+        """Register the user's chunk schema and ensure the target Postgres table exists.
 
         schema_from_class must be a dataclass with at least:
           - chunk_text: str
@@ -37,6 +37,8 @@ class SyncEngine:
             schema_class=schema_from_class,
             primary_key=primary_key,
         )
+        with psycopg.connect(self._pg_connstr) as pg_conn:
+            target_db.ensure_table_exists(pg_conn, self._config)
 
     def reconcile(self, files: list[SpruceFile]) -> None:
         """Upsert new/changed chunks, delete orphaned chunks, then stamp each file row."""
@@ -80,7 +82,6 @@ class SyncEngine:
                 manifest_db.ensure_file_row_exists(manifest_conn, file.file_id, file.file_path)
 
             with psycopg.connect(self._pg_connstr) as pg_conn:
-                target_db.ensure_table_exists(pg_conn, self._config)
                 target_db.upsert_chunks(pg_conn, target_upserts, self._config)
                 target_db.delete_chunks(pg_conn, target_deletes, self._config)
 

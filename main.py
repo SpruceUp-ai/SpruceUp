@@ -59,7 +59,7 @@ async def main() -> None:
         sync_engine=sync_engine,
     )
 
-    monitor = Monitor(queue, MANIFEST_PATH)
+    monitor = Monitor(queue, MANIFEST_PATH, transform_tracker=registry.tracker)
     monitor.add_watcher(LocalFileWatcher(pipeline.WATCHED_DIR))
     startup_done = asyncio.Event()
 
@@ -68,8 +68,6 @@ async def main() -> None:
 
     await startup_done.wait()
     log.info("Startup complete — watching %s for changes", pipeline.WATCHED_DIR)
-    if force_reindex:
-        registry.tracker.update_transform_hashes()
 
     await asyncio.gather(monitor_task, coordinator_task)
 
