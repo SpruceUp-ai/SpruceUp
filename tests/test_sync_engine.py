@@ -12,9 +12,9 @@ from unittest.mock import patch
 
 import pytest
 
-from db import init_db
-from models import UserDefinedChunkSchema
-from sync_engine import (
+from spruceup.db import init_db
+from spruceup.models import UserDefinedChunkSchema
+from spruceup.sync_engine import (
     ChunkWrapper,
     SpruceFile,
     SyncEngine,
@@ -52,6 +52,9 @@ class MockPgConn:
     def executemany(self, sql, rows):
         self.calls.append({"sql": sql.strip(), "rows": list(rows)})
 
+    def cursor(self):
+        return _MockCursor(self)
+
     def inserted_ids(self) -> list:
         """First column (PK) of every row sent to INSERT executemany calls."""
         return [
@@ -70,6 +73,20 @@ class MockPgConn:
 
     def reset(self) -> None:
         self.calls.clear()
+
+
+class _MockCursor:
+    def __init__(self, conn: MockPgConn):
+        self._conn = conn
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    def executemany(self, sql, rows):
+        self._conn.calls.append({"sql": sql.strip(), "rows": list(rows)})
 
 
 # ---------------------------------------------------------------------------

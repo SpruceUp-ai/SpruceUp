@@ -15,8 +15,8 @@ import sys
 from dataclasses import dataclass
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
-from dummy_pipeline.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from registry import chunk_transform, file_transform
+from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
+from spruceup.registry import chunk_transform, file_transform
 
 
 # ---------------------------------------------------------------------------
@@ -74,4 +74,4 @@ CHUNK_SCHEMA = LectureChunk
 TARGET_DB = "spruce_lecture_rag"
 TARGET_TABLE = "data_chunks"
 PRIMARY_KEY = "id"
-WATCHED_DIR = "dummy_pipeline/data_corpus"
+WATCHED_DIR = "example/data_corpus"

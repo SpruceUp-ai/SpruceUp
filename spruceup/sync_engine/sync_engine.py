@@ -5,8 +5,8 @@ import psycopg
 
 from . import manifest as manifest_db
 from . import target_db
-from hashing import hash_file_path
-from models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
+from ..hashing import hash_file_path
+from ..models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
 
 log = logging.getLogger(__name__)
 

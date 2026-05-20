@@ -2,12 +2,12 @@ import asyncio
 import importlib
 import logging
 
-import registry
-from coordinator import Coordinator
-from db import init_db
-from embedding import Embedder, OpenAIProvider
-from monitoring.monitor import LocalFileWatcher, Monitor
-from sync_engine import SyncEngine
+import spruceup.registry as registry
+from spruceup.coordinator import Coordinator
+from spruceup.db import init_db
+from spruceup.embedding import Embedder, OpenAIProvider
+from spruceup.monitoring.monitor import LocalFileWatcher, Monitor
+from spruceup.sync_engine import SyncEngine
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-MANIFEST_PATH = "sync.db"
+MANIFEST_PATH = "spruceup_manifest.db"
 PG_CONNSTR = "postgresql://localhost:5432/spruce_lecture_rag"  # hardcoded for MVP
 
 # Importing the pipeline triggers the @file_transform / @chunk_transform decorators,

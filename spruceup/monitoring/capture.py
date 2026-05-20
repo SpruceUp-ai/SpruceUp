@@ -1,7 +1,7 @@
 import sqlite3
 from typing import Callable
 
-from hashing import hash_transform
+from ..hashing import hash_transform
 
 
 class TransformTracker:

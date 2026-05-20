@@ -2,7 +2,7 @@ import dataclasses
 import json
 import sqlite3
 
-from models import ChunkWrapper, SpruceFile
+from ..models import ChunkWrapper, SpruceFile
 
 
 def connect(path: str) -> sqlite3.Connection:

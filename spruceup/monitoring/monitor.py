@@ -5,7 +5,7 @@ import sqlite3
 from abc import ABC, abstractmethod
 
 from watchfiles import awatch, Change
-from hashing import hash_file_content
+from ..hashing import hash_file_content
 from .tasks import SyncTask
 
 log = logging.getLogger(__name__)

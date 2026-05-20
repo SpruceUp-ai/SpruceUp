@@ -16,7 +16,7 @@ tracker.configure(db_path) before any database access.
 
 from typing import Callable
 
-from monitoring.capture import TransformTracker
+from .monitoring.capture import TransformTracker
 
 # Singleton tracker — _manifest_path is empty until main.py calls tracker.configure()
 tracker: TransformTracker = TransformTracker("")
