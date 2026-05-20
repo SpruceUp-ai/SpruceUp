@@ -53,8 +53,7 @@ async def main() -> None:
 
     coordinator = Coordinator(
         queue=queue,
-        file_transform=registry.file_transform_fn,
-        chunk_transform=registry.chunk_transform_fn,
+        transform=registry.transform_fn,
         embedder=embedder,
         sync_engine=sync_engine,
     )

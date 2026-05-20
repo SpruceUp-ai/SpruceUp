@@ -149,7 +149,6 @@ def make_file(file_path: str, chunks: list[ChunkWrapper], mtime: float = 1_000_0
         file_type=file_path.rsplit(".", 1)[-1],
         data_source_id=1,
         raw_content=b"",
-        chunk_strs=[],
         chunks=chunks,
     )
 

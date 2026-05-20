@@ -32,7 +32,6 @@ class LocalFileFetcher:
             file_type=file_type,
             data_source_id=self._data_source_id,
             raw_content=raw_content,
-            chunk_strs=[],
             chunks=[],
         )
 
@@ -52,15 +51,13 @@ class Coordinator:
     def __init__(
         self,
         queue: object,
-        file_transform,
-        chunk_transform,
+        transform,
         embedder,
         sync_engine: SyncEngine,
         data_source_id: int = 1,
     ):
         self._queue = queue
-        self._file_transform = file_transform
-        self._chunk_transform = chunk_transform
+        self._transform = transform
         self._embedder = embedder
         self._sync_engine = sync_engine
         self._data_source_id = data_source_id
@@ -85,15 +82,17 @@ class Coordinator:
         fetcher = self._fetcher_registry.for_task(task, self._data_source_id)
         spruce_file = await fetcher.fetch()
 
-        chunk_strs = self._file_transform(file_props={
-            "raw_content": spruce_file.raw_content.decode(errors="replace"),
-            "file_path": spruce_file.file_path,
-            "mtime": spruce_file.mtime,
-            "file_type": spruce_file.file_type,
-        })
-        spruce_file.chunk_strs = chunk_strs
-        log.info("[upsert] %s — %d chunk(s), embedding …", filename, len(chunk_strs))
-        schema_objs = await self._chunk_transform(chunk_strs, embed=self._embedder.process_chunks)
+        log.info("[upsert] %s — transforming …", filename)
+        schema_objs = await self._transform(
+            file_props={
+                "raw_content": spruce_file.raw_content.decode(errors="replace"),
+                "file_path": spruce_file.file_path,
+                "mtime": spruce_file.mtime,
+                "file_type": spruce_file.file_type,
+            },
+            embed=self._embedder.process_chunks,
+        )
+        log.info("[upsert] %s — %d chunk(s)", filename, len(schema_objs))
 
         chunks = [
             ChunkWrapper(

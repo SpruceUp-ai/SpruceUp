@@ -36,7 +36,6 @@ class SpruceFile:
     file_type: str
     data_source_id: int
     raw_content: str | bytes
-    chunk_strs: list[str]
     chunks: list[ChunkWrapper]
 
 
