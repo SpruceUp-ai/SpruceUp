@@ -34,4 +34,7 @@ def main() -> None:
         )
 
     validate_pipeline(pipeline)
-    asyncio.run(app.run(pipeline))
+    try:
+        asyncio.run(app.run(pipeline))
+    except KeyboardInterrupt:
+        print("\nSpruceUp manually aborted by user command")
