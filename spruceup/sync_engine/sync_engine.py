@@ -82,7 +82,9 @@ class SyncEngine:
                 self._manifest.ensure_file_row_exists(conn, file.file_id, file.file_path)
 
             with psycopg.connect(self._pg_connstr) as pg_conn:
+                # retry:
                 target_db.upsert_chunks(pg_conn, target_upserts, self._config)
+                # retry:
                 target_db.delete_chunks(pg_conn, target_deletes, self._config)
 
             self._manifest.upsert_chunks(conn, manifest_upserts)
