@@ -9,13 +9,12 @@ the configuration constants below.
 """
 
 import hashlib
+import os
 import pathlib
-import sys
 from dataclasses import dataclass
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from spruceup.registry import transform
+from spruceup import transform
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +65,8 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
 # ---------------------------------------------------------------------------
 
 CHUNK_SCHEMA = LectureChunk
-TARGET_DB = "spruce_lecture_rag"
+TARGET_DB    = "spruce_lecture_rag"
 TARGET_TABLE = "data_chunks"
-PRIMARY_KEY = "id"
-WATCHED_DIR = "example/data_corpus"
+PRIMARY_KEY  = "id"
+WATCHED_DIR  = "example/data_corpus"
+PG_CONNSTR   = os.environ["PG_CONNSTR"]

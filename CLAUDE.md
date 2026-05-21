@@ -9,26 +9,32 @@ SpruceUp keeps a RAG application's vector db table in sync with their data corpu
 ## Running the project
 
 ```bash
-# First run
+# Install dependencies
 poetry install
-poetry run python main.py
+
+# Run (from the project root, with PG_CONNSTR set in the environment or .env)
+spruceup start
+# or, without activating the venv:
+python -m spruceup start
 
 # Tests (Postgres is mocked; SQLite runs against a real temp file)
 poetry run pytest
 ```
 
-Requires a `.env` file with `OPENAI_API_KEY=...` and PostgreSQL running locally at `postgresql://localhost:5432/spruce_lecture_rag` with the `pgvector` extension installed.
+Requires `PG_CONNSTR` and `OPENAI_API_KEY` to be set in the environment (or loaded via `python-dotenv` inside `spruceup_pipeline.py`) and PostgreSQL running locally with the `pgvector` extension installed.
 
 ## Architecture and data flow
 
 ```
-main.py
-  └─ imports spruceup_pipeline   → @file_transform / @chunk_transform decorators fire
-  └─ Monitor.run()               → LocalFileWatcher._catch_up() scans dir → SyncTask on queue
-  └─ LocalFileWatcher._watch()   → listens for live changes via watchfiles.awatch
-  └─ Coordinator.run()           → pulls SyncTask → fetches file → file_transform
-                                   → chunk_transform(embed=...) → SyncEngine.reconcile()
-  └─ SyncEngine.reconcile()      → diffs chunks → upserts/deletes Postgres + SQLite manifest
+spruceup start
+  └─ spruceup/cli.py          → adds CWD to sys.path, imports spruceup_pipeline
+  └─ pipeline_validator.py    → validates required constants + @transform registered
+  └─ spruceup/app.py          → wires all components together, starts the event loop
+       └─ Monitor.run()       → LocalFileWatcher._catch_up() scans dir → SyncTask on queue
+       └─ LocalFileWatcher._watch() → listens for live changes via watchfiles.awatch
+       └─ Coordinator.run()   → pulls SyncTask → fetches file → @transform(embed=...)
+                               → validate_schema_objects() → SyncEngine.reconcile()
+       └─ SyncEngine.reconcile() → diffs chunks → upserts/deletes Postgres + SQLite manifest
 ```
 
 Move events are handled by `SyncEngine.move_file()`, which updates only the SQLite manifest (Postgres vectors use content-based PKs and remain valid after a rename). Delete and upsert events go through the full `Coordinator.process_task()` pipeline.
@@ -37,22 +43,26 @@ Move events are handled by `SyncEngine.move_file()`, which updates only the SQLi
 
 | Path | Role |
 |------|------|
-| `main.py` | Entry point; wires all components together |
-| `spruceup_pipeline.py` | User-defined pipeline (transforms + config constants) |
-| `spruceup/registry.py` | `@file_transform` / `@chunk_transform` decorators; singleton `TransformTracker` |
+| `spruceup_pipeline.py` | User-defined pipeline: schema dataclass, `@transform` function, and all config constants |
+| `spruceup/cli.py` | `spruceup start` entry point; discovers and imports the pipeline file |
+| `spruceup/app.py` | Async `run(pipeline)` function; wires all components and starts the event loop |
+| `spruceup/pipeline_validator.py` | Validates required constants and `@transform` registration at startup |
+| `spruceup/registry.py` | `@transform` decorator; singleton `TransformTracker` |
+| `spruceup/manifest.py` | `Manifest` class — all SQLite manifest reads and writes, including transform hash management |
 | `spruceup/models.py` | Core dataclasses: `SpruceFile`, `ChunkWrapper`, `TargetTableConfig`, `UserDefinedChunkSchema` |
+| `spruceup/validation.py` | `validate_schema_objects()` — checks transform output against declared schema |
 | `spruceup/hashing.py` | All hashing functions (BLAKE2B, 16-byte digests throughout) |
 | `spruceup/db.py` | SQLite schema init (`init_db`) |
 | `spruceup/coordinator.py` | `Coordinator` — drives the per-file pipeline; `LocalFileFetcher` |
 | `spruceup/embedding.py` | `Embedder` + `OpenAIProvider` — batched, concurrent, retried via tenacity |
 | `spruceup/monitoring/monitor.py` | `Monitor`, `LocalFileWatcher` (`_catch_up` + `_watch`), `_BufferedQueue` |
 | `spruceup/monitoring/tasks.py` | `SyncTask` dataclass |
-| `spruceup/monitoring/capture.py` | `TransformTracker` — detects whether transform functions changed |
+| `spruceup/monitoring/capture.py` | `TransformTracker` — registers transform functions, exposes their hashes |
 | `spruceup/sync_engine/sync_engine.py` | `SyncEngine.reconcile()`, `delete_file()`, `move_file()` |
-| `spruceup/sync_engine/manifest.py` | SQLite manifest read/write functions |
 | `spruceup/sync_engine/target_db.py` | Postgres read/write functions |
 | `example/` | Example chunking logic consumed by `spruceup_pipeline.py` |
 | `tests/test_sync_engine.py` | Unit tests for `SyncEngine` |
+| `tests/test_validation.py` | Unit tests for `validate_schema_objects` |
 
 ## SQLite manifest schema
 
@@ -73,33 +83,42 @@ transform_hashes (transform_hash BLOB PK)  -- hash is PK, not func_name
 
 ## Customising the pipeline
 
-Edit `spruceup_pipeline.py`. The two required pieces are:
+Edit `spruceup_pipeline.py`. The required pieces are:
 
-**`@file_transform`** — synchronous; receives a `file_props` dict and returns `list[str]` (the chunk strings that will be embedded):
+**Schema dataclass** — define the fields your Postgres table will have:
 ```python
-@file_transform
-def my_file_transform(*, file_props: dict) -> list[str]:
-    # keys: raw_content, file_path, mtime, file_type
-    ...
+from dataclasses import dataclass
+
+@dataclass
+class MyChunk:
+    id: str               # primary key
+    chunk_text: str       # text used for embedding
+    chunk_embedding: list[float]
+    my_custom_field: str  # any additional metadata columns
 ```
 
-**`@chunk_transform`** — async; receives the chunk strings plus an `embed` callable and returns a list of your schema dataclass objects:
+**`@transform`** — async; receives `file_props` and an `embed` callable, returns a list of your schema objects:
 ```python
-@chunk_transform
-async def my_chunk_transform(chunk_strs: list[str], *, embed) -> list[MyChunk]:
-    embeddings = await embed(chunk_strs)  # returns list[list[float]]
-    ...
+from spruceup import transform
+
+@transform
+async def my_transform(*, file_props: dict, embed) -> list[MyChunk]:
+    # file_props keys: raw_content, file_path, mtime, file_type
+    chunks = split_into_chunks(file_props["raw_content"])
+    embeddings = await embed(chunks)  # returns list[list[float]]
+    return [MyChunk(id=..., chunk_text=c, chunk_embedding=e) for c, e in zip(chunks, embeddings)]
 ```
 
-The framework never touches `chunk_embedding` directly. The user calls `embed` and assigns the result wherever they want in their schema object.
-
-Also set these constants at the bottom of `spruceup_pipeline.py`:
+**Config constants** — define all of these in the same file:
 ```python
-CHUNK_SCHEMA = MyChunk      # the dataclass class itself
-TARGET_DB    = "..."        # Postgres database name
-TARGET_TABLE = "..."        # table name to upsert into
-PRIMARY_KEY  = "id"         # field on MyChunk used as the Postgres PK
+import os
+
+CHUNK_SCHEMA = MyChunk
+TARGET_DB    = "my_db"
+TARGET_TABLE = "my_table"
+PRIMARY_KEY  = "id"
 WATCHED_DIR  = "path/to/corpus"
+PG_CONNSTR   = os.environ["PG_CONNSTR"]  # load secrets from env, not hardcoded
 ```
 
 ## Key invariants
@@ -110,3 +129,5 @@ WATCHED_DIR  = "path/to/corpus"
 - **`_watch` filters directories** — `pathlib.Path(path).is_file()` guard is required because `watchfiles` can emit events for the watched directory itself when files are added to it.
 - **Postgres vectors survive moves** — `SyncEngine.move_file()` updates only the SQLite manifest; no Postgres writes happen. Chunk PKs are content-based (user-defined), not path-based.
 - **`ensure_file_row_exists` before chunk writes** — the `files` FK on `chunks` requires the file row to exist before any chunk for that file is inserted.
+- **`Manifest` is the sole SQLite access point** — all reads and writes to `spruceup_manifest.db` go through the `Manifest` class; methods that need to be atomic share a connection via `manifest.connect()` used as a context manager.
+- **Pipeline validation runs before anything starts** — `pipeline_validator.py` checks all required constants and `@transform` registration before `init_db` or any network connections are made.

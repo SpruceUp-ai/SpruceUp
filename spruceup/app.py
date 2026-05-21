@@ -1,5 +1,4 @@
 import asyncio
-import importlib
 import logging
 
 import spruceup.registry as registry
@@ -10,22 +9,12 @@ from spruceup.manifest import Manifest
 from spruceup.monitoring.monitor import LocalFileWatcher, Monitor
 from spruceup.sync_engine import SyncEngine
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(message)s",
-    datefmt="%H:%M:%S",
-)
 log = logging.getLogger(__name__)
 
 MANIFEST_PATH = "spruceup_manifest.db"
-PG_CONNSTR = "postgresql://localhost:5432/spruce_lecture_rag"  # hardcoded for MVP
-
-# Importing the pipeline triggers the @transform decorator, which registers
-# the function with registry.tracker.
-pipeline = importlib.import_module("spruceup_pipeline")
 
 
-async def main() -> None:
+async def run(pipeline) -> None:
     init_db(MANIFEST_PATH)
     manifest = Manifest(MANIFEST_PATH)
 
@@ -40,7 +29,7 @@ async def main() -> None:
     else:
         log.info("Transform functions unchanged — incremental sync")
 
-    sync_engine = SyncEngine(manifest=manifest, pg_connstr=PG_CONNSTR)
+    sync_engine = SyncEngine(manifest=manifest, pg_connstr=pipeline.PG_CONNSTR)
     sync_engine.define_target_table(
         db_name=pipeline.TARGET_DB,
         table_name=pipeline.TARGET_TABLE,
@@ -71,7 +60,3 @@ async def main() -> None:
     log.info("Startup complete — watching %s for changes", pipeline.WATCHED_DIR)
 
     await asyncio.gather(monitor_task, coordinator_task)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
