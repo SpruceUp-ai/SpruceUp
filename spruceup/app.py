@@ -19,8 +19,8 @@ async def run(pipeline) -> None:
     manifest = Manifest(MANIFEST_PATH)
 
     log.info(
-        "SpruceUp starting — manifest=%s  target=%s/%s",
-        MANIFEST_PATH, pipeline.TARGET_DB, pipeline.TARGET_TABLE,
+        "SpruceUp starting — manifest=%s  target=%s",
+        MANIFEST_PATH, pipeline.TARGET_TABLE,
     )
 
     force_reindex = manifest.transform_hashes_changed(registry.tracker.hashes)
@@ -31,7 +31,6 @@ async def run(pipeline) -> None:
 
     sync_engine = SyncEngine(manifest=manifest, pg_connstr=pipeline.PG_CONNSTR)
     sync_engine.define_target_table(
-        db_name=pipeline.TARGET_DB,
         table_name=pipeline.TARGET_TABLE,
         schema_from_class=pipeline.CHUNK_SCHEMA,
         primary_key=pipeline.PRIMARY_KEY,

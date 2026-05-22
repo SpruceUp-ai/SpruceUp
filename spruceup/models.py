@@ -41,7 +41,6 @@ class SpruceFile:
 
 @dataclass
 class TargetTableConfig:
-    db_name: str
     table_name: str
     schema_class: type
     primary_key: str
