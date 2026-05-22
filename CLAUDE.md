@@ -28,7 +28,7 @@ Requires `PG_CONNSTR` and `OPENAI_API_KEY` to be set in the environment (or load
 ```
 spruceup start
   └─ spruceup/cli.py          → adds CWD to sys.path, imports spruceup_pipeline
-  └─ pipeline_validator.py    → validates required constants + @transform registered
+  └─ pipeline_validator.py    → validates config is SpruceUpConfig + @transform registered
   └─ spruceup/app.py          → wires all components together, starts the event loop
        └─ Monitor.run()       → LocalFileWatcher._catch_up() scans dir → SyncTask on queue
        └─ LocalFileWatcher._watch() → listens for live changes via watchfiles.awatch
@@ -43,10 +43,15 @@ Move events are handled by `SyncEngine.move_file()`, which updates only the SQLi
 
 | Path | Role |
 |------|------|
-| `spruceup_pipeline.py` | User-defined pipeline: schema dataclass, `@transform` function, and all config constants |
+| `spruceup_pipeline.py` | User-defined pipeline: schema dataclass, `@transform` function, and `defineConfig()` call |
 | `spruceup/cli.py` | `spruceup start` entry point; discovers and imports the pipeline file |
 | `spruceup/app.py` | Async `run(pipeline)` function; wires all components and starts the event loop |
-| `spruceup/pipeline_validator.py` | Validates required constants and `@transform` registration at startup |
+| `spruceup/pipeline_validator.py` | Validates `config` is a `SpruceUpConfig` and `@transform` is registered at startup |
+| `spruceup/config.py` | `SpruceUpConfig` dataclass + `defineConfig()` — validates and captures pipeline config |
+| `spruceup/connectors/base.py` | Abstract base classes: `SourceConnector`, `TargetConnector`, `EmbedderConfig` |
+| `spruceup/connectors/sources/local.py` | `LocalFilesSource` — watches a local directory |
+| `spruceup/connectors/targets/pgvector.py` | `PgVectorTarget` — writes to a Postgres pgvector table |
+| `spruceup/connectors/embedders/openai.py` | `OpenAIEmbedder` — embeds via OpenAI API |
 | `spruceup/registry.py` | `@transform` decorator; singleton `TransformTracker` |
 | `spruceup/manifest.py` | `Manifest` class — all SQLite manifest reads and writes, including transform hash management |
 | `spruceup/models.py` | Core dataclasses: `SpruceFile`, `ChunkWrapper`, `TargetTableConfig`, `UserDefinedChunkSchema` |
@@ -59,7 +64,7 @@ Move events are handled by `SyncEngine.move_file()`, which updates only the SQLi
 | `spruceup/monitoring/tasks.py` | `SyncTask` dataclass |
 | `spruceup/monitoring/capture.py` | `TransformTracker` — registers transform functions, exposes their hashes |
 | `spruceup/sync_engine/sync_engine.py` | `SyncEngine.reconcile()`, `delete_file()`, `move_file()` |
-| `spruceup/sync_engine/target_db.py` | Postgres read/write functions |
+| `spruceup/sync_engine/pgvector.py` | Postgres read/write functions |
 | `example/` | Example chunking logic consumed by `spruceup_pipeline.py` |
 | `tests/test_sync_engine.py` | Unit tests for `SyncEngine` |
 | `tests/test_validation.py` | Unit tests for `validate_schema_objects` |
@@ -109,15 +114,25 @@ async def my_transform(*, file_props: dict, embed) -> list[MyChunk]:
     return [MyChunk(id=..., chunk_text=c, chunk_embedding=e) for c, e in zip(chunks, embeddings)]
 ```
 
-**Config constants** — define all of these in the same file:
+**`defineConfig`** — wire together your source(s), target, and embedding provider:
 ```python
 import os
+from spruceup import defineConfig, LocalFilesSource, PgVectorTarget, OpenAIEmbedder
 
-CHUNK_SCHEMA = MyChunk
-TARGET_TABLE = "my_table"
-PRIMARY_KEY  = "id"
-WATCHED_DIR  = "path/to/corpus"
-PG_CONNSTR   = os.environ["PG_CONNSTR"]  # load secrets from env, not hardcoded
+config = defineConfig(
+    sources=[
+        LocalFilesSource(watched_dir="path/to/corpus"),
+    ],
+    target=PgVectorTarget(
+        connstr=os.environ["PG_CONNSTR"],  # load secrets from env, not hardcoded
+        table="my_table",
+        schema=MyChunk,
+        primary_key="id",
+    ),
+    embeddings=OpenAIEmbedder(
+        model="text-embedding-3-small",
+    ),
+)
 ```
 
 ## Key invariants
@@ -129,4 +144,4 @@ PG_CONNSTR   = os.environ["PG_CONNSTR"]  # load secrets from env, not hardcoded
 - **Postgres vectors survive moves** — `SyncEngine.move_file()` updates only the SQLite manifest; no Postgres writes happen. Chunk PKs are content-based (user-defined), not path-based.
 - **`ensure_file_row_exists` before chunk writes** — the `files` FK on `chunks` requires the file row to exist before any chunk for that file is inserted.
 - **`Manifest` is the sole SQLite access point** — all reads and writes to `spruceup_manifest.db` go through the `Manifest` class; methods that need to be atomic share a connection via `manifest.connect()` used as a context manager.
-- **Pipeline validation runs before anything starts** — `pipeline_validator.py` checks all required constants and `@transform` registration before `init_db` or any network connections are made.
+- **Pipeline validation runs before anything starts** — `pipeline_validator.py` checks that `config` is a `SpruceUpConfig` and `@transform` is registered before `init_db` or any network connections are made. Field-level validation (non-empty strings, correct types) happens eagerly inside `defineConfig()` at import time.

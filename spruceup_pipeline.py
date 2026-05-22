@@ -1,8 +1,8 @@
 """
 Example SpruceUp pipeline for a lecture-notes corpus.
 
-Define your transform function using the provided decorator, then set
-the configuration constants below.
+Define your transform function using the provided decorator, then call
+defineConfig() with your source, target, and embedding connectors.
 
   @transform  — converts a file into a list of your schema objects;
                 call embed(chunk_strs) to get embeddings and assign them yourself
@@ -14,7 +14,7 @@ import pathlib
 from dataclasses import dataclass
 
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from spruceup import transform
+from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, defineConfig, transform
 
 
 # ---------------------------------------------------------------------------
@@ -64,8 +64,17 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
 # Configuration
 # ---------------------------------------------------------------------------
 
-CHUNK_SCHEMA = LectureChunk
-TARGET_TABLE = "data_chunks"
-PRIMARY_KEY  = "id"
-WATCHED_DIR  = "example/data_corpus"
-PG_CONNSTR   = os.environ["PG_CONNSTR"]
+config = defineConfig(
+    sources=[
+        LocalFilesSource(watched_dir="example/data_corpus"),
+    ],
+    target=PgVectorTarget(
+        connstr=os.environ["PG_CONNSTR"],
+        table="data_chunks",
+        schema=LectureChunk,
+        primary_key="id",
+    ),
+    embeddings=OpenAIEmbedder(
+        model="text-embedding-3-small",
+    ),
+)

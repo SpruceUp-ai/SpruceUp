@@ -8,13 +8,12 @@ and writes are genuinely exercised.
 
 import sqlite3
 from dataclasses import dataclass
-from unittest.mock import patch
 
 import pytest
 
 from spruceup.db import init_db
 from spruceup.manifest import Manifest
-from spruceup.models import UserDefinedChunkSchema
+from spruceup.models import ChunkWrapper, TargetTableConfig, UserDefinedChunkSchema
 from spruceup.sync_engine import (
     ChunkWrapper,
     SpruceFile,
@@ -23,10 +22,11 @@ from spruceup.sync_engine import (
     hash_file_path,
     hash_object,
 )
+from spruceup.sync_engine.target_connectors.base import SyncTarget
 
 
 # ---------------------------------------------------------------------------
-# Minimal test schema and Postgres mock
+# Minimal test schema and SyncTarget mock
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -35,59 +35,31 @@ class SimpleChunkSchema(UserDefinedChunkSchema):
     pass
 
 
-class MockPgConn:
-    """Records SQL calls instead of sending them to Postgres."""
+class MockSyncTarget(SyncTarget):
+    """Records sync_batch calls instead of writing to a real database."""
 
     def __init__(self):
         self.calls: list[dict] = []
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
+    def ensure_table_exists(self, config: TargetTableConfig) -> None:
         pass
 
-    def execute(self, sql, params=None):
-        self.calls.append({"sql": sql.strip(), "params": params})
-
-    def executemany(self, sql, rows):
-        self.calls.append({"sql": sql.strip(), "rows": list(rows)})
-
-    def cursor(self):
-        return _MockCursor(self)
+    def sync_batch(
+        self,
+        upserts: list[ChunkWrapper],
+        deletes: list,
+        config: TargetTableConfig,
+    ) -> None:
+        self.calls.append({"upserts": list(upserts), "deletes": list(deletes)})
 
     def inserted_ids(self) -> list:
-        """First column (PK) of every row sent to INSERT executemany calls."""
-        return [
-            row[0]
-            for call in self.calls if "INSERT" in call["sql"]
-            for row in call.get("rows", [])
-        ]
+        return [chunk.user_chunk.id for call in self.calls for chunk in call["upserts"]]
 
     def deleted_ids(self) -> list:
-        """All params passed to DELETE execute calls, flattened into one list."""
-        return [
-            pk
-            for call in self.calls if "DELETE" in call["sql"]
-            for pk in (call["params"] or [])
-        ]
+        return [pk for call in self.calls for pk in call["deletes"]]
 
     def reset(self) -> None:
         self.calls.clear()
-
-
-class _MockCursor:
-    def __init__(self, conn: MockPgConn):
-        self._conn = conn
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        pass
-
-    def executemany(self, sql, rows):
-        self._conn.calls.append({"sql": sql.strip(), "rows": list(rows)})
 
 
 # ---------------------------------------------------------------------------
@@ -102,9 +74,7 @@ FILE_ID_B = hash_file_path(FILE_PATH_B)
 
 @pytest.fixture
 def pg():
-    conn = MockPgConn()
-    with patch("psycopg.connect", return_value=conn):
-        yield conn
+    return MockSyncTarget()
 
 
 @pytest.fixture
@@ -115,9 +85,8 @@ def tmp_manifest(tmp_path):
 @pytest.fixture
 def engine(tmp_manifest, pg):
     init_db(tmp_manifest)
-    e = SyncEngine(manifest=Manifest(tmp_manifest), pg_connstr="dbname=test")
+    e = SyncEngine(manifest=Manifest(tmp_manifest), sync_target=pg)
     e.define_target_table(
-        db_name="test",
         table_name="vectors",
         schema_from_class=SimpleChunkSchema,
         primary_key="id",
@@ -187,7 +156,7 @@ class TestReconcile:
 
     def test_requires_define_target_table(self, tmp_manifest, pg):
         init_db(tmp_manifest)
-        engine = SyncEngine(manifest=Manifest(tmp_manifest), pg_connstr="dbname=test")
+        engine = SyncEngine(manifest=Manifest(tmp_manifest), sync_target=MockSyncTarget())
         with pytest.raises(AssertionError):
             engine.reconcile([])
 
@@ -321,7 +290,7 @@ class TestDeleteFile:
 
     def test_requires_define_target_table(self, tmp_manifest, pg):
         init_db(tmp_manifest)
-        engine = SyncEngine(manifest=Manifest(tmp_manifest), pg_connstr="dbname=test")
+        engine = SyncEngine(manifest=Manifest(tmp_manifest), sync_target=MockSyncTarget())
         with pytest.raises(AssertionError):
             engine.delete_file(FILE_PATH_A)
 

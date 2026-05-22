@@ -2,14 +2,15 @@ import typing
 
 import psycopg
 
-from ..models import ChunkWrapper, TargetTableConfig
+from ...models import ChunkWrapper, TargetTableConfig
+from .base import SyncTarget
 
 _PY_TO_PG: dict[type, str] = {
-    str: "TEXT",
-    int: "INTEGER",
+    str:   "TEXT",
+    int:   "INTEGER",
     float: "DOUBLE PRECISION",
     bytes: "BYTEA",
-    bool: "BOOLEAN",
+    bool:  "BOOLEAN",
 }
 
 
@@ -24,7 +25,7 @@ def _py_to_pg_type(tp) -> str:
     return _PY_TO_PG.get(tp, "TEXT")
 
 
-def ensure_table_exists(conn: psycopg.Connection, config: TargetTableConfig) -> None:
+def _ensure_table_exists(conn: psycopg.Connection, config: TargetTableConfig) -> None:
     conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
     hints = typing.get_type_hints(config.schema_class)
     col_defs = []
@@ -37,7 +38,7 @@ def ensure_table_exists(conn: psycopg.Connection, config: TargetTableConfig) -> 
     )
 
 
-def upsert_chunks(
+def _upsert_chunks(
     conn: psycopg.Connection, chunks: list[ChunkWrapper], config: TargetTableConfig
 ) -> None:
     if not chunks:
@@ -58,7 +59,7 @@ def upsert_chunks(
         cur.executemany(sql, rows)
 
 
-def delete_chunks(
+def _delete_chunks(
     conn: psycopg.Connection, chunk_ids: list, config: TargetTableConfig
 ) -> None:
     if not chunk_ids:
@@ -68,3 +69,22 @@ def delete_chunks(
         f"DELETE FROM {config.table_name} WHERE {config.primary_key} IN ({placeholders})",
         chunk_ids,
     )
+
+
+class PgVectorSyncTarget(SyncTarget):
+    def __init__(self, connstr: str) -> None:
+        self._connstr = connstr
+
+    def ensure_table_exists(self, config: TargetTableConfig) -> None:
+        with psycopg.connect(self._connstr) as conn:
+            _ensure_table_exists(conn, config)
+
+    def sync_batch(
+        self,
+        upserts: list[ChunkWrapper],
+        deletes: list,
+        config: TargetTableConfig,
+    ) -> None:
+        with psycopg.connect(self._connstr) as conn:
+            _upsert_chunks(conn, upserts, config)
+            _delete_chunks(conn, deletes, config)

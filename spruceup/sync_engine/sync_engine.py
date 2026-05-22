@@ -1,20 +1,18 @@
 import logging
 import pathlib
 
-import psycopg
-
 from ..hashing import hash_file_path
 from ..manifest import Manifest
 from ..models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
-from . import pgvector
+from .target_connectors.base import SyncTarget
 
 log = logging.getLogger(__name__)
 
 
 class SyncEngine:
-    def __init__(self, manifest: Manifest, pg_connstr: str) -> None:
+    def __init__(self, manifest: Manifest, sync_target: SyncTarget) -> None:
         self._manifest = manifest
-        self._pg_connstr = pg_connstr
+        self._sync_target = sync_target
         self._config: TargetTableConfig | None = None
 
     def define_target_table(
@@ -23,20 +21,13 @@ class SyncEngine:
         schema_from_class: type,
         primary_key: str,
     ) -> None:
-        """Register the user's chunk schema and ensure the target Postgres table exists.
-
-        schema_from_class must be a dataclass with at least:
-          - chunk_text: str
-          - chunk_embedding: list[float]
-          - a primary-key field matching primary_key
-        """
+        """Register the user's chunk schema and ensure the target table exists."""
         self._config = TargetTableConfig(
             table_name=table_name,
-            schema_class=schema_from_class,  # change to chunk_schema
+            schema_class=schema_from_class,
             primary_key=primary_key,
         )
-        with psycopg.connect(self._pg_connstr) as pg_conn:
-            pgvector.ensure_table_exists(pg_conn, self._config)
+        self._sync_target.ensure_table_exists(self._config)
 
     def reconcile(self, files: list[SpruceFile]) -> None:
         """Upsert new/changed chunks, delete orphaned chunks, then stamp each file row."""
@@ -82,11 +73,7 @@ class SyncEngine:
                     conn, file.file_id, file.file_path
                 )
 
-            with psycopg.connect(self._pg_connstr) as pg_conn:
-                # retry:
-                pgvector.upsert_chunks(pg_conn, target_upserts, self._config)
-                # retry:
-                pgvector.delete_chunks(pg_conn, target_deletes, self._config)
+            self._sync_target.sync_batch(target_upserts, target_deletes, self._config)
 
             self._manifest.upsert_chunks(conn, manifest_upserts)
             self._manifest.delete_chunks(conn, manifest_deletes)
@@ -104,7 +91,7 @@ class SyncEngine:
     def move_file(self, old_path: str, new_path: str) -> None:
         """Update the manifest when a file is renamed/moved without re-embedding.
 
-        The vectors in Postgres are keyed by user-defined primary keys (content-based),
+        The vectors in the target DB are keyed by user-defined primary keys (content-based),
         so they remain valid after a rename. Only the SQLite manifest needs updating.
         """
         old_file_id = hash_file_path(old_path)
@@ -119,9 +106,7 @@ class SyncEngine:
 
     def delete_file(self, file_path: str) -> None:
         """Delete all vectors for a file that has been removed from the corpus."""
-        assert self._config is not None, (
-            "Call define_target_table() before delete_file()"
-        )
+        assert self._config is not None, "Call define_target_table() before delete_file()"
 
         file_id = hash_file_path(file_path)
         with self._manifest.connect() as conn:
@@ -129,13 +114,12 @@ class SyncEngine:
                 conn, file_id, self._config.primary_key
             )
             manifest_chunk_ids = [c["manifest_chunk_id"] for c in chunks]
-            pg_pks = [c["user_pk"] for c in chunks]
+            target_pks = [c["user_pk"] for c in chunks]
 
-            with psycopg.connect(self._pg_connstr) as pg_conn:
-                pgvector.delete_chunks(pg_conn, pg_pks, self._config)
+            self._sync_target.sync_batch([], target_pks, self._config)
 
             self._manifest.delete_chunks(conn, manifest_chunk_ids)
             self._manifest.delete_file_row(conn, file_id)
         log.info(
-            "Deleted %d chunk(s) for %s", len(pg_pks), pathlib.Path(file_path).name
+            "Deleted %d chunk(s) for %s", len(target_pks), pathlib.Path(file_path).name
         )
