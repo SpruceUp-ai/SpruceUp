@@ -5,11 +5,11 @@ import psycopg
 from ..models import ChunkWrapper, TargetTableConfig
 
 _PY_TO_PG: dict[type, str] = {
-    str:   "TEXT",
-    int:   "INTEGER",
+    str: "TEXT",
+    int: "INTEGER",
     float: "DOUBLE PRECISION",
     bytes: "BYTEA",
-    bool:  "BOOLEAN",
+    bool: "BOOLEAN",
 }
 
 
@@ -37,7 +37,9 @@ def ensure_table_exists(conn: psycopg.Connection, config: TargetTableConfig) -> 
     )
 
 
-def upsert_chunks(conn: psycopg.Connection, chunks: list[ChunkWrapper], config: TargetTableConfig) -> None:
+def upsert_chunks(
+    conn: psycopg.Connection, chunks: list[ChunkWrapper], config: TargetTableConfig
+) -> None:
     if not chunks:
         return
     hints = typing.get_type_hints(config.schema_class)
@@ -56,7 +58,9 @@ def upsert_chunks(conn: psycopg.Connection, chunks: list[ChunkWrapper], config: 
         cur.executemany(sql, rows)
 
 
-def delete_chunks(conn: psycopg.Connection, chunk_ids: list, config: TargetTableConfig) -> None:
+def delete_chunks(
+    conn: psycopg.Connection, chunk_ids: list, config: TargetTableConfig
+) -> None:
     if not chunk_ids:
         return
     placeholders = ", ".join(["%s"] * len(chunk_ids))

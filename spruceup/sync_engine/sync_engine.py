@@ -3,10 +3,10 @@ import pathlib
 
 import psycopg
 
-from . import target_db
 from ..hashing import hash_file_path
 from ..manifest import Manifest
 from ..models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
+from . import pgvector
 
 log = logging.getLogger(__name__)
 
@@ -34,11 +34,11 @@ class SyncEngine:
         self._config = TargetTableConfig(
             db_name=db_name,
             table_name=table_name,
-            schema_class=schema_from_class,
+            schema_class=schema_from_class,  # change to chunk_schema
             primary_key=primary_key,
         )
         with psycopg.connect(self._pg_connstr) as pg_conn:
-            target_db.ensure_table_exists(pg_conn, self._config)
+            pgvector.ensure_table_exists(pg_conn, self._config)
 
     def reconcile(self, files: list[SpruceFile]) -> None:
         """Upsert new/changed chunks, delete orphaned chunks, then stamp each file row."""
@@ -56,7 +56,8 @@ class SyncEngine:
                 )
 
                 chunks_by_id: dict[bytes, dict] = {
-                    p["manifest_chunk_id"]: {"prev": p, "curr": None} for p in prev_chunks
+                    p["manifest_chunk_id"]: {"prev": p, "curr": None}
+                    for p in prev_chunks
                 }
 
                 for chunk in file.chunks:
@@ -79,13 +80,15 @@ class SyncEngine:
                         target_upserts.append(curr)
 
             for file in files:
-                self._manifest.ensure_file_row_exists(conn, file.file_id, file.file_path)
+                self._manifest.ensure_file_row_exists(
+                    conn, file.file_id, file.file_path
+                )
 
             with psycopg.connect(self._pg_connstr) as pg_conn:
                 # retry:
-                target_db.upsert_chunks(pg_conn, target_upserts, self._config)
+                pgvector.upsert_chunks(pg_conn, target_upserts, self._config)
                 # retry:
-                target_db.delete_chunks(pg_conn, target_deletes, self._config)
+                pgvector.delete_chunks(pg_conn, target_deletes, self._config)
 
             self._manifest.upsert_chunks(conn, manifest_upserts)
             self._manifest.delete_chunks(conn, manifest_deletes)
@@ -118,7 +121,9 @@ class SyncEngine:
 
     def delete_file(self, file_path: str) -> None:
         """Delete all vectors for a file that has been removed from the corpus."""
-        assert self._config is not None, "Call define_target_table() before delete_file()"
+        assert self._config is not None, (
+            "Call define_target_table() before delete_file()"
+        )
 
         file_id = hash_file_path(file_path)
         with self._manifest.connect() as conn:
@@ -129,8 +134,10 @@ class SyncEngine:
             pg_pks = [c["user_pk"] for c in chunks]
 
             with psycopg.connect(self._pg_connstr) as pg_conn:
-                target_db.delete_chunks(pg_conn, pg_pks, self._config)
+                pgvector.delete_chunks(pg_conn, pg_pks, self._config)
 
             self._manifest.delete_chunks(conn, manifest_chunk_ids)
             self._manifest.delete_file_row(conn, file_id)
-        log.info("Deleted %d chunk(s) for %s", len(pg_pks), pathlib.Path(file_path).name)
+        log.info(
+            "Deleted %d chunk(s) for %s", len(pg_pks), pathlib.Path(file_path).name
+        )
