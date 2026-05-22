@@ -85,7 +85,9 @@ def tmp_manifest(tmp_path):
 @pytest.fixture
 def engine(tmp_manifest, pg):
     init_db(tmp_manifest)
-    e = SyncEngine(manifest=Manifest(tmp_manifest), sync_target=pg)
+    manifest = Manifest(tmp_manifest)
+    manifest.register_source("local", "/test-corpus")  # creates data_sources row id=1
+    e = SyncEngine(manifest=manifest, sync_target=pg)
     e.define_target_table(
         table_name="vectors",
         schema_from_class=SimpleChunkSchema,

@@ -23,9 +23,10 @@ async def _with_retry(
         try:
             await coro_fn(*args)
             return
-        except Exception:
+        except Exception as exc:
             delay = min(backoff_base * (2 ** attempt), max_backoff)
             attempt += 1
+            log.warning("Watcher failed (attempt %d) — retrying in %.0fs: %s", attempt, delay, exc)
             await asyncio.sleep(delay)
 
 
@@ -51,6 +52,10 @@ class _BufferedQueue:
 
 
 class BaseWatcher(ABC):
+    @property
+    @abstractmethod
+    def source_type(self) -> str: ...
+
     @abstractmethod
     async def run(
         self,
@@ -91,8 +96,14 @@ class Monitor:
 
 
 class LocalFileWatcher(BaseWatcher):
-    def __init__(self, dir_path: str):
+    def __init__(self, dir_path: str, data_source_id: int, source_type: str):
         self._root_path = dir_path
+        self._data_source_id = data_source_id
+        self._source_type = source_type
+
+    @property
+    def source_type(self) -> str:
+        return self._source_type
 
     async def run(
         self,
@@ -129,29 +140,31 @@ class LocalFileWatcher(BaseWatcher):
             current_path_str = str(path)
             seen_inodes.add(inode)
             if force_reindex:
-                await queue.put(SyncTask("local", current_path_str, "upsert"))
+                await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
                 n_upserts += 1
             else:
                 row = cur.execute(
-                    "SELECT file_path, content_hash FROM files WHERE inode = ?", (inode,)
+                    "SELECT file_path, content_hash FROM files WHERE inode = ? AND data_source_id = ?",
+                    (inode, self._data_source_id),
                 ).fetchone()
                 if row is None:
-                    await queue.put(SyncTask("local", current_path_str, "upsert"))
+                    await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
                     n_upserts += 1
                 else:
                     db_path_val, db_hash = row[0], row[1]
                     if db_hash != hash_file_content(path):
-                        await queue.put(SyncTask("local", current_path_str, "upsert"))
+                        await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
                         n_upserts += 1
                     elif db_path_val != current_path_str:
-                        await queue.put(SyncTask("local", current_path_str, "move", old_identifier=db_path_val))
+                        await queue.put(SyncTask(self._source_type, current_path_str, "move", old_identifier=db_path_val, data_source_id=self._data_source_id))
                         n_moves += 1
 
         for db_inode, db_path_val in cur.execute(
-            "SELECT inode, file_path FROM files"
+            "SELECT inode, file_path FROM files WHERE data_source_id = ?",
+            (self._data_source_id,),
         ).fetchall():
             if db_inode not in seen_inodes:
-                await queue.put(SyncTask("local", db_path_val, "delete"))
+                await queue.put(SyncTask(self._source_type, db_path_val, "delete", data_source_id=self._data_source_id))
                 n_deletes += 1
 
         con.close()
@@ -175,7 +188,10 @@ class LocalFileWatcher(BaseWatcher):
 
             moves = []
             for old_path in deleted_paths:
-                row = con.execute("SELECT inode FROM files WHERE file_path = ?", (old_path,)).fetchone()
+                row = con.execute(
+                    "SELECT inode FROM files WHERE file_path = ? AND data_source_id = ?",
+                    (old_path, self._data_source_id),
+                ).fetchone()
                 if row and row[0] in added_by_inode:
                     moves.append((old_path, added_by_inode[row[0]]))
 
@@ -185,16 +201,16 @@ class LocalFileWatcher(BaseWatcher):
             n_upserts = n_moves = n_deletes = 0
 
             for old_path, new_path in moves:
-                await queue.put(SyncTask("local", new_path, "move", old_identifier=old_path))
+                await queue.put(SyncTask(self._source_type, new_path, "move", old_identifier=old_path, data_source_id=self._data_source_id))
                 n_moves += 1
 
             for path in deleted_paths - moved_old:
-                await queue.put(SyncTask("local", path, "delete"))
+                await queue.put(SyncTask(self._source_type, path, "delete", data_source_id=self._data_source_id))
                 n_deletes += 1
 
             for path in (added_paths - moved_new) | modified_paths:
                 if pathlib.Path(path).is_file():
-                    await queue.put(SyncTask("local", path, "upsert"))
+                    await queue.put(SyncTask(self._source_type, path, "upsert", data_source_id=self._data_source_id))
                     n_upserts += 1
 
             log.info(

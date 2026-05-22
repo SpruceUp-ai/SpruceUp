@@ -41,6 +41,16 @@ async def run(pipeline) -> None:
     embedder = Embedder(provider=config.embeddings.create_provider())
     queue: asyncio.Queue = asyncio.Queue()
 
+    monitor = Monitor(queue, manifest, transform_tracker=registry.tracker)
+    active_source_ids = []
+    source_registry = {}
+    for source in config.sources:
+        data_source_id = manifest.register_source(source.source_type, source.source_identifier)
+        active_source_ids.append(data_source_id)
+        source_registry[data_source_id] = source
+        monitor.add_watcher(source.create_watcher(data_source_id))
+    manifest.delete_stale_sources(active_source_ids)
+
     coordinator = Coordinator(
         queue=queue,
         transform=registry.transform_fn,
@@ -48,11 +58,9 @@ async def run(pipeline) -> None:
         sync_engine=sync_engine,
         schema_class=config.target.schema,
         primary_key=config.target.primary_key,
+        source_registry=source_registry,
     )
 
-    monitor = Monitor(queue, manifest, transform_tracker=registry.tracker)
-    for source in config.sources:
-        monitor.add_watcher(source.create_watcher())
     startup_done = asyncio.Event()
 
     monitor_task = asyncio.create_task(monitor.run(force_reindex, startup_done))

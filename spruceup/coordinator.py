@@ -1,50 +1,13 @@
-import hashlib
 import logging
-import os
-import pathlib
 
-from .models import ChunkWrapper, SpruceFile
+from .models import ChunkWrapper
 from .monitoring.tasks import SyncTask
-from .hashing import hash_chunk_id, hash_file_path, hash_object
+from .hashing import hash_chunk_id, hash_object
 from .sync_engine import SyncEngine
 from .validation import validate_schema_objects
 import asyncio
 
 log = logging.getLogger(__name__)
-
-
-class LocalFileFetcher:
-    def __init__(self, task: SyncTask, data_source_id: int):
-        self._task = task
-        self._data_source_id = data_source_id
-
-    async def fetch(self) -> SpruceFile:
-        path = self._task.identifier
-        with open(path, "rb") as f:
-            raw_content = f.read()
-        stat = os.stat(path)
-        content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
-        file_type = pathlib.Path(path).suffix.lstrip(".")
-        return SpruceFile(
-            file_id=hash_file_path(path),
-            file_path=path,
-            inode=stat.st_ino,
-            mtime=stat.st_mtime,
-            content_hash=content_hash,
-            file_type=file_type,
-            data_source_id=self._data_source_id,
-            raw_content=raw_content,
-            chunks=[],
-        )
-
-
-class FetcherRegistry:
-    def for_task(self, task: SyncTask, data_source_id: int) -> LocalFileFetcher:
-        match task.source_type:
-            case "local":
-                return LocalFileFetcher(task, data_source_id)
-            case _:
-                raise ValueError(f"Unknown source type: {task.source_type!r}")
 
 
 class Coordinator:
@@ -58,7 +21,7 @@ class Coordinator:
         sync_engine: SyncEngine,
         schema_class: type,
         primary_key: str,
-        data_source_id: int = 1,
+        source_registry: dict,
     ):
         self._queue = queue
         self._transform = transform
@@ -66,37 +29,36 @@ class Coordinator:
         self._sync_engine = sync_engine
         self._schema_class = schema_class
         self._primary_key = primary_key
-        self._data_source_id = data_source_id
-        self._fetcher_registry = FetcherRegistry()
+        self._source_registry = source_registry
         self._active_tasks = set()
 
     async def process_task(self, task: SyncTask) -> None:
-        filename = pathlib.Path(task.identifier).name
+        source = self._source_registry[task.data_source_id]
+        filename = source.display_name(task.identifier)
         try:
-            await self._process_task(task, filename)
+            await self._process_task(task, filename, source)
         except Exception:
             log.exception("[error] %s — task failed", filename)
 
-    async def _process_task(self, task: SyncTask, filename: str) -> None:
+    async def _process_task(self, task: SyncTask, filename: str, source) -> None:
         if task.change_type == "delete":
             log.info("[delete] %s", filename)
             self._sync_engine.delete_file(task.identifier)
             return
 
         if task.change_type == "move":
-            old_name = pathlib.Path(task.old_identifier).name
+            old_name = source.display_name(task.old_identifier)
             log.info("[move] %s → %s", old_name, filename)
             self._sync_engine.move_file(task.old_identifier, task.identifier)
             return
 
         # upsert: full pipeline for this file
-        fetcher = self._fetcher_registry.for_task(task, self._data_source_id)
-        spruce_file = await fetcher.fetch()
+        spruce_file = await source.fetch(task)
 
         log.info("[upsert] %s — transforming …", filename)
         schema_objs = await self._transform(
             file_props={
-                "raw_content": spruce_file.raw_content.decode(errors="replace"),
+                "raw_content": source.decode_content(spruce_file.raw_content),
                 "file_path": spruce_file.file_path,
                 "mtime": spruce_file.mtime,
                 "file_type": spruce_file.file_type,

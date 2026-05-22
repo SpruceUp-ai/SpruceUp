@@ -138,6 +138,36 @@ class Manifest:
         finally:
             con.close()
 
+    def register_source(self, source_type: str, source_identifier: str) -> int:
+        con = self.connect()
+        try:
+            con.execute(
+                "INSERT OR IGNORE INTO data_sources (source_type, source_identifier) VALUES (?, ?)",
+                (source_type, source_identifier),
+            )
+            row = con.execute(
+                "SELECT id FROM data_sources WHERE source_type = ? AND source_identifier = ?",
+                (source_type, source_identifier),
+            ).fetchone()
+            con.commit()
+            return row[0]
+        finally:
+            con.close()
+
+    def delete_stale_sources(self, active_ids: list[int]) -> None:
+        if not active_ids:
+            return
+        placeholders = ",".join("?" * len(active_ids))
+        con = self.connect()
+        try:
+            con.execute(
+                f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
+                active_ids,
+            )
+            con.commit()
+        finally:
+            con.close()
+
     def update_transform_hashes(self, transform_hashes: list[bytes]) -> None:
         """Replace stored transform hashes with the current set."""
         placeholders = ",".join("?" * len(transform_hashes))

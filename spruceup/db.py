@@ -7,8 +7,10 @@ def init_db(db_path: str) -> None:
     con.execute(
         """
         CREATE TABLE IF NOT EXISTS data_sources (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            source_type TEXT NOT NULL
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_type       TEXT NOT NULL,
+            source_identifier TEXT NOT NULL,
+            UNIQUE(source_type, source_identifier)
         )
         """
     )
@@ -41,9 +43,6 @@ def init_db(db_path: str) -> None:
             transform_hash BLOB PRIMARY KEY
         )
         """
-    )
-    con.execute(
-        "INSERT OR IGNORE INTO data_sources (id, source_type) VALUES (1, 'local')"
     )
     con.commit()
     con.close()
