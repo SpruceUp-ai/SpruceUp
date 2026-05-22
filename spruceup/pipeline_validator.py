@@ -2,7 +2,6 @@ import spruceup.registry as registry
 
 _REQUIRED: list[tuple[str, type]] = [
     ("CHUNK_SCHEMA", type),
-    ("TARGET_DB",    str),
     ("TARGET_TABLE", str),
     ("PRIMARY_KEY",  str),
     ("WATCHED_DIR",  str),

@@ -65,7 +65,6 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
 # ---------------------------------------------------------------------------
 
 CHUNK_SCHEMA = LectureChunk
-TARGET_DB    = "spruce_lecture_rag"
 TARGET_TABLE = "data_chunks"
 PRIMARY_KEY  = "id"
 WATCHED_DIR  = "example/data_corpus"

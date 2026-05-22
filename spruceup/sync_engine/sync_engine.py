@@ -19,7 +19,6 @@ class SyncEngine:
 
     def define_target_table(
         self,
-        db_name: str,
         table_name: str,
         schema_from_class: type,
         primary_key: str,
@@ -32,7 +31,6 @@ class SyncEngine:
           - a primary-key field matching primary_key
         """
         self._config = TargetTableConfig(
-            db_name=db_name,
             table_name=table_name,
             schema_class=schema_from_class,
             primary_key=primary_key,

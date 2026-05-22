@@ -114,7 +114,6 @@ async def my_transform(*, file_props: dict, embed) -> list[MyChunk]:
 import os
 
 CHUNK_SCHEMA = MyChunk
-TARGET_DB    = "my_db"
 TARGET_TABLE = "my_table"
 PRIMARY_KEY  = "id"
 WATCHED_DIR  = "path/to/corpus"
