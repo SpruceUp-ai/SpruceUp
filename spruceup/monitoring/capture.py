@@ -1,6 +1,6 @@
 from typing import Callable
 
-from ..hashing import hash_transform
+from ..utils.hashing import hash_transform
 
 
 class TransformTracker:

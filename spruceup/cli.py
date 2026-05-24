@@ -5,7 +5,7 @@ import pathlib
 import sys
 
 from . import app
-from .pipeline_validator import validate_pipeline
+from .utils.validation import validate_pipeline
 
 logging.basicConfig(
     level=logging.INFO,

@@ -2,13 +2,12 @@ import logging
 
 from .models import ChunkWrapper
 from .monitoring.tasks import SyncTask
-from .hashing import hash_chunk_id, hash_object
+from .utils.hashing import hash_chunk_id, hash_object
 from .sync_engine import SyncEngine
-from .validation import validate_schema_objects
+from .utils.validation import validate_schema_objects
 import asyncio
 
 log = logging.getLogger(__name__)
-
 
 class Coordinator:
     """Long-lived service that pulls SyncTasks from the queue and drives the pipeline."""
@@ -36,26 +35,22 @@ class Coordinator:
         source = self._source_registry[task.data_source_id]
         filename = source.display_name(task.identifier)
         try:
-            await self._process_task(task, filename, source)
+            if task.change_type == "delete":
+                log.info("[delete] %s", filename)
+                await self._sync_engine.delete_file(task.identifier)            
+            elif task.change_type == "move":
+                old_name = source.display_name(task.old_identifier)
+                log.info("[move] %s → %s", old_name, filename)
+                await self._sync_engine.move_file(task.old_identifier, task.identifier)
+            elif task.change_type == "upsert":
+                log.info("[upsert] %s — transforming …", filename)
+                await self.upsert_file(task, filename, source)
         except Exception:
             log.exception("[error] %s — task failed", filename)
 
-    async def _process_task(self, task: SyncTask, filename: str, source) -> None:
-        if task.change_type == "delete":
-            log.info("[delete] %s", filename)
-            self._sync_engine.delete_file(task.identifier)
-            return
-
-        if task.change_type == "move":
-            old_name = source.display_name(task.old_identifier)
-            log.info("[move] %s → %s", old_name, filename)
-            self._sync_engine.move_file(task.old_identifier, task.identifier)
-            return
-
-        # upsert: full pipeline for this file
+    async def upsert_file(self, task: SyncTask, filename: str, source) -> None:
         spruce_file = await source.fetch(task)
 
-        log.info("[upsert] %s — transforming …", filename)
         schema_objs = await self._transform(
             file_props={
                 "raw_content": source.decode_content(spruce_file.raw_content),

@@ -1,7 +1,7 @@
 import logging
 import pathlib
 
-from ..hashing import hash_file_path
+from ..utils.hashing import hash_file_path
 from ..manifest import Manifest
 from ..models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
 from .target_connectors.base import SyncTarget

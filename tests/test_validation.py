@@ -3,7 +3,7 @@
 import pytest
 from dataclasses import dataclass
 
-from spruceup.validation import validate_schema_objects
+from spruceup.utils.validation import validate_schema_objects
 
 
 @dataclass

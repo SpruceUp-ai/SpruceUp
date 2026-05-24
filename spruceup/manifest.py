@@ -2,7 +2,7 @@ import dataclasses
 import json
 import sqlite3
 
-from .hashing import hash_transform
+from .utils.hashing import hash_transform
 from .models import ChunkWrapper, SpruceFile
 
 

@@ -4,7 +4,7 @@ import pathlib
 from abc import ABC, abstractmethod
 
 from watchfiles import awatch, Change
-from ..hashing import hash_file_content
+from ..utils.hashing import hash_file_content
 from .tasks import SyncTask
 
 from ..manifest import Manifest

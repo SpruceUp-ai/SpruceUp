@@ -4,7 +4,7 @@ import pathlib
 from dataclasses import dataclass
 
 from ..base import SourceConnector
-from ...hashing import hash_file_path
+from ...utils.hashing import hash_file_path
 
 
 @dataclass
@@ -32,16 +32,16 @@ class LocalFilesSource(SourceConnector):
     async def fetch(self, task):
         from spruceup.models import SpruceFile
         path = task.identifier
-        with open(path, "rb") as f:
-            raw_content = f.read()
-        stat = os.stat(path)
+        with open(path, "rb") as file:
+            raw_content = file.read()
+        file_stats = os.stat(path)
         content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
         file_type = pathlib.Path(path).suffix.lstrip(".")
         return SpruceFile(
             file_id=hash_file_path(path),
             file_path=path,
-            inode=stat.st_ino,
-            mtime=stat.st_mtime,
+            inode=file_stats.st_ino,
+            mtime=file_stats.st_mtime,
             content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,
