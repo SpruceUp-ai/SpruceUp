@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
 from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, defineConfig
 
+import dotenv
+
+dotenv.load_dotenv()
 
 # --- schema -----------------------------------------------------------
 
@@ -56,7 +59,7 @@ config = defineConfig(
         LocalFilesSource(watched_dir="example/data_corpus"),
     ],
     target=PgVectorTarget(
-        connstr=os.environ["PG_CONNSTR"],
+        connstr=os.getenv("PG_CONNSTR"),
         table="data_chunks",
         schema=LectureChunk,
         primary_key="id",
