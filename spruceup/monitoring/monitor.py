@@ -75,7 +75,7 @@ class BaseWatcher(ABC):
         queue: asyncio.Queue,
         manifest: "Manifest",
         force_reindex: bool = False,
-        startup_done: asyncio.Event | None = None,
+        catchup_done: asyncio.Event | None = None,
     ) -> None: ...
 
 
@@ -117,15 +117,15 @@ class LocalFileWatcher(BaseWatcher):
         queue: asyncio.Queue,
         manifest: "Manifest",
         force_reindex: bool = False,
-        startup_done: asyncio.Event | None = None,
+        catchup_done: asyncio.Event | None = None,
     ) -> None:
         buf = _BufferedQueue(queue)
         watch_task = asyncio.create_task(self._watch(buf, manifest))
         try:
             await self._catch_up(queue, manifest, force_reindex)
             await buf.flush()
-            if startup_done:
-                startup_done.set()
+            if catchup_done:
+                catchup_done.set()
             await watch_task
         except Exception:
             watch_task.cancel()
