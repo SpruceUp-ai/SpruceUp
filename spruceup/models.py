@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Any, Type
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -44,3 +44,11 @@ class TargetTableConfig:
     table_name: str
     schema_class: type
     primary_key: str
+
+
+@dataclass
+class SyncTask:
+    source_type: str          # "local", "google_drive", etc.
+    identifier: str           # file path, Drive file ID, etc. (new path for moves)
+    change_type: str          # "upsert" | "delete" | "move"
+    old_identifier: str | None = field(default=None)  # previous path; only set for "move"

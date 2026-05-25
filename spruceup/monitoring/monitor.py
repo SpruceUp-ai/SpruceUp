@@ -12,7 +12,7 @@ from tenacity import (
 from watchfiles import awatch, Change
 
 from ..hashing import hash_file_content
-from .tasks import SyncTask
+from spruceup.models import SyncTask
 
 from ..manifest import Manifest
 
