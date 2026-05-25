@@ -3,9 +3,15 @@ import logging
 import pathlib
 from abc import ABC, abstractmethod
 
+from tenacity import (
+    AsyncRetrying,
+    before_sleep_log,
+    stop_after_attempt,
+    wait_exponential,
+)
 from watchfiles import awatch, Change
 from ..utils.hashing import hash_file_content
-from .tasks import SyncTask
+from ..models import SyncTask
 
 from ..manifest import Manifest
 
@@ -15,23 +21,45 @@ log = logging.getLogger(__name__)
 async def _with_retry(
     coro_fn,
     *args,
-    backoff_base: float = 1.0,
-    max_backoff: float = 60.0,
+    max_attempts: int = 20,
 ) -> None:
-    attempt = 0
-    while True:
-        try:
+    """
+    Retry coro_fn(*args) on failure with exponential backoff.
+
+    Wrap `watcher.run()` so a transient crash doesn't kill the watcher.
+    Each failed attempt is logged.
+    Retries up to `max_attempts` times before giving up.
+    The final exception is re-raised so `Monitor.run()` can surface it.
+
+    Note: this wraps the starting of a watcher.
+    A healthy watcher's own `run()` loop never returns, so it never re-enters
+    this retry logic.
+    """
+    async for attempt in AsyncRetrying(
+        stop=stop_after_attempt(max_attempts),
+        wait=wait_exponential(multiplier=1, max=60),
+        before_sleep=before_sleep_log(log, logging.WARNING),
+        reraise=True,
+        # retry=retry_if_exception_type((OSError, ConnectionError)) # can be expanded to retry for specific transient exceptions and permanently fail for others
+    ):
+        with attempt:
             await coro_fn(*args)
-            return
-        except Exception as exc:
-            delay = min(backoff_base * (2 ** attempt), max_backoff)
-            attempt += 1
-            log.warning("Watcher failed (attempt %d) — retrying in %.0fs: %s", attempt, delay, exc)
-            await asyncio.sleep(delay)
 
 
 class _BufferedQueue:
-    """during catch-up phase, directs calls to `put` to an internal buffer until flush() is called, then goes live."""
+    """
+    Buffers live watch events until catch-up is complete.
+
+    Because LocalFileWatcher starts watching before catch-up is complete,
+    live events may be enqueued before stale versions are processed.
+    This would result in out-of-order syncing, where the stale version
+    overwrites the latest version.
+    The buffer holds live events back so the catch-up versions are processed first.
+
+    Note: the buffer is unbounded and may grow indefinitely. Catch-up is
+    typically fast, but a very slow catch-up over a very active directory
+    would grow the buffer indefinitely.
+    """
 
     def __init__(self, target: asyncio.Queue):
         self._target = target
@@ -62,7 +90,7 @@ class BaseWatcher(ABC):
         queue: asyncio.Queue,
         manifest: "Manifest",
         force_reindex: bool = False,
-        startup_done: asyncio.Event | None = None,
+        catchup_done: asyncio.Event | None = None,
     ) -> None: ...
 
 
@@ -110,111 +138,122 @@ class LocalFileWatcher(BaseWatcher):
         queue: asyncio.Queue,
         manifest: "Manifest",
         force_reindex: bool = False,
-        startup_done: asyncio.Event | None = None,
+        catchup_done: asyncio.Event | None = None,
     ) -> None:
         buf = _BufferedQueue(queue)
         watch_task = asyncio.create_task(self._watch(buf, manifest))
         try:
             await self._catch_up(queue, manifest, force_reindex)
             await buf.flush()
-            if startup_done:
-                startup_done.set()
+            if catchup_done:
+                catchup_done.set()
             await watch_task
         except Exception:
             watch_task.cancel()
             raise
 
     async def _catch_up(
-        self, queue: asyncio.Queue, manifest: "Manifest", force_reindex: bool = False
+        self,
+        queue: asyncio.Queue,
+        manifest: "Manifest",
+        force_reindex: bool = False,
     ) -> None:
         log.info("Scanning %s …", self._root_path)
         con = manifest.connect()
-        cur = con.cursor()
-        seen_inodes = set()
         n_upserts = n_moves = n_deletes = 0
+        try:
+            cur = con.cursor()
+            seen_inodes = set()
 
-        for path in pathlib.Path(self._root_path).rglob("*"):
-            if not path.is_file():
-                continue
-            inode = path.stat().st_ino
-            current_path_str = str(path)
-            seen_inodes.add(inode)
-            if force_reindex:
-                await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
-                n_upserts += 1
-            else:
-                row = cur.execute(
-                    "SELECT file_path, content_hash FROM files WHERE inode = ? AND data_source_id = ?",
-                    (inode, self._data_source_id),
-                ).fetchone()
-                if row is None:
+            for path in pathlib.Path(self._root_path).rglob("*"):
+                if not path.is_file():
+                    continue
+                inode = path.stat().st_ino
+                current_path_str = str(path)
+                seen_inodes.add(inode)
+                if force_reindex:
                     await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
                     n_upserts += 1
                 else:
-                    db_path_val, db_hash = row[0], row[1]
-                    if db_hash != hash_file_content(path):
+                    row = cur.execute(
+                        "SELECT file_path, content_hash FROM files WHERE inode = ? AND data_source_id = ?",
+                        (inode, self._data_source_id),
+                    ).fetchone()
+                    if row is None:
                         await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
                         n_upserts += 1
-                    elif db_path_val != current_path_str:
-                        await queue.put(SyncTask(self._source_type, current_path_str, "move", old_identifier=db_path_val, data_source_id=self._data_source_id))
-                        n_moves += 1
+                    else:
+                        db_path_val, db_hash = row[0], row[1]
+                        if db_hash != hash_file_content(path):
+                            await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
+                            n_upserts += 1
+                        elif db_path_val != current_path_str:
+                            await queue.put(SyncTask(self._source_type, current_path_str, "move", old_identifier=db_path_val, data_source_id=self._data_source_id))
+                            n_moves += 1
 
-        for db_inode, db_path_val in cur.execute(
-            "SELECT inode, file_path FROM files WHERE data_source_id = ?",
-            (self._data_source_id,),
-        ).fetchall():
-            if db_inode not in seen_inodes:
-                await queue.put(SyncTask(self._source_type, db_path_val, "delete", data_source_id=self._data_source_id))
-                n_deletes += 1
-
-        con.close()
-        log.info(
-            "Catch-up complete — %d upsert(s)  %d move(s)  %d delete(s)",
-            n_upserts, n_moves, n_deletes,
-        )
-
-    async def _watch(self, queue: _BufferedQueue, manifest: "Manifest") -> None:
-        con = manifest.connect()
-        async for changes in awatch(self._root_path):
-            deleted_paths  = {path for change_type, path in changes if change_type == Change.deleted}
-            added_paths    = {path for change_type, path in changes if change_type == Change.added}
-            modified_paths = {path for change_type, path in changes if change_type == Change.modified}
-
-            added_by_inode = {
-                pathlib.Path(path).stat().st_ino: path
-                for path in added_paths
-                if pathlib.Path(path).exists()
-            }
-
-            moves = []
-            for old_path in deleted_paths:
-                row = con.execute(
-                    "SELECT inode FROM files WHERE file_path = ? AND data_source_id = ?",
-                    (old_path, self._data_source_id),
-                ).fetchone()
-                if row and row[0] in added_by_inode:
-                    moves.append((old_path, added_by_inode[row[0]]))
-
-            moved_old = {old for old, _ in moves}
-            moved_new = {new for _, new in moves}
-
-            n_upserts = n_moves = n_deletes = 0
-
-            for old_path, new_path in moves:
-                await queue.put(SyncTask(self._source_type, new_path, "move", old_identifier=old_path, data_source_id=self._data_source_id))
-                n_moves += 1
-
-            for path in deleted_paths - moved_old:
-                await queue.put(SyncTask(self._source_type, path, "delete", data_source_id=self._data_source_id))
-                n_deletes += 1
-
-            for path in (added_paths - moved_new) | modified_paths:
-                if pathlib.Path(path).is_file():
-                    await queue.put(SyncTask(self._source_type, path, "upsert", data_source_id=self._data_source_id))
-                    n_upserts += 1
+            for db_inode, db_path_val in cur.execute(
+                "SELECT inode, file_path FROM files WHERE data_source_id = ?",
+                (self._data_source_id,),
+            ).fetchall():
+                if db_inode not in seen_inodes:
+                    await queue.put(SyncTask(self._source_type, db_path_val, "delete", data_source_id=self._data_source_id))
+                    n_deletes += 1
 
             log.info(
-                "Change detected — %d upsert(s)  %d move(s)  %d delete(s)",
+                "Catch-up complete — %d upsert(s)  %d move(s)  %d delete(s)",
                 n_upserts, n_moves, n_deletes,
             )
-        con.close()
+        finally:
+            con.close()
+
+    async def _watch(self, queue: _BufferedQueue, manifest: "Manifest") -> None:
+        """
+        Long-running process that observes local files in the watched directory for changes.
+        Changes are queued for processing by the `Monitor`.
+        """
+        con = manifest.connect()
+        try:
+            async for changes in awatch(self._root_path):
+                deleted_paths  = {path for change_type, path in changes if change_type == Change.deleted}
+                added_paths    = {path for change_type, path in changes if change_type == Change.added}
+                modified_paths = {path for change_type, path in changes if change_type == Change.modified}
+
+                added_by_inode = {
+                    pathlib.Path(path).stat().st_ino: path
+                    for path in added_paths
+                    if pathlib.Path(path).exists()
+                }
+
+                moves = []
+                for old_path in deleted_paths:
+                    row = con.execute(
+                        "SELECT inode FROM files WHERE file_path = ? AND data_source_id = ?",
+                        (old_path, self._data_source_id),
+                    ).fetchone()
+                    if row and row[0] in added_by_inode:
+                        moves.append((old_path, added_by_inode[row[0]]))
+
+                moved_old = {old for old, _ in moves}
+                moved_new = {new for _, new in moves}
+
+                n_upserts = n_moves = n_deletes = 0
+
+                for old_path, new_path in moves:
+                    await queue.put(SyncTask(self._source_type, new_path, "move", old_identifier=old_path, data_source_id=self._data_source_id))
+                    n_moves += 1
+
+                for path in deleted_paths - moved_old:
+                    await queue.put(SyncTask(self._source_type, path, "delete", data_source_id=self._data_source_id))
+                    n_deletes += 1
+
+                for path in (added_paths - moved_new) | modified_paths:
+                    if pathlib.Path(path).is_file():
+                        await queue.put(SyncTask(self._source_type, path, "upsert", data_source_id=self._data_source_id))
+                        n_upserts += 1
+
+                log.info(
+                    "Change detected — %d upsert(s)  %d move(s)  %d delete(s)",
+                    n_upserts, n_moves, n_deletes,
+                )
+        finally:
+            con.close()
