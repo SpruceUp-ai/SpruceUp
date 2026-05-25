@@ -205,16 +205,13 @@ The retry behavior itself — infinite retries with exponential backoff, capped 
 |------|---------|
 | `spruceup/config.py` | `SpruceUpConfig` dataclass + `defineConfig()` function; validates connector types against ABCs |
 | `spruceup/connectors/__init__.py` | Re-exports all user-facing connector classes |
-| `spruceup/connectors/base.py` | Abstract base classes: `SourceConnector` (with `source_type`, `source_identifier`, `create_watcher`, `fetch`, `display_name`, `decode_content`), `TargetConnector`, `EmbedderConfig` |
+| `spruceup/connectors/base.py` | Abstract base classes: `SourceConnector` (with `source_type`, `source_identifier`, `create_watcher`, `fetch`, `display_name`, `decode_content`), `TargetConnector`, `EmbedderConfig`, `SyncTarget` |
 | `spruceup/connectors/sources/__init__.py` | Re-exports `LocalFilesSource` |
 | `spruceup/connectors/sources/local.py` | `LocalFilesSource(watched_dir)` — implements all `SourceConnector` abstract members including `fetch()`, `display_name()`, and `decode_content()` |
 | `spruceup/connectors/targets/__init__.py` | Re-exports `PgVectorTarget` |
-| `spruceup/connectors/targets/pgvector.py` | `PgVectorTarget(connstr, table, schema, primary_key)` — implements `create_sync_target()` returning `PgVectorSyncTarget` |
+| `spruceup/connectors/targets/pgvector.py` | `PgVectorTarget(connstr, table, schema, primary_key)` — implements `create_sync_target()` returning `PgVectorSyncTarget`; also contains `PgVectorSyncTarget` and its private helpers (`_ensure_table_exists`, `_upsert_chunks`, `_delete_chunks`) |
 | `spruceup/connectors/embedders/__init__.py` | Re-exports `OpenAIEmbedder` |
 | `spruceup/connectors/embedders/openai.py` | `OpenAIEmbedder(model)` — implements `create_provider()` returning `OpenAIProvider` |
-| `spruceup/sync_engine/target_connectors/__init__.py` | Makes `target_connectors` a package |
-| `spruceup/sync_engine/target_connectors/base.py` | `SyncTarget` ABC — defines `ensure_table_exists` and `sync_batch` interface |
-| `spruceup/sync_engine/target_connectors/pgvector.py` | `PgVectorSyncTarget(connstr)` — implements the Postgres-specific sync logic (upsert, delete, table creation) |
 
 ### Modified Files
 
@@ -237,7 +234,7 @@ The retry behavior itself — infinite retries with exponential backoff, capped 
 
 | What | Replaced By |
 |------|-------------|
-| `spruceup/sync_engine/target_db.py` | `target_connectors/pgvector.py` — same Postgres logic as `PgVectorSyncTarget` class |
+| `spruceup/sync_engine/target_db.py` | `connectors/targets/pgvector.py` — same Postgres logic, now as `PgVectorSyncTarget` class |
 | `LocalFileFetcher` class in `coordinator.py` | `LocalFilesSource.fetch()` — fetch logic lives on the connector |
 | `FetcherRegistry` class in `coordinator.py` | `source_registry: dict[int, SourceConnector]` — routing by `data_source_id`, not source type string |
 
