@@ -3,6 +3,12 @@ import logging
 import pathlib
 from abc import ABC, abstractmethod
 
+from tenacity import (
+    AsyncRetrying,
+    before_sleep_log,
+    stop_after_attempt,
+    wait_exponential,
+)
 from watchfiles import awatch, Change
 from ..utils.hashing import hash_file_content
 from .tasks import SyncTask
@@ -15,19 +21,29 @@ log = logging.getLogger(__name__)
 async def _with_retry(
     coro_fn,
     *args,
-    backoff_base: float = 1.0,
-    max_backoff: float = 60.0,
+    max_attempts: int = 20,
 ) -> None:
-    attempt = 0
-    while True:
-        try:
+    """
+    Retry coro_fn(*args) on failure with exponential backoff.
+
+    Wrap `watcher.run()` so a transient crash doesn't kill the watcher.
+    Each failed attempt is logged.
+    Retries up to `max_attempts` times before giving up.
+    The final exception is re-raised so `Monitor.run()` can surface it.
+
+    Note: this wraps the starting of a watcher.
+    A healthy watcher's own `run()` loop never returns, so it never re-enters
+    this retry logic.
+    """
+    async for attempt in AsyncRetrying(
+        stop=stop_after_attempt(max_attempts),
+        wait=wait_exponential(multiplier=1, max=60),
+        before_sleep=before_sleep_log(log, logging.WARNING),
+        reraise=True,
+        # retry=retry_if_exception_type((OSError, ConnectionError)) # can be expanded to retry for specific transient exceptions and permanently fail for others
+    ):
+        with attempt:
             await coro_fn(*args)
-            return
-        except Exception as exc:
-            delay = min(backoff_base * (2 ** attempt), max_backoff)
-            attempt += 1
-            log.warning("Watcher failed (attempt %d) — retrying in %.0fs: %s", attempt, delay, exc)
-            await asyncio.sleep(delay)
 
 
 class _BufferedQueue:
@@ -174,6 +190,10 @@ class LocalFileWatcher(BaseWatcher):
         )
 
     async def _watch(self, queue: _BufferedQueue, manifest: "Manifest") -> None:
+        """
+        Long-running process that observes local files in the watched directory for changes.
+        Changes are queued for processing by the `Monitor`.
+        """
         con = manifest.connect()
         async for changes in awatch(self._root_path):
             deleted_paths  = {path for change_type, path in changes if change_type == Change.deleted}
