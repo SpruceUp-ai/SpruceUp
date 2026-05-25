@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Type
+from typing import Any
 
 
 @dataclass
@@ -21,10 +21,3 @@ class SpruceFile:
     data_source_id: int
     raw_content: str | bytes
     chunks: list[ChunkWrapper]
-
-
-@dataclass
-class TargetTableConfig:
-    table_name: str
-    schema_class: type
-    primary_key: str

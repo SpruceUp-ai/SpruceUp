@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from ..models import ChunkWrapper, SpruceFile, TargetTableConfig
+from ..models import ChunkWrapper, SpruceFile
 
 
 class SourceConnector(ABC):
@@ -27,22 +27,12 @@ class SourceConnector(ABC):
 
 class TargetConnector(ABC):
     @abstractmethod
-    def create_sync_target(self): ...
-
-
-class EmbedderConfig(ABC):
-    @abstractmethod
-    def create_provider(self): ...
-
-
-class SyncTarget(ABC):
-    @abstractmethod
-    def ensure_table_exists(self, config: TargetTableConfig) -> None: ...
+    def ensure_table_exists(self) -> None: ...
 
     @abstractmethod
-    def sync_batch(
-        self,
-        upserts: list[ChunkWrapper],
-        deletes: list,
-        config: TargetTableConfig,
-    ) -> None: ...
+    def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None: ...
+
+
+class EmbedderConnector(ABC):
+    @abstractmethod
+    async def process_chunks(self, chunks: list[str]) -> list[list[float]]: ...

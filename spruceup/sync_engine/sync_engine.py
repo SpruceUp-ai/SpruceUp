@@ -3,36 +3,18 @@ import pathlib
 
 from ..utils.hashing import hash_file_path
 from ..manifest import Manifest
-from ..models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
-from ..connectors.base import SyncTarget
+from ..models import ChunkWrapper, SpruceFile
+from ..connectors.base import TargetConnector
 
 log = logging.getLogger(__name__)
 
 
 class SyncEngine:
-    def __init__(self, manifest: Manifest, sync_target: SyncTarget) -> None:
+    def __init__(self, manifest: Manifest, target: TargetConnector) -> None:
         self._manifest = manifest
-        self._sync_target = sync_target
-        self._config: TargetTableConfig | None = None
-
-    def define_target_table(
-        self,
-        table_name: str,
-        schema_from_class: type,
-        primary_key: str,
-    ) -> None:
-        """Register the user's chunk schema and ensure the target table exists."""
-        self._config = TargetTableConfig(
-            table_name=table_name,
-            schema_class=schema_from_class,
-            primary_key=primary_key,
-        )
-        self._sync_target.ensure_table_exists(self._config)
+        self._target = target
 
     def reconcile(self, files: list[SpruceFile]) -> None:
-        """Upsert new/changed chunks, delete orphaned chunks, then stamp each file row."""
-        assert self._config is not None, "Call define_target_table() before reconcile()"
-
         manifest_upserts: list[tuple[bytes, ChunkWrapper]] = []
         target_upserts: list[ChunkWrapper] = []
         manifest_deletes: list[bytes] = []
@@ -41,7 +23,7 @@ class SyncEngine:
         with self._manifest.connect() as conn:
             for file in files:
                 prev_chunks = self._manifest.get_chunks_for_file(
-                    conn, file.file_id, self._config.primary_key
+                    conn, file.file_id, self._target.primary_key
                 )
 
                 chunks_by_id: dict[bytes, dict] = {
@@ -73,7 +55,7 @@ class SyncEngine:
                     conn, file.file_id, file.file_path
                 )
 
-            self._sync_target.sync_batch(target_upserts, target_deletes, self._config)
+            self._target.sync(target_upserts, target_deletes)
 
             self._manifest.upsert_chunks(conn, manifest_upserts)
             self._manifest.delete_chunks(conn, manifest_deletes)
@@ -89,11 +71,6 @@ class SyncEngine:
         )
 
     def move_file(self, old_path: str, new_path: str) -> None:
-        """Update the manifest when a file is renamed/moved without re-embedding.
-
-        The vectors in the target DB are keyed by user-defined primary keys (content-based),
-        so they remain valid after a rename. Only the SQLite manifest needs updating.
-        """
         old_file_id = hash_file_path(old_path)
         new_file_id = hash_file_path(new_path)
         with self._manifest.connect() as conn:
@@ -105,18 +82,15 @@ class SyncEngine:
         )
 
     def delete_file(self, file_path: str) -> None:
-        """Delete all vectors for a file that has been removed from the corpus."""
-        assert self._config is not None, "Call define_target_table() before delete_file()"
-
         file_id = hash_file_path(file_path)
         with self._manifest.connect() as conn:
             chunks = self._manifest.get_chunks_for_file(
-                conn, file_id, self._config.primary_key
+                conn, file_id, self._target.primary_key
             )
             manifest_chunk_ids = [c["manifest_chunk_id"] for c in chunks]
             target_pks = [c["user_pk"] for c in chunks]
 
-            self._sync_target.sync_batch([], target_pks, self._config)
+            self._target.sync([], target_pks)
 
             self._manifest.delete_chunks(conn, manifest_chunk_ids)
             self._manifest.delete_file_row(conn, file_id)

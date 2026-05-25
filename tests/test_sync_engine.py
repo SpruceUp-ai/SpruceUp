@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import pytest
 
 from spruceup.manifest import Manifest
-from spruceup.models import ChunkWrapper, TargetTableConfig, UserDefinedChunkSchema
+from spruceup.models import ChunkWrapper
 from spruceup.sync_engine import (
     ChunkWrapper,
     SpruceFile,
@@ -21,34 +21,32 @@ from spruceup.sync_engine import (
     hash_file_path,
     hash_object,
 )
-from spruceup.connectors.base import SyncTarget
+from spruceup.connectors.base import TargetConnector
 
 
 # ---------------------------------------------------------------------------
-# Minimal test schema and SyncTarget mock
+# Minimal test schema and TargetConnector mock
 # ---------------------------------------------------------------------------
 
 @dataclass
-class SimpleChunkSchema(UserDefinedChunkSchema):
-    """Uses only the three base fields: id, chunk_text, chunk_embedding."""
-    pass
+class SimpleChunk:
+    id: str
+    chunk_text: str
+    chunk_embedding: list[float]
 
 
-class MockSyncTarget(SyncTarget):
-    """Records sync_batch calls instead of writing to a real database."""
+class MockSyncTarget(TargetConnector):
+    """Records sync calls instead of writing to a real database."""
+
+    primary_key = "id"
 
     def __init__(self):
         self.calls: list[dict] = []
 
-    def ensure_table_exists(self, config: TargetTableConfig) -> None:
+    def ensure_table_exists(self) -> None:
         pass
 
-    def sync_batch(
-        self,
-        upserts: list[ChunkWrapper],
-        deletes: list,
-        config: TargetTableConfig,
-    ) -> None:
+    def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
         self.calls.append({"upserts": list(upserts), "deletes": list(deletes)})
 
     def inserted_ids(self) -> list:
@@ -85,13 +83,7 @@ def tmp_manifest(tmp_path):
 def engine(tmp_manifest, pg):
     manifest = Manifest(tmp_manifest)
     manifest.register_source("local", "/test-corpus")  # creates data_sources row id=1
-    e = SyncEngine(manifest=manifest, sync_target=pg)
-    e.define_target_table(
-        table_name="vectors",
-        schema_from_class=SimpleChunkSchema,
-        primary_key="id",
-    )
-    return e
+    return SyncEngine(manifest=manifest, target=pg)
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +91,7 @@ def engine(tmp_manifest, pg):
 # ---------------------------------------------------------------------------
 
 def make_chunk(file_path: str, chunk_id: str, text: str, ordinal: int) -> ChunkWrapper:
-    user_chunk = SimpleChunkSchema(id=chunk_id, chunk_text=text, chunk_embedding=[0.1, 0.2, 0.3])
+    user_chunk = SimpleChunk(id=chunk_id, chunk_text=text, chunk_embedding=[0.1, 0.2, 0.3])
     return ChunkWrapper(
         user_chunk=user_chunk,
         user_chunk_object_hash=hash_object(user_chunk),
@@ -153,11 +145,6 @@ def file_path_in_manifest(manifest_path: str, file_id: bytes) -> str | None:
 # ---------------------------------------------------------------------------
 
 class TestReconcile:
-
-    def test_requires_define_target_table(self, tmp_manifest, pg):
-        engine = SyncEngine(manifest=Manifest(tmp_manifest), sync_target=MockSyncTarget())
-        with pytest.raises(AssertionError):
-            engine.reconcile([])
 
     def test_new_chunks_upserted_to_postgres(self, engine, pg):
         chunks = [
@@ -287,11 +274,6 @@ class TestReconcile:
 
 class TestDeleteFile:
 
-    def test_requires_define_target_table(self, tmp_manifest, pg):
-        engine = SyncEngine(manifest=Manifest(tmp_manifest), sync_target=MockSyncTarget())
-        with pytest.raises(AssertionError):
-            engine.delete_file(FILE_PATH_A)
-
     def test_sends_chunk_pks_to_postgres(self, engine, pg):
         chunks = [
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
@@ -318,7 +300,7 @@ class TestDeleteFile:
         engine.delete_file(FILE_PATH_A)
         assert file_row(tmp_manifest, FILE_ID_A) is None
 
-    def test_unknown_file_does_not_call_postgres(self, engine, pg):
+    def test_unknown_file_does_not_delete_from_postgres(self, engine, pg):
         pg.reset()
         engine.delete_file(FILE_PATH_A)  # never reconciled, no chunks in manifest
         assert pg.deleted_ids() == []

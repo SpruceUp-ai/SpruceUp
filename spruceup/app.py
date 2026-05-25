@@ -2,7 +2,6 @@ import asyncio
 import logging
 
 from spruceup.coordinator import Coordinator
-from spruceup.embedding import Embedder
 from spruceup.manifest import Manifest
 from spruceup.monitoring.monitor import Monitor
 from spruceup.sync_engine import SyncEngine
@@ -18,7 +17,7 @@ async def run(pipeline) -> None:
 
     log.info(
         "SpruceUp starting — manifest=%s  target=%s",
-        MANIFEST_PATH, config.target.table,
+        manifest._path, config.target.table,
     )
 
     transform_hash = hash_transform(config.transform)
@@ -28,14 +27,9 @@ async def run(pipeline) -> None:
     else:
         log.info("Transform function unchanged — incremental sync")
 
-    sync_engine = SyncEngine(manifest=manifest, sync_target=config.target.create_sync_target())
-    sync_engine.define_target_table(
-        table_name=config.target.table,
-        schema_from_class=config.target.schema,
-        primary_key=config.target.primary_key,
-    )
+    config.target.ensure_table_exists()
+    sync_engine = SyncEngine(manifest=manifest, target=config.target)
 
-    embedder = Embedder(provider=config.embeddings.create_provider())
     queue: asyncio.Queue = asyncio.Queue()
 
     monitor = Monitor(queue, manifest, transform_hash=transform_hash)
@@ -51,7 +45,7 @@ async def run(pipeline) -> None:
     coordinator = Coordinator(
         queue=queue,
         transform=config.transform,
-        embedder=embedder,
+        embedder=config.embeddings,
         sync_engine=sync_engine,
         schema_class=config.target.schema,
         primary_key=config.target.primary_key,
