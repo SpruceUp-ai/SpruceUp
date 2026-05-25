@@ -4,7 +4,7 @@ import pathlib
 from ..utils.hashing import hash_file_path
 from ..manifest import Manifest
 from ..models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
-from .target_connectors.base import SyncTarget
+from ..connectors.base import SyncTarget
 
 log = logging.getLogger(__name__)
 

@@ -22,7 +22,7 @@ from spruceup.sync_engine import (
     hash_file_path,
     hash_object,
 )
-from spruceup.sync_engine.target_connectors.base import SyncTarget
+from spruceup.connectors.base import SyncTarget
 
 
 # ---------------------------------------------------------------------------
