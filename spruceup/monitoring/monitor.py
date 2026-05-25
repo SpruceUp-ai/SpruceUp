@@ -11,7 +11,7 @@ from tenacity import (
 )
 from watchfiles import awatch, Change
 from ..utils.hashing import hash_file_content
-from .tasks import SyncTask
+from ..models import SyncTask
 
 from ..manifest import Manifest
 
