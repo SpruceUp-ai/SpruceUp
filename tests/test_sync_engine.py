@@ -11,7 +11,6 @@ from dataclasses import dataclass
 
 import pytest
 
-from spruceup.db import init_db
 from spruceup.manifest import Manifest
 from spruceup.models import ChunkWrapper, TargetTableConfig, UserDefinedChunkSchema
 from spruceup.sync_engine import (
@@ -84,7 +83,6 @@ def tmp_manifest(tmp_path):
 
 @pytest.fixture
 def engine(tmp_manifest, pg):
-    init_db(tmp_manifest)
     manifest = Manifest(tmp_manifest)
     manifest.register_source("local", "/test-corpus")  # creates data_sources row id=1
     e = SyncEngine(manifest=manifest, sync_target=pg)
@@ -157,7 +155,6 @@ def file_path_in_manifest(manifest_path: str, file_id: bytes) -> str | None:
 class TestReconcile:
 
     def test_requires_define_target_table(self, tmp_manifest, pg):
-        init_db(tmp_manifest)
         engine = SyncEngine(manifest=Manifest(tmp_manifest), sync_target=MockSyncTarget())
         with pytest.raises(AssertionError):
             engine.reconcile([])
@@ -291,7 +288,6 @@ class TestReconcile:
 class TestDeleteFile:
 
     def test_requires_define_target_table(self, tmp_manifest, pg):
-        init_db(tmp_manifest)
         engine = SyncEngine(manifest=Manifest(tmp_manifest), sync_target=MockSyncTarget())
         with pytest.raises(AssertionError):
             engine.delete_file(FILE_PATH_A)

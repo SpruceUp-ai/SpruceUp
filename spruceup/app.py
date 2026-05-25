@@ -2,7 +2,6 @@ import asyncio
 import logging
 
 from spruceup.coordinator import Coordinator
-from spruceup.db import init_db
 from spruceup.embedding import Embedder
 from spruceup.manifest import Manifest
 from spruceup.monitoring.monitor import Monitor
@@ -11,12 +10,9 @@ from spruceup.utils.hashing import hash_transform
 
 log = logging.getLogger(__name__)
 
-MANIFEST_PATH = "spruceup_manifest.db"
-
 
 async def run(pipeline) -> None:
-    init_db(MANIFEST_PATH)
-    manifest = Manifest(MANIFEST_PATH)
+    manifest = Manifest()
 
     config = pipeline.config
 

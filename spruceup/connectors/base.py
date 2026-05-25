@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from ..models import ChunkWrapper, TargetTableConfig
+from ..models import ChunkWrapper, SpruceFile, TargetTableConfig
 
 
 class SourceConnector(ABC):

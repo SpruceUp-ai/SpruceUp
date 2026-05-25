@@ -2,15 +2,64 @@ import dataclasses
 import json
 import sqlite3
 
-from .utils.hashing import hash_transform
 from .models import ChunkWrapper, SpruceFile
+
+_MANIFEST_PATH = "spruceup_manifest.db"
 
 
 class Manifest:
     """Single access point for all SQLite manifest reads and writes."""
 
-    def __init__(self, path: str):
+    def __init__(self, path: str = _MANIFEST_PATH):
         self._path = path
+        self._init_db()
+
+    def _init_db(self) -> None:
+        con = self.connect()
+        try:
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS data_sources (
+                    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source_type       TEXT NOT NULL,
+                    source_identifier TEXT NOT NULL,
+                    UNIQUE(source_type, source_identifier)
+                )
+                """
+            )
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS files (
+                    id             BLOB PRIMARY KEY,
+                    file_path      TEXT NOT NULL,
+                    inode          INTEGER,
+                    content_hash   BLOB,
+                    mtime          REAL,
+                    data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
+                    file_type      TEXT
+                )
+                """
+            )
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS chunks (
+                    id                     BLOB PRIMARY KEY,
+                    file_id                BLOB REFERENCES files(id) ON DELETE CASCADE,
+                    user_chunk_object_hash BLOB,
+                    user_chunk_object      BLOB
+                )
+                """
+            )
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS transform_hashes (
+                    transform_hash BLOB PRIMARY KEY
+                )
+                """
+            )
+            con.commit()
+        finally:
+            con.close()
 
     def connect(self) -> sqlite3.Connection:
         """Return a connection suitable for use as a context manager (transaction semantics)."""
