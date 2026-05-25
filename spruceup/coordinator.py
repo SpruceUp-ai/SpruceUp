@@ -1,7 +1,7 @@
 import logging
 
 from .models import ChunkWrapper
-from .monitoring.tasks import SyncTask
+from .models import SyncTask
 from .utils.hashing import hash_chunk_id, hash_object
 from .sync_engine import SyncEngine
 from .utils.validation import validate_schema_objects
@@ -37,7 +37,7 @@ class Coordinator:
         try:
             if task.change_type == "delete":
                 log.info("[delete] %s", filename)
-                await self._sync_engine.delete_file(task.identifier)            
+                await self._sync_engine.delete_file(task.identifier)
             elif task.change_type == "move":
                 old_name = source.display_name(task.old_identifier)
                 log.info("[move] %s → %s", old_name, filename)
