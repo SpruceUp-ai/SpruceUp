@@ -1,10 +1,10 @@
 import logging
 import pathlib
 
-from ..utils.hashing import hash_file_path
+from ..connectors.base import TargetConnector
 from ..manifest import Manifest
 from ..models import ChunkWrapper, SpruceFile
-from ..connectors.base import TargetConnector
+from ..utils.hashing import hash_file_path
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class SyncEngine:
             len(target_deletes),
         )
 
-    def move_file(self, old_path: str, new_path: str) -> None:
+    async def move_file(self, old_path: str, new_path: str) -> None:
         old_file_id = hash_file_path(old_path)
         new_file_id = hash_file_path(new_path)
         with self._manifest.connect() as conn:
@@ -81,7 +81,7 @@ class SyncEngine:
             pathlib.Path(new_path).name,
         )
 
-    def delete_file(self, file_path: str) -> None:
+    async def delete_file(self, file_path: str) -> None:
         file_id = hash_file_path(file_path)
         with self._manifest.connect() as conn:
             chunks = self._manifest.get_chunks_for_file(

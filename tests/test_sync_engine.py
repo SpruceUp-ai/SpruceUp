@@ -273,8 +273,9 @@ class TestReconcile:
 # ---------------------------------------------------------------------------
 
 class TestDeleteFile:
+    pytestmark = pytest.mark.anyio
 
-    def test_sends_chunk_pks_to_postgres(self, engine, pg):
+    async def test_sends_chunk_pks_to_postgres(self, engine, pg):
         chunks = [
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
@@ -282,27 +283,27 @@ class TestDeleteFile:
         engine.reconcile([make_file(FILE_PATH_A, chunks)])
         pg.reset()
 
-        engine.delete_file(FILE_PATH_A)
+        await engine.delete_file(FILE_PATH_A)
         assert set(pg.deleted_ids()) == {"c1", "c2"}
 
-    def test_removes_chunks_from_manifest(self, engine, tmp_manifest):
+    async def test_removes_chunks_from_manifest(self, engine, tmp_manifest):
         chunks = [
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
         ]
         engine.reconcile([make_file(FILE_PATH_A, chunks)])
-        engine.delete_file(FILE_PATH_A)
+        await engine.delete_file(FILE_PATH_A)
         assert chunk_count(tmp_manifest, FILE_ID_A) == 0
 
-    def test_removes_file_row_from_manifest(self, engine, tmp_manifest):
+    async def test_removes_file_row_from_manifest(self, engine, tmp_manifest):
         chunks = [make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1)]
         engine.reconcile([make_file(FILE_PATH_A, chunks)])
-        engine.delete_file(FILE_PATH_A)
+        await engine.delete_file(FILE_PATH_A)
         assert file_row(tmp_manifest, FILE_ID_A) is None
 
-    def test_unknown_file_does_not_delete_from_postgres(self, engine, pg):
+    async def test_unknown_file_does_not_delete_from_postgres(self, engine, pg):
         pg.reset()
-        engine.delete_file(FILE_PATH_A)  # never reconciled, no chunks in manifest
+        await engine.delete_file(FILE_PATH_A)  # never reconciled, no chunks in manifest
         assert pg.deleted_ids() == []
 
 
@@ -311,39 +312,40 @@ class TestDeleteFile:
 # ---------------------------------------------------------------------------
 
 class TestMoveFile:
+    pytestmark = pytest.mark.anyio
 
-    def test_old_file_row_removed(self, engine, tmp_manifest):
+    async def test_old_file_row_removed(self, engine, tmp_manifest):
         engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
-        engine.move_file(FILE_PATH_A, FILE_PATH_B)
+        await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_row(tmp_manifest, FILE_ID_A) is None
 
-    def test_new_file_row_created(self, engine, tmp_manifest):
+    async def test_new_file_row_created(self, engine, tmp_manifest):
         engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
-        engine.move_file(FILE_PATH_A, FILE_PATH_B)
+        await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_row(tmp_manifest, FILE_ID_B) is not None
 
-    def test_new_file_row_has_correct_path(self, engine, tmp_manifest):
+    async def test_new_file_row_has_correct_path(self, engine, tmp_manifest):
         engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
-        engine.move_file(FILE_PATH_A, FILE_PATH_B)
+        await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_path_in_manifest(tmp_manifest, FILE_ID_B) == FILE_PATH_B
 
-    def test_chunks_repointed_to_new_file(self, engine, tmp_manifest):
+    async def test_chunks_repointed_to_new_file(self, engine, tmp_manifest):
         chunks = [
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
         ]
         engine.reconcile([make_file(FILE_PATH_A, chunks)])
-        engine.move_file(FILE_PATH_A, FILE_PATH_B)
+        await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert chunk_count(tmp_manifest, FILE_ID_A) == 0
         assert chunk_count(tmp_manifest, FILE_ID_B) == 2
 
-    def test_does_not_write_to_postgres(self, engine, pg):
+    async def test_does_not_write_to_postgres(self, engine, pg):
         engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
         pg.reset()
-        engine.move_file(FILE_PATH_A, FILE_PATH_B)
+        await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert pg.calls == []
 
-    def test_unknown_file_move_is_noop(self, engine, tmp_manifest):
-        engine.move_file(FILE_PATH_A, FILE_PATH_B)
+    async def test_unknown_file_move_is_noop(self, engine, tmp_manifest):
+        await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_row(tmp_manifest, FILE_ID_A) is None
         assert file_row(tmp_manifest, FILE_ID_B) is None

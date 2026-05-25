@@ -45,10 +45,8 @@ async def run(pipeline) -> None:
     coordinator = Coordinator(
         queue=queue,
         transform=config.transform,
-        embedder=config.embeddings,
+        embedder=config.embedder,
         sync_engine=sync_engine,
-        schema_class=config.target.schema,
-        primary_key=config.target.primary_key,
         source_registry=source_registry,
     )
 

@@ -61,7 +61,7 @@ config = defineConfig(
         schema=LectureChunk,
         primary_key="id",
     ),
-    embeddings=OpenAIEmbedder(
+    embedder=OpenAIEmbedder(
         model="text-embedding-3-small",
     ),
     transform=build_lecture_chunks,

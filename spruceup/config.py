@@ -8,11 +8,11 @@ from .connectors.base import EmbedderConnector, SourceConnector, TargetConnector
 class SpruceUpConfig:
     sources: list[SourceConnector]
     target: TargetConnector
-    embeddings: EmbedderConnector
+    embedder: EmbedderConnector
     transform: Callable
 
 
-def defineConfig(*, sources, target, embeddings, transform) -> SpruceUpConfig:
+def defineConfig(*, sources, target, embedder, transform) -> SpruceUpConfig:
     if not isinstance(sources, list) or not sources:
         raise ValueError("sources must be a non-empty list of source connectors")
     for i, source in enumerate(sources):
@@ -24,12 +24,12 @@ def defineConfig(*, sources, target, embeddings, transform) -> SpruceUpConfig:
     if not isinstance(target, TargetConnector):
         raise TypeError(f"target must be a TargetConnector, got {type(target).__name__!r}")
 
-    if not isinstance(embeddings, EmbedderConnector):
+    if not isinstance(embedder, EmbedderConnector):
         raise TypeError(
-            f"embeddings must be an EmbedderConnector, got {type(embeddings).__name__!r}"
+            f"embedder must be an EmbedderConnector, got {type(embedder).__name__!r}"
         )
 
     if not callable(transform):
         raise TypeError(f"transform must be a callable, got {type(transform).__name__!r}")
 
-    return SpruceUpConfig(sources=sources, target=target, embeddings=embeddings, transform=transform)
+    return SpruceUpConfig(sources=sources, target=target, embedder=embedder, transform=transform)

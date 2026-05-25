@@ -18,16 +18,13 @@ class Coordinator:
         transform,
         embedder,
         sync_engine: SyncEngine,
-        schema_class: type,
-        primary_key: str,
         source_registry: dict,
     ):
         self._queue = queue
         self._transform = transform
         self._embedder = embedder
         self._sync_engine = sync_engine
-        self._schema_class = schema_class
-        self._primary_key = primary_key
+        self._target = sync_engine._target
         self._source_registry = source_registry
         self._active_tasks = set()
 
@@ -60,7 +57,7 @@ class Coordinator:
             },
             embed=self._embedder.process_chunks,
         )
-        validate_schema_objects(schema_objs, self._schema_class, self._primary_key)
+        validate_schema_objects(schema_objs, self._target.schema, self._target.primary_key)
         log.info("[upsert] %s — %d chunk(s)", filename, len(schema_objs))
 
         chunks = [
