@@ -1,13 +1,13 @@
 import asyncio
 import logging
 
-import spruceup.registry as registry
 from spruceup.coordinator import Coordinator
 from spruceup.db import init_db
 from spruceup.embedding import Embedder
 from spruceup.manifest import Manifest
 from spruceup.monitoring.monitor import Monitor
 from spruceup.sync_engine import SyncEngine
+from spruceup.utils.hashing import hash_transform
 
 log = logging.getLogger(__name__)
 
@@ -25,11 +25,12 @@ async def run(pipeline) -> None:
         MANIFEST_PATH, config.target.table,
     )
 
-    force_reindex = manifest.transform_hashes_changed(registry.tracker.hashes)
+    transform_hash = hash_transform(config.transform)
+    force_reindex = manifest.transform_hash_changed(transform_hash)
     if force_reindex:
-        log.info("Transform functions changed — full reindex scheduled")
+        log.info("Transform function changed — full reindex scheduled")
     else:
-        log.info("Transform functions unchanged — incremental sync")
+        log.info("Transform function unchanged — incremental sync")
 
     sync_engine = SyncEngine(manifest=manifest, sync_target=config.target.create_sync_target())
     sync_engine.define_target_table(
@@ -41,7 +42,7 @@ async def run(pipeline) -> None:
     embedder = Embedder(provider=config.embeddings.create_provider())
     queue: asyncio.Queue = asyncio.Queue()
 
-    monitor = Monitor(queue, manifest, transform_tracker=registry.tracker)
+    monitor = Monitor(queue, manifest, transform_hash=transform_hash)
     active_source_ids = []
     source_registry = {}
     for source in config.sources:
@@ -53,7 +54,7 @@ async def run(pipeline) -> None:
 
     coordinator = Coordinator(
         queue=queue,
-        transform=registry.transform_fn,
+        transform=config.transform,
         embedder=embedder,
         sync_engine=sync_engine,
         schema_class=config.target.schema,

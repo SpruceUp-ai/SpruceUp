@@ -1,25 +1,13 @@
-"""
-Example SpruceUp pipeline for a lecture-notes corpus.
-
-Define your transform function using the provided decorator, then call
-defineConfig() with your source, target, and embedding connectors.
-
-  @transform  — converts a file into a list of your schema objects;
-                call embed(chunk_strs) to get embeddings and assign them yourself
-"""
-
 import hashlib
 import os
 import pathlib
 from dataclasses import dataclass
 
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, defineConfig, transform
+from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, defineConfig
 
 
-# ---------------------------------------------------------------------------
-# User-defined schema
-# ---------------------------------------------------------------------------
+# --- schema -----------------------------------------------------------
 
 @dataclass
 class LectureChunk:
@@ -29,13 +17,14 @@ class LectureChunk:
     lecture_title: str
 
 
-# ---------------------------------------------------------------------------
-# Transform function
-# ---------------------------------------------------------------------------
+# --- memoized helpers -------------------------------------------------
 
-@transform
+# placeholder for memoized subfunctions
+
+
+# --- transform --------------------------------------------------------
+
 async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]:
-    """Parse a file into chunks, embed them, and return LectureChunk objects."""
     content = file_props["raw_content"]
     ext = pathlib.Path(file_props["file_path"]).suffix.lower()
 
@@ -54,15 +43,13 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
             id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
             chunk_text=text,
             chunk_embedding=embedding,
-            lecture_title="",
+            lecture_title=pathlib.Path(file_props["file_path"]).stem,
         )
         for text, embedding in zip(chunk_strs, embeddings)
     ]
 
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
+# --- config -----------------------------------------------------------
 
 config = defineConfig(
     sources=[
@@ -77,4 +64,5 @@ config = defineConfig(
     embeddings=OpenAIEmbedder(
         model="text-embedding-3-small",
     ),
+    transform=build_lecture_chunks,
 )

@@ -67,11 +67,11 @@ class BaseWatcher(ABC):
 
 
 class Monitor:
-    def __init__(self, queue: asyncio.Queue, manifest: "Manifest", transform_tracker=None):
+    def __init__(self, queue: asyncio.Queue, manifest: "Manifest", transform_hash: bytes | None = None):
         self._watchers: list[BaseWatcher] = []
         self._queue = queue
         self._manifest = manifest
-        self._transform_tracker = transform_tracker
+        self._transform_hash = transform_hash
 
     def add_watcher(self, watcher: BaseWatcher) -> None:
         self._watchers.append(watcher)
@@ -88,8 +88,8 @@ class Monitor:
             for watcher, event in zip(self._watchers, watcher_events)
         ]
         await asyncio.gather(*[event.wait() for event in watcher_events])
-        if force_reindex and self._manifest and self._transform_tracker:
-            self._manifest.update_transform_hashes(self._transform_tracker.hashes)
+        if force_reindex and self._manifest and self._transform_hash is not None:
+            self._manifest.update_transform_hash(self._transform_hash)
         if startup_done:
             startup_done.set()
         await asyncio.gather(*tasks)

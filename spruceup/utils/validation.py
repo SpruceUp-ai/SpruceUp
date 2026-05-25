@@ -1,4 +1,3 @@
-import spruceup.registry as registry
 from spruceup.config import SpruceUpConfig
 
 _MISSING = object()
@@ -47,8 +46,8 @@ def validate_pipeline(pipeline) -> None:
             f"  config must be the result of defineConfig(), got {type(config).__name__!r}"
         )
 
-    if registry.transform_fn is None:
-        errors.append("  no @transform function was registered")
+    if config is not None and isinstance(config, SpruceUpConfig) and config.transform is None:
+        errors.append("  no transform function was provided to defineConfig()")
 
     if errors:
         raise SystemExit(

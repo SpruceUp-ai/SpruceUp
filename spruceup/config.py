@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Callable
 
 from .connectors.base import EmbedderConfig, SourceConnector, TargetConnector
 
@@ -8,9 +9,10 @@ class SpruceUpConfig:
     sources: list[SourceConnector]
     target: TargetConnector
     embeddings: EmbedderConfig
+    transform: Callable
 
 
-def defineConfig(*, sources, target, embeddings) -> SpruceUpConfig:
+def defineConfig(*, sources, target, embeddings, transform) -> SpruceUpConfig:
     if not isinstance(sources, list) or not sources:
         raise ValueError("sources must be a non-empty list of source connectors")
     for i, source in enumerate(sources):
@@ -27,4 +29,7 @@ def defineConfig(*, sources, target, embeddings) -> SpruceUpConfig:
             f"embeddings must be an EmbedderConfig, got {type(embeddings).__name__!r}"
         )
 
-    return SpruceUpConfig(sources=sources, target=target, embeddings=embeddings)
+    if not callable(transform):
+        raise TypeError(f"transform must be a callable, got {type(transform).__name__!r}")
+
+    return SpruceUpConfig(sources=sources, target=target, embeddings=embeddings, transform=transform)

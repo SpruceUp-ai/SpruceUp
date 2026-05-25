@@ -124,17 +124,14 @@ class Manifest:
     # Transform-hash operations (self-contained — manage their own connections)
     # ------------------------------------------------------------------
 
-    def transform_hashes_changed(self, transform_hashes: list[bytes]) -> bool:
-        """Return True if any hash in transform_hashes is absent from the manifest."""
+    def transform_hash_changed(self, transform_hash: bytes) -> bool:
+        """Return True if transform_hash is absent from the manifest."""
         con = self.connect()
         try:
-            for h in transform_hashes:
-                row = con.execute(
-                    "SELECT 1 FROM transform_hashes WHERE transform_hash = ?", (h,)
-                ).fetchone()
-                if row is None:
-                    return True
-            return False
+            row = con.execute(
+                "SELECT 1 FROM transform_hashes WHERE transform_hash = ?", (transform_hash,)
+            ).fetchone()
+            return row is None
         finally:
             con.close()
 
@@ -168,19 +165,14 @@ class Manifest:
         finally:
             con.close()
 
-    def update_transform_hashes(self, transform_hashes: list[bytes]) -> None:
-        """Replace stored transform hashes with the current set."""
-        placeholders = ",".join("?" * len(transform_hashes))
+    def update_transform_hash(self, transform_hash: bytes) -> None:
+        """Replace the stored transform hash with the current one."""
         con = self.connect()
         try:
+            con.execute("DELETE FROM transform_hashes")
             con.execute(
-                f"DELETE FROM transform_hashes WHERE transform_hash NOT IN ({placeholders})",
-                transform_hashes,
+                "INSERT INTO transform_hashes (transform_hash) VALUES (?)", (transform_hash,)
             )
-            for h in transform_hashes:
-                con.execute(
-                    "INSERT OR IGNORE INTO transform_hashes (transform_hash) VALUES (?)", (h,)
-                )
             con.commit()
         finally:
             con.close()
