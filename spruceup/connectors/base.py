@@ -35,4 +35,8 @@ class TargetConnector(ABC):
 
 class EmbedderConnector(ABC):
     @abstractmethod
-    async def process_chunks(self, chunks: list[str]) -> list[list[float]]: ...
+    async def embed_batch(self, batch: list[str]) -> list[list[float]]: ...
+
+    def expect(self, n: int = 1) -> None:
+        """Hint that n more process_chunks calls are coming. Default no-op."""
+        pass

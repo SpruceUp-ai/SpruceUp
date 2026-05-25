@@ -46,6 +46,7 @@ class Coordinator:
             log.exception("[error] %s — task failed", filename)
 
     async def upsert_file(self, task: SyncTask, filename: str, source) -> None:
+        self._embedder.expect(1)
         spruce_file = await source.fetch(task)
 
         schema_objs = await self._transform(

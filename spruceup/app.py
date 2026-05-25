@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from spruceup.connectors.embedders.coalescing import CoalescingEmbedder
 from spruceup.coordinator import Coordinator
 from spruceup.manifest import Manifest
 from spruceup.monitoring.monitor import Monitor
@@ -42,10 +43,12 @@ async def run(pipeline) -> None:
         monitor.add_watcher(source.create_watcher(data_source_id))
     manifest.delete_stale_sources(active_source_ids)
 
+    embedder = CoalescingEmbedder(config.embedder)
+
     coordinator = Coordinator(
         queue=queue,
         transform=config.transform,
-        embedder=config.embedder,
+        embedder=embedder,
         sync_engine=sync_engine,
         source_registry=source_registry,
     )
