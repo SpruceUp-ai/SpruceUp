@@ -47,7 +47,19 @@ async def _with_retry(
 
 
 class _BufferedQueue:
-    """during catch-up phase, directs calls to `put` to an internal buffer until flush() is called, then goes live."""
+    """
+    Buffers live watch events until catch-up is complete.
+
+    Because LocalFileWatcher starts watching before catch-up is complete,
+    live events may be enqueued before stale versions are processed.
+    This would result in out-of-order syncing, where the stale version
+    overwrites the latest version.
+    The buffer holds live events back so the catch-up versions are processed first.
+
+    Note: the buffer is unbounded and may grow indefinitely. Catch-up is
+    typically fast, but a very slow catch-up over a very active directory
+    would grow the buffer indefinitely.
+    """
 
     def __init__(self, target: asyncio.Queue):
         self._target = target
