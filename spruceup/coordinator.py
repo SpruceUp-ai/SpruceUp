@@ -4,7 +4,7 @@ import os
 import pathlib
 
 from .models import ChunkWrapper, SpruceFile
-from .monitoring.tasks import SyncTask
+from spruceup.models import SyncTask
 from .hashing import hash_chunk_id, hash_file_path, hash_object
 from .sync_engine import SyncEngine
 from .validation import validate_schema_objects

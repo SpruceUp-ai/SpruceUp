@@ -6,7 +6,7 @@ import psycopg
 from ..hashing import hash_file_path
 from ..manifest import Manifest
 from ..models import ChunkWrapper, SpruceFile, TargetTableConfig, UserDefinedChunkSchema
-from . import pgvector
+from .target_connectors import pgvector
 
 log = logging.getLogger(__name__)
 

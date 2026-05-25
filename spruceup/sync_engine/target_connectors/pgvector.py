@@ -2,7 +2,7 @@ import typing
 
 import psycopg
 
-from ..models import ChunkWrapper, TargetTableConfig
+from spruceup.models import ChunkWrapper, TargetTableConfig
 
 _PY_TO_PG: dict[type, str] = {
     str: "TEXT",
