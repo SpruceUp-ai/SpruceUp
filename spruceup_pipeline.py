@@ -57,6 +57,7 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
 config = defineConfig(
     sources=[
         LocalFilesSource(watched_dir="example/data_corpus"),
+        # LocalFilesSource(watched_dir="example/second_local_source"),
     ],
     target=PgVectorTarget(
         connstr=os.getenv("PG_CONNSTR"),
