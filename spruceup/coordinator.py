@@ -52,6 +52,9 @@ class Coordinator:
 
         spruce_file = await source.fetch(task)
 
+        with self._manifest.connect() as conn:
+            self._manifest.ensure_file_row_exists(conn, spruce_file.file_id, spruce_file.file_path)
+
         temp_keys: set[tuple[bytes, bytes]] = set()
         _memo_manifest_var.set(self._manifest)
         _memo_file_id_var.set(spruce_file.file_id)

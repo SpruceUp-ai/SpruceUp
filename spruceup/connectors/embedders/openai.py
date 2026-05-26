@@ -9,7 +9,7 @@ class OpenAIEmbedder(EmbedderConnector):
         self,
         api_key: str,
         model: str = "text-embedding-3-small",
-        max_batch_size: int = 50,
+        max_batch_size: int = 150,
     ) -> None:
         if not api_key:
             raise ValueError("OpenAIEmbedder requires an api_key")
