@@ -82,13 +82,38 @@ class BaseWatcher(ABC):
     def source_type(self) -> str: ...
 
     @abstractmethod
+    async def _catch_up(
+        self,
+        queue: asyncio.Queue,
+        manifest: "Manifest",
+        force_reindex: bool = False,
+    ) -> None: ...
+
+    @abstractmethod
+    async def _watch(
+        self,
+        queue: "_BufferedQueue",
+        manifest: "Manifest",
+    ) -> None: ...
+
     async def run(
         self,
         queue: asyncio.Queue,
         manifest: "Manifest",
         force_reindex: bool = False,
         catchup_done: asyncio.Event | None = None,
-    ) -> None: ...
+    ) -> None:
+        buf = _BufferedQueue(queue)
+        watch_task = asyncio.create_task(self._watch(buf, manifest))
+        try:
+            await self._catch_up(queue, manifest, force_reindex)
+            await buf.flush()
+            if catchup_done:
+                catchup_done.set()
+            await watch_task
+        except Exception:
+            watch_task.cancel()
+            raise
 
 
 class Monitor:

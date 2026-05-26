@@ -22,25 +22,6 @@ class LocalFileWatcher(BaseWatcher):
     def source_type(self) -> str:
         return self._source_type
 
-    async def run(
-        self,
-        queue: asyncio.Queue,
-        manifest: "Manifest",
-        force_reindex: bool = False,
-        catchup_done: asyncio.Event | None = None,
-    ) -> None:
-        buf = _BufferedQueue(queue)
-        watch_task = asyncio.create_task(self._watch(buf, manifest))
-        try:
-            await self._catch_up(queue, manifest, force_reindex)
-            await buf.flush()
-            if catchup_done:
-                catchup_done.set()
-            await watch_task
-        except Exception:
-            watch_task.cancel()
-            raise
-
     async def _catch_up(
         self,
         queue: asyncio.Queue,
