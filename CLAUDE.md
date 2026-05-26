@@ -62,7 +62,8 @@ Move events are handled by `SyncEngine.move_file()`, which only touches the SQLi
 | [spruceup/connectors/embedders/openai.py](spruceup/connectors/embedders/openai.py) | `OpenAIEmbedder` — calls the OpenAI embeddings API with tenacity retry |
 | [spruceup/connectors/embedders/embedding_batcher.py](spruceup/connectors/embedders/embedding_batcher.py) | `EmbeddingBatcher` — wraps an inner embedder and merges chunks across concurrent files into batched API calls |
 | [spruceup/sync_engine/sync_engine.py](spruceup/sync_engine/sync_engine.py) | `SyncEngine.reconcile()`, `delete_file()`, `move_file()`, `delete_stale_sources()` |
-| [spruceup/monitoring/monitor.py](spruceup/monitoring/monitor.py) | `Monitor`, `LocalFileWatcher` (`_catch_up` + `_watch`), `_BufferedQueue`, `_with_retry` |
+| [spruceup/monitoring/monitor.py](spruceup/monitoring/monitor.py) | `Monitor`, `BaseWatcher`, `_BufferedQueue`, `_with_retry` — shared monitoring infrastructure |
+| [spruceup/monitoring/local_file_watcher.py](spruceup/monitoring/local_file_watcher.py) | `LocalFileWatcher` — `_catch_up` + `_watch` for local filesystem sources |
 | [spruceup/memoize/decorator.py](spruceup/memoize/decorator.py) | `@memoize(returns=...)` decorator for caching subfunction results per file |
 | [spruceup/memoize/context.py](spruceup/memoize/context.py) | ContextVars holding the active manifest, file_id, and temp_keys set used by the decorator |
 | [spruceup/memoize/serialization.py](spruceup/memoize/serialization.py) | `validate_return_type`, `serialize`, `deserialize` for memoize cache values |
