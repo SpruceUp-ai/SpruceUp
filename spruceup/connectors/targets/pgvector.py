@@ -34,6 +34,10 @@ class PgVectorTarget(TargetConnector):
     schema: type
     primary_key: str
 
+    @property
+    def display_name(self) -> str:
+        return self.table
+
     def ensure_table_exists(self) -> None:
         hints = typing.get_type_hints(self.schema)
         col_defs = [

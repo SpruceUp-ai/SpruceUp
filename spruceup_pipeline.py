@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
 from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, defineConfig, memoize
+from spruceup import PineconeTarget
 
 import dotenv
 
@@ -80,3 +81,22 @@ config = defineConfig(
     ),
     transform=build_lecture_chunks,
 )
+
+# config = defineConfig(
+#     sources=[
+#         LocalFilesSource(watched_dir="example/data_corpus"),
+#         # LocalFilesSource(watched_dir="example/second_local_source"),
+#     ],
+#     target=PineconeTarget(
+#         api_key=os.getenv("PINECONE_API_KEY"),
+#         index_name="data-chunks",
+#         schema=LectureChunk,
+#         primary_key="id",
+#         dimension=1536,
+#     ),
+#     embedder=OpenAIEmbedder(
+#         api_key=os.getenv("OPENAI_API_KEY"),
+#         model="text-embedding-3-small",
+#     ),
+#     transform=build_lecture_chunks,
+# )

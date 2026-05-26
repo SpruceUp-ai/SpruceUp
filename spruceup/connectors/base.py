@@ -26,6 +26,10 @@ class SourceConnector(ABC):
 
 
 class TargetConnector(ABC):
+    @property
+    @abstractmethod
+    def display_name(self) -> str: ...
+
     @abstractmethod
     def ensure_table_exists(self) -> None: ...
 
