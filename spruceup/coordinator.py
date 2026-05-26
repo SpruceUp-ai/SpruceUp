@@ -5,6 +5,7 @@ from .models import SyncTask
 from .utils.hashing import hash_chunk_id, hash_object
 from .sync_engine import SyncEngine
 from .utils.validation import validate_schema_objects
+from .connectors.base import EmbedderConnector 
 import asyncio
 
 log = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ class Coordinator:
         self,
         queue: object,
         transform,
-        embedder,
+        embedder: EmbedderConnector,
         sync_engine: SyncEngine,
         source_registry: dict,
     ):
