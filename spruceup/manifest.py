@@ -201,8 +201,6 @@ class Manifest:
             con.close()
 
     def delete_stale_sources(self, active_ids: list[int]) -> None:
-        if not active_ids:
-            return
         placeholders = ",".join("?" * len(active_ids))
         con = self.connect()
         try:
