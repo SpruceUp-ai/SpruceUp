@@ -169,6 +169,21 @@ class Manifest:
     def delete_file_row(self, conn: sqlite3.Connection, file_id: bytes) -> None:
         conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
 
+    def get_stale_file_ids(self, conn: sqlite3.Connection, active_source_ids: list[int]) -> list[bytes]:
+        placeholders = ",".join("?" * len(active_source_ids))
+        cursor = conn.execute(
+            f"SELECT id FROM files WHERE data_source_id NOT IN ({placeholders})",
+            active_source_ids,
+        )
+        return [row[0] for row in cursor]
+
+    def delete_stale_data_sources(self, conn: sqlite3.Connection, active_source_ids: list[int]) -> None:
+        placeholders = ",".join("?" * len(active_source_ids))
+        conn.execute(
+            f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
+            active_source_ids,
+        )
+
     # ------------------------------------------------------------------
     # Transform-hash operations (self-contained — manage their own connections)
     # ------------------------------------------------------------------
@@ -197,18 +212,6 @@ class Manifest:
             ).fetchone()
             con.commit()
             return row[0]
-        finally:
-            con.close()
-
-    def delete_stale_sources(self, active_ids: list[int]) -> None:
-        placeholders = ",".join("?" * len(active_ids))
-        con = self.connect()
-        try:
-            con.execute(
-                f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
-                active_ids,
-            )
-            con.commit()
         finally:
             con.close()
 

@@ -100,7 +100,12 @@ def make_chunk(file_path: str, chunk_id: str, text: str, ordinal: int) -> ChunkW
     )
 
 
-def make_file(file_path: str, chunks: list[ChunkWrapper], mtime: float = 1_000_000.0) -> SpruceFile:
+def make_file(
+    file_path: str,
+    chunks: list[ChunkWrapper],
+    mtime: float = 1_000_000.0,
+    data_source_id: int = 1,
+) -> SpruceFile:
     fid = hash_file_path(file_path)
     return SpruceFile(
         file_id=fid,
@@ -109,7 +114,7 @@ def make_file(file_path: str, chunks: list[ChunkWrapper], mtime: float = 1_000_0
         mtime=mtime,
         content_hash=fid,
         file_type=file_path.rsplit(".", 1)[-1],
-        data_source_id=1,
+        data_source_id=data_source_id,
         raw_content=b"",
         chunks=chunks,
     )
@@ -138,6 +143,14 @@ def file_path_in_manifest(manifest_path: str, file_id: bytes) -> str | None:
             "SELECT file_path FROM files WHERE id = ?", (file_id,)
         ).fetchone()
     return row[0] if row else None
+
+
+def data_source_exists(manifest_path: str, source_id: int) -> bool:
+    with sqlite3.connect(manifest_path) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM data_sources WHERE id = ?", (source_id,)
+        ).fetchone()
+    return row is not None
 
 
 # ---------------------------------------------------------------------------
@@ -349,3 +362,79 @@ class TestMoveFile:
         await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_row(tmp_manifest, FILE_ID_A) is None
         assert file_row(tmp_manifest, FILE_ID_B) is None
+
+
+# ---------------------------------------------------------------------------
+# delete_stale_sources tests
+# ---------------------------------------------------------------------------
+
+class TestDeleteStaleSources:
+
+    def _seed_two_sources(self, engine):
+        # Source 1 already registered by the engine fixture.
+        stale_source_id = engine._manifest.register_source("local", "/old-corpus")
+        engine.reconcile([
+            make_file(FILE_PATH_A, [
+                make_chunk(FILE_PATH_A, "a1", "active", ordinal=1),
+            ], data_source_id=1),
+            make_file(FILE_PATH_B, [
+                make_chunk(FILE_PATH_B, "s1", "stale-one", ordinal=1),
+                make_chunk(FILE_PATH_B, "s2", "stale-two", ordinal=2),
+            ], data_source_id=stale_source_id),
+        ])
+        return stale_source_id
+
+    def test_stale_chunks_sent_to_target_as_deletes(self, engine, pg):
+        self._seed_two_sources(engine)
+        pg.reset()
+
+        engine.delete_stale_sources(active_ids=[1])
+        assert set(pg.deleted_ids()) == {"s1", "s2"}
+
+    def test_active_chunks_not_sent_as_deletes(self, engine, pg):
+        self._seed_two_sources(engine)
+        pg.reset()
+
+        engine.delete_stale_sources(active_ids=[1])
+        assert "a1" not in pg.deleted_ids()
+
+    def test_stale_data_source_row_removed(self, engine, tmp_manifest):
+        stale_id = self._seed_two_sources(engine)
+        engine.delete_stale_sources(active_ids=[1])
+        assert not data_source_exists(tmp_manifest, stale_id)
+
+    def test_stale_file_row_cascade_removed(self, engine, tmp_manifest):
+        self._seed_two_sources(engine)
+        engine.delete_stale_sources(active_ids=[1])
+        assert file_row(tmp_manifest, FILE_ID_B) is None
+
+    def test_stale_chunks_cascade_removed(self, engine, tmp_manifest):
+        self._seed_two_sources(engine)
+        engine.delete_stale_sources(active_ids=[1])
+        assert chunk_count(tmp_manifest, FILE_ID_B) == 0
+
+    def test_active_source_rows_preserved(self, engine, tmp_manifest):
+        self._seed_two_sources(engine)
+        engine.delete_stale_sources(active_ids=[1])
+        assert data_source_exists(tmp_manifest, 1)
+        assert file_row(tmp_manifest, FILE_ID_A) is not None
+        assert chunk_count(tmp_manifest, FILE_ID_A) == 1
+
+    def test_rerun_is_idempotent_noop_on_target(self, engine, pg):
+        self._seed_two_sources(engine)
+        engine.delete_stale_sources(active_ids=[1])
+        pg.reset()
+
+        engine.delete_stale_sources(active_ids=[1])
+        assert pg.deleted_ids() == []
+
+    def test_no_stale_sources_sends_empty_deletes(self, engine, pg):
+        engine.reconcile([
+            make_file(FILE_PATH_A, [
+                make_chunk(FILE_PATH_A, "a1", "active", ordinal=1),
+            ], data_source_id=1),
+        ])
+        pg.reset()
+
+        engine.delete_stale_sources(active_ids=[1])
+        assert pg.deleted_ids() == []
