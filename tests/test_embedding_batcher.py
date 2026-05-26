@@ -4,7 +4,7 @@ import time
 import pytest
 
 from spruceup.connectors.base import EmbedderConnector
-from spruceup.connectors.embedders.coalescing import CoalescingEmbedder
+from spruceup.connectors.embedders.embedding_batcher import EmbeddingBatcher
 
 
 def _fake_emb(s: str) -> list[float]:
@@ -27,7 +27,7 @@ class FakeEmbedder(EmbedderConnector):
 @pytest.mark.asyncio
 async def test_cross_caller_batching_merges_three_callers_into_one_batch():
     inner = FakeEmbedder(max_batch_size=50)
-    embedder = CoalescingEmbedder(inner, max_wait_ms=50)
+    embedder = EmbeddingBatcher(inner, max_wait_ms=50)
 
     results = await asyncio.gather(
         embedder.process_chunks(["a", "b"]),
@@ -45,7 +45,7 @@ async def test_cross_caller_batching_merges_three_callers_into_one_batch():
 @pytest.mark.asyncio
 async def test_size_threshold_triggers_immediate_flush():
     inner = FakeEmbedder(max_batch_size=5)
-    embedder = CoalescingEmbedder(inner, max_wait_ms=10_000)
+    embedder = EmbeddingBatcher(inner, max_wait_ms=10_000)
 
     start = time.monotonic()
     result = await embedder.process_chunks(["a", "b", "c", "d", "e"])
@@ -60,7 +60,7 @@ async def test_size_threshold_triggers_immediate_flush():
 @pytest.mark.asyncio
 async def test_quorum_triggers_immediate_flush():
     inner = FakeEmbedder(max_batch_size=50)
-    embedder = CoalescingEmbedder(inner, max_wait_ms=10_000)
+    embedder = EmbeddingBatcher(inner, max_wait_ms=10_000)
 
     embedder.expect(3)
 
@@ -81,7 +81,7 @@ async def test_quorum_triggers_immediate_flush():
 @pytest.mark.asyncio
 async def test_time_window_safety_net_fires_when_no_quorum():
     inner = FakeEmbedder(max_batch_size=50)
-    embedder = CoalescingEmbedder(inner, max_wait_ms=50)
+    embedder = EmbeddingBatcher(inner, max_wait_ms=50)
 
     start = time.monotonic()
     result = await embedder.process_chunks(["only"])
@@ -97,7 +97,7 @@ async def test_per_caller_results_preserve_order_across_batches():
     # max_batch_size=3 forces 7 chunks into 3 batches; verify each caller's
     # results come back in the order they submitted them.
     inner = FakeEmbedder(max_batch_size=3)
-    embedder = CoalescingEmbedder(inner, max_wait_ms=50)
+    embedder = EmbeddingBatcher(inner, max_wait_ms=50)
 
     chunks = ["c1", "c2", "c3", "c4", "c5", "c6", "c7"]
     result = await embedder.process_chunks(chunks)
@@ -109,7 +109,7 @@ async def test_per_caller_results_preserve_order_across_batches():
 @pytest.mark.asyncio
 async def test_failure_in_inner_propagates_to_every_caller_in_batch():
     inner = FakeEmbedder(max_batch_size=50, raise_exc=RuntimeError("boom"))
-    embedder = CoalescingEmbedder(inner, max_wait_ms=50)
+    embedder = EmbeddingBatcher(inner, max_wait_ms=50)
 
     results = await asyncio.gather(
         embedder.process_chunks(["a"]),
@@ -131,7 +131,7 @@ async def test_expect_is_default_noop_on_base_embedder():
 @pytest.mark.asyncio
 async def test_empty_chunks_returns_immediately_without_dispatch():
     inner = FakeEmbedder()
-    embedder = CoalescingEmbedder(inner, max_wait_ms=10_000)
+    embedder = EmbeddingBatcher(inner, max_wait_ms=10_000)
 
     result = await embedder.process_chunks([])
 

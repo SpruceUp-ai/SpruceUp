@@ -12,7 +12,7 @@ class _Pending:
     results: list[list[float] | None] = field(default_factory=list)
 
 
-class CoalescingEmbedder(EmbedderConnector):
+class EmbeddingBatcher(EmbedderConnector):
     def __init__(
         self,
         inner: EmbedderConnector,
