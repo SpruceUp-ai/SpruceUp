@@ -58,28 +58,7 @@ async def test_size_threshold_triggers_immediate_flush():
 
 
 @pytest.mark.asyncio
-async def test_quorum_triggers_immediate_flush():
-    inner = FakeEmbedder(max_batch_size=50)
-    embedder = EmbeddingBatcher(inner, max_wait_ms=10_000)
-
-    embedder.expect(3)
-
-    start = time.monotonic()
-    results = await asyncio.gather(
-        embedder.process_chunks(["a"]),
-        embedder.process_chunks(["b"]),
-        embedder.process_chunks(["c"]),
-    )
-    elapsed = time.monotonic() - start
-
-    assert elapsed < 1.0, "quorum should bypass the time window"
-    assert len(inner.calls) == 1
-    assert sorted(inner.calls[0]) == ["a", "b", "c"]
-    assert results == [[_fake_emb("a")], [_fake_emb("b")], [_fake_emb("c")]]
-
-
-@pytest.mark.asyncio
-async def test_time_window_safety_net_fires_when_no_quorum():
+async def test_time_window_safety_net_fires():
     inner = FakeEmbedder(max_batch_size=50)
     embedder = EmbeddingBatcher(inner, max_wait_ms=50)
 
@@ -119,13 +98,6 @@ async def test_failure_in_inner_propagates_to_every_caller_in_batch():
 
     assert all(isinstance(r, RuntimeError) for r in results)
     assert all("boom" in str(r) for r in results)
-
-
-@pytest.mark.asyncio
-async def test_expect_is_default_noop_on_base_embedder():
-    inner = FakeEmbedder()
-    # Should not raise; default impl is a no-op.
-    inner.expect(5)
 
 
 @pytest.mark.asyncio

@@ -25,16 +25,11 @@ class EmbeddingBatcher(EmbedderConnector):
         self._max_batch_size = max_batch_size or getattr(inner, "max_batch_size", 50)
         self._semaphore = asyncio.Semaphore(max_concurrent_batches)
         self._pending: list[_Pending] = []
-        self._expected = 0
-        self._submissions_received = 0
         self._wake = asyncio.Event()
         self._flusher_task: asyncio.Task | None = None
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
         return await self._inner.embed_batch(batch)
-
-    def expect(self, n: int = 1) -> None:
-        self._expected += n
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         if not chunks:
@@ -49,7 +44,6 @@ class EmbeddingBatcher(EmbedderConnector):
                 results=[None] * len(chunks),
             )
         )
-        self._submissions_received += 1
         self._wake.set()
         return await future
 
@@ -78,20 +72,12 @@ class EmbeddingBatcher(EmbedderConnector):
         if not self._pending:
             return False
         pool_size = sum(len(p.chunks) for p in self._pending)
-        if pool_size >= self._max_batch_size:
-            return True
-        if self._expected > 0 and self._submissions_received >= self._expected:
-            return True
-        return False
+        return pool_size >= self._max_batch_size
 
     def _dispatch_pending(self) -> None:
         if not self._pending:
             return
         pending, self._pending = self._pending, []
-        consumed = min(self._submissions_received, self._expected)
-        self._expected -= consumed
-        self._submissions_received -= consumed
-
         flat = [
             (pi, ci, s)
             for pi, p in enumerate(pending)
