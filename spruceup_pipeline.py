@@ -4,7 +4,7 @@ import pathlib
 from dataclasses import dataclass
 
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, defineConfig
+from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, defineConfig, memoize
 
 import dotenv
 
@@ -20,25 +20,33 @@ class LectureChunk:
     lecture_title: str
 
 
+# --- helpers ----------------------------------------------------------
+
+def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
+    if ext == ".txt":
+        triples = chunk_txt_file(raw_content, file_name)
+        return [enriched for _, _, enriched in triples]
+    if ext == ".md":
+        triples = chunk_qa_md(raw_content)
+        return [enriched for _, _, enriched in triples]
+    return [p.strip() for p in raw_content.split("\n\n") if p.strip()]
+
+
 # --- memoized helpers -------------------------------------------------
 
-# placeholder for memoized subfunctions
+@memoize(returns=str)
+def prepare_chunk(chunk_text: str) -> str:
+    return " ".join(chunk_text.split())
 
 
 # --- transform --------------------------------------------------------
 
 async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]:
-    content = file_props["raw_content"]
-    ext = pathlib.Path(file_props["file_path"]).suffix.lower()
-
-    if ext == ".txt":
-        triples = chunk_txt_file(content, pathlib.Path(file_props["file_path"]).name)
-        chunk_strs = [enriched for _, _, enriched in triples]
-    elif ext == ".md":
-        triples = chunk_qa_md(content)
-        chunk_strs = [enriched for _, _, enriched in triples]
-    else:
-        chunk_strs = [p.strip() for p in content.split("\n\n") if p.strip()]
+    file_path = pathlib.Path(file_props["file_path"])
+    raw_chunks = split_chunks(
+        file_props["raw_content"], file_path.name, file_path.suffix.lower()
+    )
+    chunk_strs = [prepare_chunk(s) for s in raw_chunks]
 
     embeddings = await embed(chunk_strs)
     return [
@@ -46,7 +54,7 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
             id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
             chunk_text=text,
             chunk_embedding=embedding,
-            lecture_title=pathlib.Path(file_props["file_path"]).stem,
+            lecture_title=file_path.stem,
         )
         for text, embedding in zip(chunk_strs, embeddings)
     ]

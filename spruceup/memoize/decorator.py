@@ -45,7 +45,9 @@ def memoize(*, returns):
             async def wrapper(*args, **kwargs):
                 manifest, file_id, args_h, cached = _lookup(args, kwargs)
                 if cached is not None:
+                    print(f"[memoize hit] {fn.__name__}")
                     return deserialize(cached, returns)
+                print(f"[memoize miss] {fn.__name__}")
                 result = await fn(*args, **kwargs)
                 _store(manifest, file_id, args_h, result)
                 return result
@@ -54,7 +56,9 @@ def memoize(*, returns):
             def wrapper(*args, **kwargs):
                 manifest, file_id, args_h, cached = _lookup(args, kwargs)
                 if cached is not None:
+                    print(f"[memoize hit] {fn.__name__}")
                     return deserialize(cached, returns)
+                print(f"[memoize miss] {fn.__name__}")
                 result = fn(*args, **kwargs)
                 _store(manifest, file_id, args_h, result)
                 return result
