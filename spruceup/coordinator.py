@@ -26,6 +26,7 @@ class Coordinator:
         self._embedder = embedder
         self._sync_engine = sync_engine
         self._target = sync_engine._target
+        self._manifest = sync_engine._manifest
         self._source_registry = source_registry
         self._active_tasks = set()
 
@@ -47,7 +48,14 @@ class Coordinator:
             log.exception("[error] %s — task failed", filename)
 
     async def upsert_file(self, task: SyncTask, filename: str, source) -> None:
+        from .memoize.context import _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var
+
         spruce_file = await source.fetch(task)
+
+        temp_keys: set[tuple[bytes, bytes]] = set()
+        _memo_manifest_var.set(self._manifest)
+        _memo_file_id_var.set(spruce_file.file_id)
+        _memo_temp_keys_var.set(temp_keys)
 
         schema_objs = await self._transform(
             file_props={
@@ -58,6 +66,9 @@ class Coordinator:
             },
             embed=self._embedder.process_chunks,
         )
+
+        self._manifest.sweep_memoized(spruce_file.file_id, temp_keys)
+
         validate_schema_objects(schema_objs, self._target.schema, self._target.primary_key)
         log.info("[upsert] %s — %d chunk(s)", filename, len(schema_objs))
 

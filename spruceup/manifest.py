@@ -57,6 +57,17 @@ class Manifest:
                 )
                 """
             )
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS memoize_cache (
+                    file_id   BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+                    fn_hash   BLOB NOT NULL,
+                    args_hash BLOB NOT NULL,
+                    result    BLOB NOT NULL,
+                    PRIMARY KEY (file_id, fn_hash, args_hash)
+                )
+                """
+            )
             con.commit()
         finally:
             con.close()
@@ -154,6 +165,11 @@ class Manifest:
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (new_file_id, new_path, inode, content_hash, mtime, data_source_id, file_type),
         )
+        conn.execute("DELETE FROM memoize_cache WHERE file_id = ?", (new_file_id,))
+        conn.execute(
+            "UPDATE memoize_cache SET file_id = ? WHERE file_id = ?",
+            (new_file_id, old_file_id),
+        )
         conn.execute(
             "UPDATE chunks SET file_id = ? WHERE file_id = ?",
             (new_file_id, old_file_id),
@@ -212,6 +228,60 @@ class Manifest:
             ).fetchone()
             con.commit()
             return row[0]
+        finally:
+            con.close()
+
+    def delete_stale_sources(self, active_ids: list[int]) -> None:
+        if not active_ids:
+            return
+        placeholders = ",".join("?" * len(active_ids))
+        con = self.connect()
+        try:
+            con.execute(
+                f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
+                active_ids,
+            )
+            con.commit()
+        finally:
+            con.close()
+
+    def get_memoized(self, file_id: bytes, fn_hash: bytes, args_hash: bytes) -> bytes | None:
+        con = self.connect()
+        try:
+            row = con.execute(
+                "SELECT result FROM memoize_cache WHERE file_id=? AND fn_hash=? AND args_hash=?",
+                (file_id, fn_hash, args_hash),
+            ).fetchone()
+            return row[0] if row else None
+        finally:
+            con.close()
+
+    def set_memoized(self, file_id: bytes, fn_hash: bytes, args_hash: bytes, result: bytes) -> None:
+        con = self.connect()
+        try:
+            con.execute(
+                "INSERT OR REPLACE INTO memoize_cache (file_id, fn_hash, args_hash, result) "
+                "VALUES (?, ?, ?, ?)",
+                (file_id, fn_hash, args_hash, result),
+            )
+            con.commit()
+        finally:
+            con.close()
+
+    def sweep_memoized(self, file_id: bytes, temp_keys: set[tuple[bytes, bytes]]) -> None:
+        con = self.connect()
+        try:
+            con.execute(
+                "CREATE TEMP TABLE IF NOT EXISTS _sweep_keys (fn_hash BLOB, args_hash BLOB)"
+            )
+            with con:
+                con.executemany("INSERT INTO _sweep_keys VALUES (?, ?)", temp_keys)
+                con.execute(
+                    "DELETE FROM memoize_cache "
+                    "WHERE file_id = ? "
+                    "AND (fn_hash, args_hash) NOT IN (SELECT fn_hash, args_hash FROM _sweep_keys)",
+                    (file_id,),
+                )
         finally:
             con.close()
 

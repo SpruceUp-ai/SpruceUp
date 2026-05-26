@@ -32,3 +32,21 @@ def hash_file_content(p: pathlib.Path) -> bytes:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
     return h.digest()
+
+
+def hash_args(fn: Callable, args: tuple, kwargs: dict) -> bytes:
+    sig = inspect.signature(fn)
+    bound = sig.bind(*args, **kwargs)
+    bound.apply_defaults()
+    payload = json.dumps(_normalize(dict(bound.arguments)), sort_keys=True).encode()
+    return hashlib.blake2b(payload, digest_size=DIGEST_SIZE).digest()
+
+
+def _normalize(obj):
+    if isinstance(obj, dict):
+        return {k: _normalize(v) for k, v in sorted(obj.items())}
+    if isinstance(obj, (list, tuple)):
+        return [_normalize(x) for x in obj]
+    if isinstance(obj, float):
+        return repr(obj)
+    return obj
