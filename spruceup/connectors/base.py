@@ -34,5 +34,8 @@ class TargetConnector(ABC):
 
 
 class EmbedderConnector(ABC):
+    def __init__(self, api_key: str | None = None) -> None:
+        self.api_key = api_key
+
     @abstractmethod
     async def embed_batch(self, batch: list[str]) -> list[list[float]]: ...

@@ -66,6 +66,7 @@ config = defineConfig(
         primary_key="id",
     ),
     embedder=OpenAIEmbedder(
+        api_key=os.getenv("OPENAI_API_KEY"),
         model="text-embedding-3-small",
     ),
     transform=build_lecture_chunks,

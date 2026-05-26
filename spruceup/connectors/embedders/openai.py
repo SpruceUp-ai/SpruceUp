@@ -1,10 +1,5 @@
-import os
-
 import openai
 import tenacity
-import dotenv
-
-dotenv.load_dotenv()
 
 from ..base import EmbedderConnector
 
@@ -12,19 +7,20 @@ from ..base import EmbedderConnector
 class OpenAIEmbedder(EmbedderConnector):
     def __init__(
         self,
+        api_key: str,
         model: str = "text-embedding-3-small",
         max_batch_size: int = 50,
     ) -> None:
+        if not api_key:
+            raise ValueError("OpenAIEmbedder requires an api_key")
+        super().__init__(api_key=api_key)
         self._model = model
         self.max_batch_size = max_batch_size
         self._client: openai.AsyncOpenAI | None = None
 
     def _get_client(self) -> openai.AsyncOpenAI:
         if self._client is None:
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY environment variable not set")
-            self._client = openai.AsyncOpenAI(api_key=api_key)
+            self._client = openai.AsyncOpenAI(api_key=self.api_key)
         return self._client
 
     @tenacity.retry(
