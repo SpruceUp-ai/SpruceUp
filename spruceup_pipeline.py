@@ -4,7 +4,7 @@ import pathlib
 from dataclasses import dataclass
 
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, defineConfig, memoize
+from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, VoyageAIEmbedder, defineConfig, memoize
 from spruceup import PineconeTarget
 
 import dotenv
@@ -75,9 +75,13 @@ config = defineConfig(
         schema=LectureChunk,
         primary_key="id",
     ),
-    embedder=OpenAIEmbedder(
-        api_key=os.getenv("OPENAI_API_KEY"),
-        model="text-embedding-3-small",
+    # embedder=OpenAIEmbedder(
+    #     api_key=os.getenv("OPENAI_API_KEY"),
+    #     model="text-embedding-3-small",
+    # ),
+    embedder=VoyageAIEmbedder(
+        api_key=os.getenv("VOYAGE_API_KEY"),
+        model="voyage-4-lite",
     ),
     transform=build_lecture_chunks,
 )
