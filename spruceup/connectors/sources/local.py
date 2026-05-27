@@ -20,7 +20,7 @@ class LocalFilesSource(SourceConnector):
         return str(pathlib.Path(self.watched_dir).resolve())
 
     def create_watcher(self, data_source_id: int):
-        from spruceup.monitoring.monitor import LocalFileWatcher
+        from spruceup.monitoring.local_file_watcher import LocalFileWatcher
         return LocalFileWatcher(self.watched_dir, data_source_id, self.source_type)
 
     def display_name(self, identifier: str) -> str:
