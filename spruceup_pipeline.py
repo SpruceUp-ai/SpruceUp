@@ -35,9 +35,9 @@ def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
 
 # --- memoized helpers -------------------------------------------------
 
-# @memoize(returns=str)
-# def prepare_chunk(chunk_text: str) -> str:
-#     return " ".join(chunk_text.split())
+@memoize(returns=str)
+def prepare_chunk(chunk_text: str) -> str:
+    return chunk_text
 
 
 # --- transform --------------------------------------------------------
@@ -47,8 +47,8 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
     raw_chunks = split_chunks(
         file_props["raw_content"], file_path.name, file_path.suffix.lower()
     )
-    # chunk_strs = [prepare_chunk(s) for s in raw_chunks]
-    chunk_strs = raw_chunks
+    chunk_strs = [prepare_chunk(s) for s in raw_chunks]
+    # chunk_strs = raw_chunks
 
     embeddings = await embed(chunk_strs)
     return [
