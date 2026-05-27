@@ -58,6 +58,7 @@ Move events are handled by `SyncEngine.move_file()`, which only touches the SQLi
 | [spruceup/models.py](spruceup/models.py) | Core dataclasses: `SpruceFile`, `ChunkWrapper`, `SyncTask` |
 | [spruceup/connectors/base.py](spruceup/connectors/base.py) | Abstract bases: `SourceConnector`, `TargetConnector`, `EmbedderConnector` |
 | [spruceup/connectors/sources/local.py](spruceup/connectors/sources/local.py) | `LocalFilesSource` — watches a local directory, fetches file bytes |
+| [spruceup/connectors/sources/google_drive.py](spruceup/connectors/sources/google_drive.py) | `GoogleDriveSource` — watches a Google Drive folder, fetches file bytes (stub) |
 | [spruceup/connectors/targets/pgvector.py](spruceup/connectors/targets/pgvector.py) | `PgVectorTarget` — writes to a Postgres pgvector table, including `ensure_table_exists` schema introspection |
 | [spruceup/connectors/embedders/openai.py](spruceup/connectors/embedders/openai.py) | `OpenAIEmbedder` — calls the OpenAI embeddings API with tenacity retry |
 | [spruceup/connectors/embedders/embedding_batcher.py](spruceup/connectors/embedders/embedding_batcher.py) | `EmbeddingBatcher` — wraps an inner embedder and merges chunks across concurrent files into batched API calls |

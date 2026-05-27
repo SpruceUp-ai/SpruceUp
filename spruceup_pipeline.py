@@ -3,14 +3,22 @@ import os
 import pathlib
 from dataclasses import dataclass
 
-from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, defineConfig, memoize
-
 import dotenv
+
+from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
+from spruceup import (
+    GoogleDriveSource,
+    LocalFilesSource,
+    OpenAIEmbedder,
+    PgVectorTarget,
+    defineConfig,
+    memoize,
+)
 
 dotenv.load_dotenv()
 
 # --- schema -----------------------------------------------------------
+
 
 @dataclass
 class LectureChunk:
@@ -21,6 +29,7 @@ class LectureChunk:
 
 
 # --- helpers ----------------------------------------------------------
+
 
 def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
     if ext == ".txt":
@@ -40,6 +49,7 @@ def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
 
 
 # --- transform --------------------------------------------------------
+
 
 async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]:
     file_path = pathlib.Path(file_props["file_path"])
@@ -66,7 +76,10 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
 config = defineConfig(
     sources=[
         LocalFilesSource(watched_dir="example/data_corpus"),
-        # LocalFilesSource(watched_dir="example/second_local_source"),
+        GoogleDriveSource(
+            folder_id="1QY9VJYPpKtIQsCBvl-SsxZf6CHJ601t5",
+            on_token_expired=lambda: os.getenv("GOOGLE_DRIVE_TOKEN"),
+        ),
     ],
     target=PgVectorTarget(
         connstr=os.getenv("PG_CONNSTR"),

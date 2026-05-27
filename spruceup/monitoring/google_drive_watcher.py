@@ -1,9 +1,8 @@
 import asyncio
+from collections.abc import Callable
 
 from ..manifest import Manifest
 from .monitor import BaseWatcher, _BufferedQueue
-
-# TODO: add google-api-python-client to pyproject.toml
 
 
 class GoogleDriveWatcher(BaseWatcher):
@@ -12,14 +11,13 @@ class GoogleDriveWatcher(BaseWatcher):
         folder_id: str,
         data_source_id: int,
         source_type: str,
-        credentials,  # google.oauth2.credentials.Credentials
+        on_token_expired: Callable[[], str],
         poll_interval: float = 30.0,
     ):
         self._folder_id = folder_id
         self._data_source_id = data_source_id
         self._source_type = source_type
-        self._credentials = credentials
-        self._poll_interval = poll_interval
+        self._on_token_expired = on_token_expired
 
     @property
     def source_type(self) -> str:
