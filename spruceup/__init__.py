@@ -1,6 +1,7 @@
 from .config import defineConfig
 from .connectors import (
     CohereEmbedder,
+    GeminiEmbedder,
     LocalFilesSource,
     OpenAIEmbedder,
     PgVectorTarget,
@@ -15,6 +16,7 @@ __all__ = [
     "PgVectorTarget",
     "PineconeTarget",
     "CohereEmbedder",
+    "GeminiEmbedder",
     "OpenAIEmbedder",
     "VoyageAIEmbedder",
     "memoize",
