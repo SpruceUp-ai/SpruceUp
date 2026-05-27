@@ -22,6 +22,16 @@ def hash_object(obj) -> bytes:
     return hashlib.blake2b(serialized, digest_size=DIGEST_SIZE).digest()
 
 
+def hash_chunk_content(obj) -> bytes:
+    data = dataclasses.asdict(obj) if dataclasses.is_dataclass(obj) else obj.__dict__
+    filtered = {
+        k: v for k, v in data.items()
+        if not (isinstance(v, list) and v and isinstance(v[0], float))
+    }
+    serialized = json.dumps(filtered, sort_keys=True, default=str).encode()
+    return hashlib.blake2b(serialized, digest_size=DIGEST_SIZE).digest()
+
+
 def hash_transform(func: Callable) -> bytes:
     return hashlib.blake2b(inspect.getsource(func).encode(), digest_size=DIGEST_SIZE).digest()
 

@@ -245,28 +245,51 @@ class Manifest:
         finally:
             con.close()
 
-    def get_memoized(self, file_id: bytes, fn_hash: bytes, args_hash: bytes) -> bytes | None:
-        con = self.connect()
+    def get_memoized(
+        self,
+        file_id: bytes,
+        fn_hash: bytes,
+        args_hash: bytes,
+        conn: "sqlite3.Connection | None" = None,
+    ) -> bytes | None:
+        own = conn is None
+        if own:
+            conn = self.connect()
         try:
-            row = con.execute(
+            row = conn.execute(
                 "SELECT result FROM memoize_cache WHERE file_id=? AND fn_hash=? AND args_hash=?",
                 (file_id, fn_hash, args_hash),
             ).fetchone()
             return row[0] if row else None
         finally:
-            con.close()
+            if own:
+                conn.close()
 
-    def set_memoized(self, file_id: bytes, fn_hash: bytes, args_hash: bytes, result: bytes) -> None:
-        con = self.connect()
+    def set_memoized(
+        self,
+        file_id: bytes,
+        fn_hash: bytes,
+        args_hash: bytes,
+        result: bytes,
+        conn: "sqlite3.Connection | None" = None,
+    ) -> None:
+        own = conn is None
+        if own:
+            conn = self.connect()
         try:
-            con.execute(
+            conn.execute(
                 "INSERT OR REPLACE INTO memoize_cache (file_id, fn_hash, args_hash, result) "
                 "VALUES (?, ?, ?, ?)",
                 (file_id, fn_hash, args_hash, result),
             )
-            con.commit()
+            # Only commit immediately when we own the connection. When a shared
+            # connection is passed in (the normal transform-run path), the caller
+            # commits once after all memoize writes for the file are done.
+            if own:
+                conn.commit()
         finally:
-            con.close()
+            if own:
+                conn.close()
 
     def sweep_memoized(self, file_id: bytes, temp_keys: set[tuple[bytes, bytes]]) -> None:
         con = self.connect()

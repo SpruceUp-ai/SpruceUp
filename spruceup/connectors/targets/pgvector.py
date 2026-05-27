@@ -16,13 +16,13 @@ _PY_TO_PG: dict[type, str] = {
 }
 
 
-def _py_to_pg_type(tp) -> str:
+def _py_to_pg_type(tp, embedding_dimensions: int) -> str:
     origin = typing.get_origin(tp)
     if origin is list:
         args = typing.get_args(tp)
         if args == (float,):
-            return "vector(1536)"
-        inner = _py_to_pg_type(args[0]) if args else "TEXT"
+            return f"vector({embedding_dimensions})"
+        inner = _py_to_pg_type(args[0], embedding_dimensions) if args else "TEXT"
         return f"{inner}[]"
     return _PY_TO_PG.get(tp, "TEXT")
 
@@ -34,10 +34,14 @@ class PgVectorTarget(TargetConnector):
     schema: type
     primary_key: str
 
-    def ensure_table_exists(self) -> None:
+    @property
+    def display_name(self) -> str:
+        return self.table
+
+    def ensure_table_exists(self, embedding_dimensions: int) -> None:
         hints = typing.get_type_hints(self.schema)
         col_defs = [
-            f"{col} {_py_to_pg_type(tp)}{' PRIMARY KEY' if col == self.primary_key else ''}"
+            f"{col} {_py_to_pg_type(tp, embedding_dimensions)}{' PRIMARY KEY' if col == self.primary_key else ''}"
             for col, tp in hints.items()
         ]
         with psycopg.connect(self.connstr) as conn:

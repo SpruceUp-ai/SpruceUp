@@ -13,6 +13,7 @@ def _fake_emb(s: str) -> list[float]:
 
 class FakeEmbedder(EmbedderConnector):
     def __init__(self, max_batch_size: int = 50, raise_exc: Exception | None = None):
+        super().__init__(embedding_dimensions=1)
         self.max_batch_size = max_batch_size
         self.calls: list[list[str]] = []
         self._raise_exc = raise_exc

@@ -43,7 +43,11 @@ class MockSyncTarget(TargetConnector):
     def __init__(self):
         self.calls: list[dict] = []
 
-    def ensure_table_exists(self) -> None:
+    @property
+    def display_name(self) -> str:
+        return "mock_target"
+
+    def ensure_table_exists(self, embedding_dimensions: int) -> None:
         pass
 
     def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:

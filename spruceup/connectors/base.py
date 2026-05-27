@@ -26,16 +26,28 @@ class SourceConnector(ABC):
 
 
 class TargetConnector(ABC):
+    @property
     @abstractmethod
-    def ensure_table_exists(self) -> None: ...
+    def display_name(self) -> str: ...
+
+    @abstractmethod
+    def ensure_table_exists(self, embedding_dimensions: int) -> None: ...
 
     @abstractmethod
     def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None: ...
 
 
 class EmbedderConnector(ABC):
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        embedding_dimensions: int | None = None,
+    ) -> None:
         self.api_key = api_key
+        self.embedding_dimensions = embedding_dimensions
 
     @abstractmethod
     async def embed_batch(self, batch: list[str]) -> list[list[float]]: ...
+
+    async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
+        return await self.embed_batch(chunks)
