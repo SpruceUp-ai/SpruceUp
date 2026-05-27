@@ -24,29 +24,28 @@ class PineconeTarget(TargetConnector):
     index_name: str
     schema: type
     primary_key: str
-    dimension: int
     namespace: str = ""
     metric: str = "cosine"
     cloud: str = "aws"
     region: str = "us-east-1"
-    _pc: Pinecone | None = field(default=None, init=False, repr=False)
+    _pc: Any = field(default=None, init=False, repr=False)
     _index: Any = field(default=None, init=False, repr=False)
 
     @property
     def display_name(self) -> str:
         return self.index_name
 
-    def _client(self) -> Pinecone:
+    def _client(self) -> Any:
         if self._pc is None:
             self._pc = Pinecone(api_key=self.api_key)
         return self._pc
 
-    def ensure_table_exists(self) -> None:
+    def ensure_table_exists(self, embedding_dimensions: int) -> None:
         pc = self._client()
         if self.index_name not in pc.list_indexes().names():
             pc.create_index(
                 name=self.index_name,
-                dimension=self.dimension,
+                dimension=embedding_dimensions,
                 metric=self.metric,
                 spec=ServerlessSpec(cloud=self.cloud, region=self.region),
             )

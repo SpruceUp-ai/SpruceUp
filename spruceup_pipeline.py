@@ -72,6 +72,8 @@ config = defineConfig(
     target=PgVectorTarget(
         connstr=os.getenv("PG_CONNSTR"),
         table="data_chunks",
+        # table="data_chunks_voyageai",    # table for default 1024 dim vectors
+        # table="data_chunks_voyageai512", # table for 512 dim vectors
         schema=LectureChunk,
         primary_key="id",
     ),
@@ -82,6 +84,7 @@ config = defineConfig(
     embedder=VoyageAIEmbedder(
         api_key=os.getenv("VOYAGE_API_KEY"),
         model="voyage-4-lite",
+        # embedding_dimensions=512
     ),
     transform=build_lecture_chunks,
 )
@@ -96,7 +99,6 @@ config = defineConfig(
 #         index_name="data-chunks",
 #         schema=LectureChunk,
 #         primary_key="id",
-#         dimension=1536,
 #     ),
 #     embedder=OpenAIEmbedder(
 #         api_key=os.getenv("OPENAI_API_KEY"),
