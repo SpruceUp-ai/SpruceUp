@@ -37,7 +37,7 @@ def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
 
 # @memoize(returns=str)
 # def prepare_chunk(chunk_text: str) -> str:
-#     return " ".join(chunk_text.split())
+#     return chunk_text
 
 
 # --- transform --------------------------------------------------------

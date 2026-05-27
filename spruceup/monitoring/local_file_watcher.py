@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 class LocalFileWatcher(BaseWatcher):
     def __init__(self, dir_path: str, data_source_id: int, source_type: str):
-        self._root_path = dir_path
+        self._root_path = str(pathlib.Path(dir_path).resolve())
         self._data_source_id = data_source_id
         self._source_type = source_type
 
