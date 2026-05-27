@@ -28,7 +28,9 @@ async def run(pipeline) -> None:
     else:
         log.info("Transform function unchanged — incremental sync")
 
-    config.target.ensure_table_exists()
+    config.target.ensure_table_exists(
+        embedding_dimensions=config.embedder.embedding_dimensions
+    )
     sync_engine = SyncEngine(manifest=manifest, target=config.target)
 
     queue: asyncio.Queue = asyncio.Queue()
