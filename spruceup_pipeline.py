@@ -4,7 +4,7 @@ import pathlib
 from dataclasses import dataclass
 
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, VoyageAIEmbedder, defineConfig, memoize
+from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, VoyageAIEmbedder, CohereEmbedder, defineConfig, memoize
 from spruceup import PineconeTarget
 
 import dotenv
@@ -71,9 +71,10 @@ config = defineConfig(
     ],
     target=PgVectorTarget(
         connstr=os.getenv("PG_CONNSTR"),
-        table="data_chunks",
+        # table="data_chunks",             # original table
         # table="data_chunks_voyageai",    # table for default 1024 dim vectors
         # table="data_chunks_voyageai512", # table for 512 dim vectors
+        table="data_chunks_cohere",
         schema=LectureChunk,
         primary_key="id",
     ),
@@ -81,10 +82,14 @@ config = defineConfig(
     #     api_key=os.getenv("OPENAI_API_KEY"),
     #     model="text-embedding-3-small",
     # ),
-    embedder=VoyageAIEmbedder(
-        api_key=os.getenv("VOYAGE_API_KEY"),
-        model="voyage-4-lite",
-        # embedding_dimensions=512
+    # embedder=VoyageAIEmbedder(
+    #     api_key=os.getenv("VOYAGE_API_KEY"),
+    #     model="voyage-4-lite",
+    #     # embedding_dimensions=512
+    # ),
+    embedder=CohereEmbedder(
+        api_key=os.getenv("COHERE_API_KEY"),
+        model="embed-v4.0"
     ),
     transform=build_lecture_chunks,
 )
