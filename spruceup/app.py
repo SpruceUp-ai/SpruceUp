@@ -18,7 +18,7 @@ async def run(pipeline) -> None:
 
     log.info(
         "SpruceUp starting — manifest=%s  target=%s",
-        manifest._path, config.target.table,
+        manifest._path, config.target.display_name,
     )
 
     transform_hash = hash_transform(config.transform)
