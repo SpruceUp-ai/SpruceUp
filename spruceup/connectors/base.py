@@ -43,3 +43,6 @@ class EmbedderConnector(ABC):
 
     @abstractmethod
     async def embed_batch(self, batch: list[str]) -> list[list[float]]: ...
+
+    async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
+        return await self.embed_batch(chunks)

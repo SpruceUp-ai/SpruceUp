@@ -2,7 +2,7 @@ import logging
 
 from .models import ChunkWrapper
 from .models import SyncTask
-from .utils.hashing import hash_chunk_id, hash_object
+from .utils.hashing import hash_chunk_id, hash_chunk_content
 from .sync_engine import SyncEngine
 from .utils.validation import validate_schema_objects
 from .connectors.base import EmbedderConnector 
@@ -48,27 +48,50 @@ class Coordinator:
             log.exception("[error] %s — task failed", filename)
 
     async def upsert_file(self, task: SyncTask, filename: str, source) -> None:
-        from .memoize.context import _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var
+        from .memoize.context import (
+            _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_conn_var,
+            _memo_stats_var,
+        )
 
         spruce_file = await source.fetch(task)
 
-        with self._manifest.connect() as conn:
-            self._manifest.ensure_file_row_exists(conn, spruce_file.file_id, spruce_file.file_path)
+        memo_conn = self._manifest.connect()
+        try:
+            with self._manifest.connect() as conn:
+                self._manifest.ensure_file_row_exists(conn, spruce_file.file_id, spruce_file.file_path)
 
-        temp_keys: set[tuple[bytes, bytes]] = set()
-        _memo_manifest_var.set(self._manifest)
-        _memo_file_id_var.set(spruce_file.file_id)
-        _memo_temp_keys_var.set(temp_keys)
+            temp_keys: set[tuple[bytes, bytes]] = set()
+            memo_stats = [0, 0]  # [hits, total]
+            _memo_manifest_var.set(self._manifest)
+            _memo_file_id_var.set(spruce_file.file_id)
+            _memo_temp_keys_var.set(temp_keys)
+            _memo_conn_var.set(memo_conn)
+            _memo_stats_var.set(memo_stats)
 
-        schema_objs = await self._transform(
-            file_props={
-                "raw_content": source.decode_content(spruce_file.raw_content),
-                "file_path": spruce_file.file_path,
-                "mtime": spruce_file.mtime,
-                "file_type": spruce_file.file_type,
-            },
-            embed=self._embedder.process_chunks,
-        )
+            async def _embed(chunks):
+                # Commit memoize writes accumulated before this yield point so
+                # the write lock is released while we wait for the embedding API.
+                # Other concurrent file tasks can then write to the manifest
+                # without hitting "database is locked".
+                memo_conn.commit()
+                return await self._embedder.process_chunks(chunks)
+
+            schema_objs = await self._transform(
+                file_props={
+                    "raw_content": source.decode_content(spruce_file.raw_content),
+                    "file_path": spruce_file.file_path,
+                    "mtime": spruce_file.mtime,
+                    "file_type": spruce_file.file_type,
+                },
+                embed=_embed,
+            )
+            memo_conn.commit()  # cover any writes that happen after embed returns
+        finally:
+            memo_conn.close()
+            _memo_conn_var.set(None)
+
+        if memo_stats[1] > 0:
+            log.info("[memoize] %s — %d/%d hits", filename, memo_stats[0], memo_stats[1])
 
         self._manifest.sweep_memoized(spruce_file.file_id, temp_keys)
 
@@ -78,7 +101,7 @@ class Coordinator:
         chunks = [
             ChunkWrapper(
                 user_chunk=obj,
-                user_chunk_object_hash=hash_object(obj),
+                user_chunk_object_hash=hash_chunk_content(obj),
                 ordinal=i,
                 chunk_id=hash_chunk_id(task.identifier, i),
             )
@@ -95,3 +118,8 @@ class Coordinator:
             asyncio_task = asyncio.create_task(self.process_task(next_task))
             self._active_tasks.add(asyncio_task)
             asyncio_task.add_done_callback(self._active_tasks.discard)
+            # Queue.get() only suspends when the queue is empty, so during catch-up
+            # all N tasks are created before any run.  Yielding here lets each task
+            # start (and the embedding batcher's flusher fire) before the next task
+            # is created, so batches roll rather than all files piling up at once.
+            await asyncio.sleep(0)
