@@ -4,7 +4,7 @@ import pathlib
 from dataclasses import dataclass
 
 from ..base import SourceConnector
-from ...utils.hashing import hash_file_path
+from ...utils.hashing import hash_source_ref
 
 
 @dataclass
@@ -38,13 +38,16 @@ class LocalFilesSource(SourceConnector):
         content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
         file_type = pathlib.Path(path).suffix.lstrip(".")
         return SpruceFile(
-            file_id=hash_file_path(path),
-            file_path=path,
-            inode=file_stats.st_ino,
-            mtime=file_stats.st_mtime,
+            file_id=hash_source_ref(path),
+            source_ref=path,
             content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,
             raw_content=raw_content,
             chunks=[],
+            source_metadata={
+                "inode": file_stats.st_ino,
+                "mtime": file_stats.st_mtime,
+                "modified_at": file_stats.st_mtime,
+            },
         )

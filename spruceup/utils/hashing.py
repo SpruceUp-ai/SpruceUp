@@ -8,8 +8,8 @@ from typing import Callable
 DIGEST_SIZE = 16  # 16 bytes matches BINARY(16) in schema
 
 
-def hash_file_path(file_path: str) -> bytes:
-    return hashlib.blake2b(file_path.encode(), digest_size=DIGEST_SIZE).digest()
+def hash_source_ref(source_ref: str) -> bytes:
+    return hashlib.blake2b(source_ref.encode(), digest_size=DIGEST_SIZE).digest()
 
 
 def hash_chunk_id(file_path: str, ordinal: int) -> bytes:

@@ -14,63 +14,101 @@ class Manifest:
         self._path = path
         self._init_db()
 
+    # ------------------------------------------------------------------
+    # Schema init
+    # ------------------------------------------------------------------
+
     def _init_db(self) -> None:
         con = self.connect()
         try:
-            con.execute(
-                """
-                CREATE TABLE IF NOT EXISTS data_sources (
-                    id                INTEGER PRIMARY KEY AUTOINCREMENT,
-                    source_type       TEXT NOT NULL,
-                    source_identifier TEXT NOT NULL,
-                    UNIQUE(source_type, source_identifier)
-                )
-                """
-            )
-            con.execute(
-                """
-                CREATE TABLE IF NOT EXISTS files (
-                    id             BLOB PRIMARY KEY,
-                    file_path      TEXT NOT NULL,
-                    inode          INTEGER,
-                    content_hash   BLOB,
-                    mtime          REAL,
-                    data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
-                    file_type      TEXT
-                )
-                """
-            )
-            con.execute(
-                """
-                CREATE TABLE IF NOT EXISTS chunks (
-                    id                     BLOB PRIMARY KEY,
-                    file_id                BLOB REFERENCES files(id) ON DELETE CASCADE,
-                    user_chunk_object_hash BLOB,
-                    user_chunk_object      BLOB
-                )
-                """
-            )
-            con.execute(
-                """
-                CREATE TABLE IF NOT EXISTS transform_hashes (
-                    transform_hash BLOB PRIMARY KEY
-                )
-                """
-            )
-            con.execute(
-                """
-                CREATE TABLE IF NOT EXISTS memoize_cache (
-                    file_id   BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-                    fn_hash   BLOB NOT NULL,
-                    args_hash BLOB NOT NULL,
-                    result    BLOB NOT NULL,
-                    PRIMARY KEY (file_id, fn_hash, args_hash)
-                )
-                """
-            )
+            self._init_sources_schema(con)
+            self._init_files_schema(con)
+            self._init_chunks_schema(con)
+            self._init_transform_schema(con)
+            self._init_memoize_schema(con)
             con.commit()
         finally:
             con.close()
+
+    def _init_sources_schema(self, con: sqlite3.Connection) -> None:
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS data_sources (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_type       TEXT NOT NULL,
+                source_identifier TEXT NOT NULL,
+                UNIQUE(source_type, source_identifier)
+            )
+            """
+        )
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS source_state (
+                data_source_id INTEGER NOT NULL
+                    REFERENCES data_sources(id) ON DELETE CASCADE,
+                key            TEXT NOT NULL,
+                value          TEXT NOT NULL,
+                PRIMARY KEY (data_source_id, key)
+            )
+            """
+        )
+
+    def _init_files_schema(self, con: sqlite3.Connection) -> None:
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS files (
+                id             BLOB PRIMARY KEY,
+                source_ref     TEXT NOT NULL,
+                content_hash   BLOB,
+                data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
+                file_type      TEXT
+            )
+            """
+        )
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS file_metadata (
+                file_id BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+                key     TEXT NOT NULL,
+                value   TEXT NOT NULL,
+                PRIMARY KEY (file_id, key)
+            )
+            """
+        )
+
+    def _init_chunks_schema(self, con: sqlite3.Connection) -> None:
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chunks (
+                id                     BLOB PRIMARY KEY,
+                file_id                BLOB REFERENCES files(id) ON DELETE CASCADE,
+                user_chunk_object_hash BLOB,
+                user_chunk_object      BLOB
+            )
+            """
+        )
+
+    def _init_transform_schema(self, con: sqlite3.Connection) -> None:
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS transform_hashes (
+                transform_hash BLOB PRIMARY KEY
+            )
+            """
+        )
+
+    def _init_memoize_schema(self, con: sqlite3.Connection) -> None:
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS memoize_cache (
+                file_id   BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+                fn_hash   BLOB NOT NULL,
+                args_hash BLOB NOT NULL,
+                result    BLOB NOT NULL,
+                PRIMARY KEY (file_id, fn_hash, args_hash)
+            )
+            """
+        )
 
     def connect(self) -> sqlite3.Connection:
         """Return a connection suitable for use as a context manager (transaction semantics)."""
@@ -117,12 +155,12 @@ class Manifest:
             rows,
         )
 
-    def ensure_file_row_exists(self, conn: sqlite3.Connection, file_id: bytes, file_path: str) -> None:
+    def ensure_file_row_exists(self, conn: sqlite3.Connection, file_id: bytes, source_ref: str) -> None:
         # Insert a skeleton file row so the FK constraint on chunks.file_id is
         # satisfied before chunk writes. Full fields filled by upsert_file_row.
         conn.execute(
-            "INSERT OR IGNORE INTO files (id, file_path) VALUES (?, ?)",
-            (file_id, file_path),
+            "INSERT OR IGNORE INTO files (id, source_ref) VALUES (?, ?)",
+            (file_id, source_ref),
         )
 
     def upsert_file_row(self, conn: sqlite3.Connection, file: SpruceFile) -> None:
@@ -130,40 +168,84 @@ class Manifest:
         # so it does not trigger the ON DELETE CASCADE on chunks.file_id.
         conn.execute(
             """INSERT INTO files
-                   (id, file_path, inode, content_hash, mtime, data_source_id, file_type)
-               VALUES (?, ?, ?, ?, ?, ?, ?)
+                   (id, source_ref, content_hash, data_source_id, file_type)
+               VALUES (?, ?, ?, ?, ?)
                ON CONFLICT (id) DO UPDATE SET
-                   file_path      = excluded.file_path,
-                   inode          = excluded.inode,
+                   source_ref     = excluded.source_ref,
                    content_hash   = excluded.content_hash,
-                   mtime          = excluded.mtime,
                    data_source_id = excluded.data_source_id,
                    file_type      = excluded.file_type""",
             (
-                file.file_id, file.file_path, file.inode,
-                file.content_hash, file.mtime, file.data_source_id, file.file_type,
+                file.file_id, file.source_ref,
+                file.content_hash, file.data_source_id, file.file_type,
             ),
         )
+
+    def upsert_file_metadata(
+        self, conn: sqlite3.Connection, file_id: bytes, metadata: dict
+    ) -> None:
+        if not metadata:
+            return
+        conn.executemany(
+            "INSERT OR REPLACE INTO file_metadata (file_id, key, value) VALUES (?, ?, ?)",
+            [(file_id, k, str(v)) for k, v in metadata.items()],
+        )
+
+    def get_file_metadata(self, conn: sqlite3.Connection, file_id: bytes) -> dict:
+        rows = conn.execute(
+            "SELECT key, value FROM file_metadata WHERE file_id = ?",
+            (file_id,),
+        ).fetchall()
+        return {key: value for key, value in rows}
+
+    def get_files_with_metadata(
+        self, conn: sqlite3.Connection, data_source_id: int
+    ) -> list[dict]:
+        """Return all files for a source with their source_ref, content_hash, and metadata dict."""
+        rows = conn.execute(
+            "SELECT f.id, f.source_ref, f.content_hash, m.key, m.value "
+            "FROM files f "
+            "LEFT JOIN file_metadata m ON m.file_id = f.id "
+            "WHERE f.data_source_id = ?",
+            (data_source_id,),
+        ).fetchall()
+        files: dict[bytes, dict] = {}
+        for file_id, source_ref, content_hash, key, value in rows:
+            if file_id not in files:
+                files[file_id] = {
+                    "source_ref": source_ref,
+                    "content_hash": content_hash,
+                    "metadata": {},
+                }
+            if key is not None:
+                files[file_id]["metadata"][key] = value
+        return list(files.values())
 
     def move_file_row(
         self,
         conn: sqlite3.Connection,
         old_file_id: bytes,
         new_file_id: bytes,
-        new_path: str,
+        new_ref: str,
     ) -> None:
         row = conn.execute(
-            "SELECT inode, content_hash, mtime, data_source_id, file_type FROM files WHERE id = ?",
+            "SELECT content_hash, data_source_id, file_type FROM files WHERE id = ?",
             (old_file_id,),
         ).fetchone()
         if row is None:
             return
-        inode, content_hash, mtime, data_source_id, file_type = row
+        content_hash, data_source_id, file_type = row
         conn.execute(
-            """INSERT INTO files
-                   (id, file_path, inode, content_hash, mtime, data_source_id, file_type)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (new_file_id, new_path, inode, content_hash, mtime, data_source_id, file_type),
+            """INSERT INTO files (id, source_ref, content_hash, data_source_id, file_type)
+               VALUES (?, ?, ?, ?, ?)""",
+            (new_file_id, new_ref, content_hash, data_source_id, file_type),
+        )
+        # Copy file_metadata rows to the new file_id
+        conn.execute("DELETE FROM file_metadata WHERE file_id = ?", (new_file_id,))
+        conn.execute(
+            "INSERT OR REPLACE INTO file_metadata "
+            "SELECT ?, key, value FROM file_metadata WHERE file_id = ?",
+            (new_file_id, old_file_id),
         )
         conn.execute("DELETE FROM memoize_cache WHERE file_id = ?", (new_file_id,))
         conn.execute(
@@ -199,6 +281,32 @@ class Manifest:
             f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
             active_source_ids,
         )
+
+    # ------------------------------------------------------------------
+    # Source state (Google Drive page tokens, webhook expiry, etc.)
+    # ------------------------------------------------------------------
+
+    def get_source_state(self, data_source_id: int, key: str) -> str | None:
+        con = self.connect()
+        try:
+            row = con.execute(
+                "SELECT value FROM source_state WHERE data_source_id = ? AND key = ?",
+                (data_source_id, key),
+            ).fetchone()
+            return row[0] if row else None
+        finally:
+            con.close()
+
+    def set_source_state(self, data_source_id: int, key: str, value: str) -> None:
+        con = self.connect()
+        try:
+            con.execute(
+                "INSERT OR REPLACE INTO source_state (data_source_id, key, value) VALUES (?, ?, ?)",
+                (data_source_id, key, value),
+            )
+            con.commit()
+        finally:
+            con.close()
 
     # ------------------------------------------------------------------
     # Transform-hash operations (self-contained — manage their own connections)

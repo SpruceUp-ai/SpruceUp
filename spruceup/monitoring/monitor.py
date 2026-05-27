@@ -144,7 +144,7 @@ class Monitor:
             for watcher, event in zip(self._watchers, watcher_events)
         ]
         await asyncio.gather(*[event.wait() for event in watcher_events])
-        if force_reindex and self._manifest and self._transform_hash is not None:
+        if self._manifest is not None and self._transform_hash is not None:
             self._manifest.update_transform_hash(self._transform_hash)
         if startup_done:
             startup_done.set()

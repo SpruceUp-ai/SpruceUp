@@ -56,7 +56,7 @@ def prepare_chunk(chunk_text: str) -> str:
 
 
 async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]:
-    file_path = pathlib.Path(file_props["file_path"])
+    file_path = pathlib.Path(file_props["source_ref"])
     raw_chunks = split_chunks(
         file_props["raw_content"], file_path.name, file_path.suffix.lower()
     )
