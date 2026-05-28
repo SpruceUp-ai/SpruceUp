@@ -4,7 +4,7 @@ import pathlib
 from dataclasses import dataclass
 
 from ..base import SourceConnector
-from ...utils.hashing import hash_file_path
+from ...utils.hashing import hash_source_ref
 
 
 @dataclass
@@ -18,6 +18,20 @@ class LocalFilesSource(SourceConnector):
     @property
     def source_identifier(self) -> str:
         return str(pathlib.Path(self.watched_dir).resolve())
+
+    @classmethod
+    async def validate(cls, sources: list["LocalFilesSource"]) -> None:
+        resolved = [pathlib.Path(s.watched_dir).resolve() for s in sources]
+        for i, path_a in enumerate(resolved):
+            for path_b in resolved[i + 1:]:
+                if path_b.is_relative_to(path_a) or path_a.is_relative_to(path_b):
+                    ancestor, descendant = (
+                        (path_a, path_b) if path_b.is_relative_to(path_a) else (path_b, path_a)
+                    )
+                    raise ValueError(
+                        f"LocalFilesSource {str(ancestor)!r} is an ancestor of "
+                        f"{str(descendant)!r}. Nested watched directories cause duplicate processing."
+                    )
 
     def create_watcher(self, data_source_id: int):
         from spruceup.monitoring.local_file_watcher import LocalFileWatcher
@@ -38,13 +52,16 @@ class LocalFilesSource(SourceConnector):
         content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
         file_type = pathlib.Path(path).suffix.lstrip(".")
         return SpruceFile(
-            file_id=hash_file_path(path),
-            file_path=path,
-            inode=file_stats.st_ino,
-            mtime=file_stats.st_mtime,
+            file_id=hash_source_ref(path),
+            source_ref=path,
             content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,
             raw_content=raw_content,
             chunks=[],
+            source_metadata={
+                "inode": file_stats.st_ino,
+                "mtime": file_stats.st_mtime,
+                "modified_at": file_stats.st_mtime,
+            },
         )

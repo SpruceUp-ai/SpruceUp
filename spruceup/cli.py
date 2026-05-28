@@ -19,8 +19,7 @@ def main() -> None:
         print("Usage: spruceup start")
         sys.exit(1)
 
-    # Ensure the user's CWD is importable so their pipeline file and any
-    # local imports inside it (e.g. from example.dummy_pipeline import ...) resolve.
+    # required due to installed entry point (spruceup start)
     cwd = str(pathlib.Path.cwd())
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
@@ -29,8 +28,10 @@ def main() -> None:
         pipeline = importlib.import_module("spruceup_pipeline")
     except ModuleNotFoundError:
         sys.exit(
-            "Error: spruceup_pipeline.py not found in the current directory.\n"
-            "Run 'spruceup start' from the directory that contains your pipeline file."
+            """
+                Error: spruceup_pipeline.py not found in the current directory.
+                Run 'spruceup start' from the directory that contains your pipeline file.
+            """
         )
 
     validate_pipeline(pipeline)

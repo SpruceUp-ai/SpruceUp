@@ -13,14 +13,13 @@ class ChunkWrapper:
 @dataclass
 class SpruceFile:
     file_id: bytes
-    file_path: str
-    inode: int
-    mtime: float
+    source_ref: str
     content_hash: bytes
     file_type: str
     data_source_id: int
     raw_content: str | bytes
     chunks: list[ChunkWrapper]
+    source_metadata: dict = field(default_factory=dict)
 
 @dataclass
 class SyncTask:

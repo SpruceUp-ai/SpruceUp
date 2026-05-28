@@ -15,6 +15,10 @@ class SourceConnector(ABC):
     @abstractmethod
     def create_watcher(self, data_source_id: int): ...
 
+    @classmethod
+    @abstractmethod
+    async def validate(cls, sources: list["SourceConnector"]) -> None: ...
+
     @abstractmethod
     async def fetch(self, task) -> "SpruceFile": ...
 
@@ -34,7 +38,7 @@ class TargetConnector(ABC):
     def ensure_table_exists(self, embedding_dimensions: int) -> None: ...
 
     @abstractmethod
-    def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None: ...
+    async def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None: ...
 
 
 class EmbedderConnector(ABC):
@@ -48,3 +52,6 @@ class EmbedderConnector(ABC):
 
     @abstractmethod
     async def embed_batch(self, batch: list[str]) -> list[list[float]]: ...
+
+    async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
+        return await self.embed_batch(chunks)

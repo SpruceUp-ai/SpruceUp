@@ -3,7 +3,7 @@ import functools
 import inspect
 
 from ..utils.hashing import hash_transform, hash_args
-from .context import _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var
+from .context import _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var
 from .serialization import validate_return_type, serialize, deserialize
 
 
@@ -44,10 +44,13 @@ def memoize(*, returns):
             @functools.wraps(fn)
             async def wrapper(*args, **kwargs):
                 manifest, file_id, args_h, cached = _lookup(args, kwargs)
+                stats = _memo_stats_var.get()
+                if stats is not None:
+                    stats[1] += 1
                 if cached is not None:
-                    print(f"[memoize hit] {fn.__name__}")
+                    if stats is not None:
+                        stats[0] += 1
                     return deserialize(cached, returns)
-                print(f"[memoize miss] {fn.__name__}")
                 result = await fn(*args, **kwargs)
                 _store(manifest, file_id, args_h, result)
                 return result
@@ -55,10 +58,13 @@ def memoize(*, returns):
             @functools.wraps(fn)
             def wrapper(*args, **kwargs):
                 manifest, file_id, args_h, cached = _lookup(args, kwargs)
+                stats = _memo_stats_var.get()
+                if stats is not None:
+                    stats[1] += 1
                 if cached is not None:
-                    print(f"[memoize hit] {fn.__name__}")
+                    if stats is not None:
+                        stats[0] += 1
                     return deserialize(cached, returns)
-                print(f"[memoize miss] {fn.__name__}")
                 result = fn(*args, **kwargs)
                 _store(manifest, file_id, args_h, result)
                 return result

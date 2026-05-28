@@ -1,10 +1,9 @@
 import logging
-import pathlib
 
 from ..connectors.base import TargetConnector
 from ..manifest import Manifest
 from ..models import ChunkWrapper, SpruceFile
-from ..utils.hashing import hash_file_path
+from ..utils.hashing import hash_source_ref
 
 log = logging.getLogger(__name__)
 
@@ -14,7 +13,7 @@ class SyncEngine:
         self._manifest = manifest
         self._target = target
 
-    def delete_stale_sources(self, active_ids: list[int]) -> None:
+    async def delete_stale_sources(self, active_ids: list[int]) -> None:
         target_deletes: list = []
         with self._manifest.connect() as conn:
             stale_file_ids = self._manifest.get_stale_file_ids(conn, active_ids)
@@ -24,12 +23,14 @@ class SyncEngine:
                 )
                 target_deletes.extend(chunk["user_pk"] for chunk in chunks)
 
-            self._target.sync([], target_deletes)
+        await self._target.sync([], target_deletes)
+
+        with self._manifest.connect() as conn:
             self._manifest.delete_stale_data_sources(conn, active_ids)
 
         log.info("Deleted %d stale chunk(s) from target db", len(target_deletes))
 
-    def reconcile(self, files: list[SpruceFile]) -> None:
+    async def reconcile(self, files: list[SpruceFile]) -> None:
         manifest_upserts: list[tuple[bytes, ChunkWrapper]] = []
         target_upserts: list[ChunkWrapper] = []
         manifest_deletes: list[bytes] = []
@@ -67,48 +68,45 @@ class SyncEngine:
 
             for file in files:
                 self._manifest.ensure_file_row_exists(
-                    conn, file.file_id, file.file_path
+                    conn, file.file_id, file.source_ref
                 )
 
-            self._target.sync(target_upserts, target_deletes)
+        await self._target.sync(target_upserts, target_deletes)
 
+        with self._manifest.connect() as conn:
             self._manifest.upsert_chunks(conn, manifest_upserts)
             self._manifest.delete_chunks(conn, manifest_deletes)
 
             for file in files:
                 self._manifest.upsert_file_row(conn, file)
+                self._manifest.upsert_file_metadata(conn, file.file_id, file.source_metadata)
 
         log.info(
             "Synced %s — %d upserted  %d deleted",
-            ", ".join(pathlib.Path(f.file_path).name for f in files),
+            ", ".join(f.source_ref for f in files),
             len(target_upserts),
             len(target_deletes),
         )
 
-    async def move_file(self, old_path: str, new_path: str) -> None:
-        old_file_id = hash_file_path(old_path)
-        new_file_id = hash_file_path(new_path)
+    async def move_file(self, old_ref: str, new_ref: str) -> None:
+        old_file_id = hash_source_ref(old_ref)
+        new_file_id = hash_source_ref(new_ref)
         with self._manifest.connect() as conn:
-            self._manifest.move_file_row(conn, old_file_id, new_file_id, new_path)
-        log.info(
-            "Moved manifest row: %s → %s",
-            pathlib.Path(old_path).name,
-            pathlib.Path(new_path).name,
-        )
+            self._manifest.move_file_row(conn, old_file_id, new_file_id, new_ref)
+        log.info("Moved manifest row: %s → %s", old_ref, new_ref)
 
-    async def delete_file(self, file_path: str) -> None:
-        file_id = hash_file_path(file_path)
+    async def delete_file(self, source_ref: str) -> None:
+        file_id = hash_source_ref(source_ref)
         with self._manifest.connect() as conn:
             chunks = self._manifest.get_chunks_for_file(
                 conn, file_id, self._target.primary_key
             )
-            manifest_chunk_ids = [c["manifest_chunk_id"] for c in chunks]
-            target_pks = [c["user_pk"] for c in chunks]
+        manifest_chunk_ids = [c["manifest_chunk_id"] for c in chunks]
+        target_pks = [c["user_pk"] for c in chunks]
 
-            self._target.sync([], target_pks)
+        await self._target.sync([], target_pks)
 
+        with self._manifest.connect() as conn:
             self._manifest.delete_chunks(conn, manifest_chunk_ids)
             self._manifest.delete_file_row(conn, file_id)
-        log.info(
-            "Deleted %d chunk(s) for %s", len(target_pks), pathlib.Path(file_path).name
-        )
+        log.info("Deleted %d chunk(s) for %s", len(target_pks), source_ref)

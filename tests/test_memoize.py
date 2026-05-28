@@ -14,10 +14,10 @@ from spruceup.memoize.context import (
     _memo_manifest_var,
     _memo_temp_keys_var,
 )
-from spruceup.utils.hashing import hash_file_path
+from spruceup.utils.hashing import hash_source_ref
 
 FILE_PATH = "corpus/test_doc.txt"
-FILE_ID = hash_file_path(FILE_PATH)
+FILE_ID = hash_source_ref(FILE_PATH)
 
 FN_HASH = b"\x01" * 16
 ARGS_HASH_A = b"\x02" * 16
@@ -58,7 +58,7 @@ def seed_file_row(manifest, file_id=FILE_ID, file_path=FILE_PATH):
     con = manifest.connect()
     try:
         con.execute(
-            "INSERT OR IGNORE INTO files (id, file_path) VALUES (?, ?)",
+            "INSERT OR IGNORE INTO files (id, source_ref) VALUES (?, ?)",
             (file_id, file_path),
         )
         con.commit()
@@ -177,8 +177,8 @@ def test_sweep_does_not_leak_keys_across_files(manifest):
     # persists between calls. Each sweep must start from a clean key set, or a
     # later file would wrongly preserve a stale entry whose (fn, args) signature
     # happened to be swept-as-live for an earlier file.
-    file_a = hash_file_path("corpus/a.txt")
-    file_b = hash_file_path("corpus/b.txt")
+    file_a = hash_source_ref("corpus/a.txt")
+    file_b = hash_source_ref("corpus/b.txt")
     seed_file_row(manifest, file_id=file_a, file_path="corpus/a.txt")
     seed_file_row(manifest, file_id=file_b, file_path="corpus/b.txt")
 
@@ -202,8 +202,8 @@ def test_sweep_does_not_leak_keys_across_files(manifest):
 def test_move_reassigns_cache_to_new_file_id(manifest):
     old_path = "corpus/old.txt"
     new_path = "corpus/new.txt"
-    old_file_id = hash_file_path(old_path)
-    new_file_id = hash_file_path(new_path)
+    old_file_id = hash_source_ref(old_path)
+    new_file_id = hash_source_ref(new_path)
 
     seed_file_row(manifest, file_id=old_file_id, file_path=old_path)
     manifest.set_memoized(old_file_id, FN_HASH, ARGS_HASH_A, b'"cached"')
