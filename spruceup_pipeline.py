@@ -25,9 +25,10 @@ dotenv.load_dotenv()
 
 # --- credentials (hardcoded for local testing) ------------------------
 
-_GOOGLE_DRIVE_TOKEN = "your-google-drive-access-token-here"
-_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-openai-api-key-here")
-_GDRIVE_FOLDER_ID = "your-google-drive-folder-id-here"
+_GOOGLE_DRIVE_TOKEN = ""
+_OPENAI_API_KEY = ""
+_GDRIVE_FOLDER_ID = ""
+_PG_CONNSTR = ""
 
 
 def get_google_drive_token() -> str:
@@ -120,7 +121,7 @@ config = defineConfig(
         ),
     ],
     target=PgVectorTarget(
-        connstr=os.getenv("PG_CONNSTR"),
+        connstr=_PG_CONNSTR,
         table="data_chunks",
         schema=LectureChunk,
         primary_key="id",
