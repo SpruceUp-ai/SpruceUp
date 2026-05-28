@@ -39,8 +39,18 @@ class GoogleDriveWatcher(BaseWatcher):
         from googleapiclient.discovery import build
         from google.oauth2.credentials import Credentials
 
-        creds = Credentials(token=self._on_token_expired())
-        return build("drive", "v3", credentials=creds)
+        try:
+            token = self._on_token_expired()
+        except Exception as exc:
+            raise RuntimeError(
+                "GoogleDriveWatcher: on_token_expired() raised an error — "
+                "ensure it returns a valid access token string."
+            ) from exc
+        if not token:
+            raise RuntimeError(
+                "GoogleDriveWatcher: on_token_expired() returned an empty token."
+            )
+        return build("drive", "v3", credentials=Credentials(token=token))
 
     async def _full_scan(
         self, service, queue: asyncio.Queue, manifest: "Manifest"
@@ -230,14 +240,25 @@ class GoogleDriveWatcher(BaseWatcher):
         manifest: "Manifest",
         catchup_done: asyncio.Event,
     ) -> None:
+        from googleapiclient.errors import HttpError
+
         await catchup_done.wait()
         service = await asyncio.to_thread(self._build_service)
         while True:
             await asyncio.sleep(self._poll_interval)
             stored_token = manifest.get_source_state(self._data_source_id, _STATE_PAGE_TOKEN)
-            n_upserts, n_deletes = await self._incremental_scan(
-                service, queue, manifest, stored_token
-            )
+            try:
+                n_upserts, n_deletes = await self._incremental_scan(
+                    service, queue, manifest, stored_token
+                )
+            except HttpError as exc:
+                if exc.resp.status != 401:
+                    raise
+                log.warning("Google Drive access token expired — refreshing.")
+                service = await asyncio.to_thread(self._build_service)
+                n_upserts, n_deletes = await self._incremental_scan(
+                    service, queue, manifest, stored_token
+                )
             if n_upserts or n_deletes:
                 log.info(
                     "Changes detected — %d upsert(s)  %d delete(s)",

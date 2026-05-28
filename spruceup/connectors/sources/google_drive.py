@@ -67,11 +67,11 @@ async def _folder_is_ancestor(
 class GoogleDriveSource(SourceConnector):
     def __init__(
         self,
-        folder_id: str,
+        watched_dir: str,
         on_token_expired: Callable[[], str],
         recursive: bool = True,
     ):
-        self._folder_id = folder_id
+        self._folder_id = watched_dir
         self._on_token_expired = on_token_expired
         self._recursive = recursive
 
