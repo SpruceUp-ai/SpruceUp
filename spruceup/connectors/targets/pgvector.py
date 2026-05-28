@@ -50,8 +50,8 @@ class PgVectorTarget(TargetConnector):
                 f"CREATE TABLE IF NOT EXISTS {self.table} ({', '.join(col_defs)})"
             )
 
-    def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
-        with psycopg.connect(self.connstr) as conn:
+    async def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
+        async with await psycopg.AsyncConnection.connect(self.connstr) as conn:
             if upserts:
                 hints = typing.get_type_hints(self.schema)
                 col_names = list(hints.keys())
@@ -68,12 +68,12 @@ class PgVectorTarget(TargetConnector):
                     [getattr(chunk.user_chunk, col) for col in col_names]
                     for chunk in upserts
                 ]
-                with conn.cursor() as cur:
-                    cur.executemany(sql, rows)
+                async with conn.cursor() as cur:
+                    await cur.executemany(sql, rows)
 
             if deletes:
                 placeholders = ", ".join(["%s"] * len(deletes))
-                conn.execute(
+                await conn.execute(
                     f"DELETE FROM {self.table} WHERE {self.primary_key} IN ({placeholders})",
                     deletes,
                 )

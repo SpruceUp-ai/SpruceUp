@@ -52,6 +52,8 @@ def memoize(*, returns):
                     if stats is not None:
                         stats[0] += 1
                     return deserialize(cached, returns)
+                if conn is not None:
+                    conn.commit()
                 result = await fn(*args, **kwargs)
                 _store(manifest, file_id, args_h, result, conn)
                 return result
