@@ -53,7 +53,7 @@ def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
 
 @memoize(returns=str)
 async def prepare_chunk(chunk_text: str) -> str:
-    await asyncio.sleep(0.05)  # simulate async preprocessing
+    # await asyncio.sleep(0.05)  # simulate async preprocessing
     return chunk_text
 
 # @memoize(returns=str)
