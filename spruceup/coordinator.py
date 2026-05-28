@@ -57,7 +57,7 @@ class Coordinator:
 
         memo_conn = self._manifest.connect()
         try:
-            with self._manifest.connect() as conn:
+            with self._manifest.transaction() as conn:
                 self._manifest.ensure_file_row_exists(conn, spruce_file.file_id, spruce_file.source_ref)
 
             temp_keys: set[tuple[bytes, bytes]] = set()

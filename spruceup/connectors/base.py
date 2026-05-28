@@ -36,6 +36,8 @@ class TargetConnector(ABC):
     @abstractmethod
     async def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None: ...
 
+    def close(self) -> None: ...
+
 
 class EmbedderConnector(ABC):
     def __init__(

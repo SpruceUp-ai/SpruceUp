@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import sqlite3
+from contextlib import contextmanager
 
 from .models import ChunkWrapper, SpruceFile
 
@@ -111,10 +112,23 @@ class Manifest:
         )
 
     def connect(self) -> sqlite3.Connection:
-        """Return a connection suitable for use as a context manager (transaction semantics)."""
+        """Return a raw connection. Caller is responsible for closing it."""
         conn = sqlite3.connect(self._path)
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
+
+    @contextmanager
+    def transaction(self):
+        """Context manager that opens a connection, commits on success, rolls back on error, and always closes."""
+        conn = self.connect()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     # ------------------------------------------------------------------
     # Chunk and file operations (callers manage the connection/transaction)
