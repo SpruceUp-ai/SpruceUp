@@ -4,25 +4,36 @@ import os
 import pathlib
 from dataclasses import dataclass
 
+import dotenv
 import openai
 
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, VoyageAIEmbedder, CohereEmbedder, GeminiEmbedder, defineConfig, memoize
-from spruceup import PineconeTarget, WeaviateTarget
-
-import dotenv
-
-from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
 from spruceup import (
-    # GoogleDriveSource,
+    CohereEmbedder,
+    GeminiEmbedder,
+    GoogleDriveSource,
     LocalFilesSource,
     OpenAIEmbedder,
     PgVectorTarget,
+    PineconeTarget,
+    VoyageAIEmbedder,
+    WeaviateTarget,
     defineConfig,
     memoize,
 )
 
 dotenv.load_dotenv()
+
+# --- credentials (hardcoded for local testing) ------------------------
+
+_GOOGLE_DRIVE_TOKEN = "your-google-drive-access-token-here"
+_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-openai-api-key-here")
+_GDRIVE_FOLDER_ID = "your-google-drive-folder-id-here"
+
+
+def get_google_drive_token() -> str:
+    return _GOOGLE_DRIVE_TOKEN
+
 
 # --- schema -----------------------------------------------------------
 
@@ -52,16 +63,15 @@ def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
 
 # --- memoized helpers -------------------------------------------------
 
+
 @memoize(returns=str)
 async def prepare_chunk(chunk_text: str) -> str:
     # await asyncio.sleep(0.05)  # simulate async preprocessing
     return chunk_text
 
-# @memoize(returns=str)
-# def prepare_chunk(chunk_text: str) -> str:
-#     return chunk_text
 
 _openai_client: openai.AsyncOpenAI | None = None
+
 
 def _get_openai_client() -> openai.AsyncOpenAI:
     global _openai_client
@@ -83,36 +93,12 @@ def _get_openai_client() -> openai.AsyncOpenAI:
 # --- transform --------------------------------------------------------
 
 
-# async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]:
-#     file_path = pathlib.Path(file_props["source_ref"])
-#     raw_chunks = split_chunks(
-#         file_props["raw_content"], file_path.name, file_path.suffix.lower()
-#     )
-#     chunk_strs = [await prepare_chunk(s) for s in raw_chunks]
-
-#     embeddings, summaries = await asyncio.gather(
-#         embed(chunk_strs),
-#         asyncio.gather(*[summarize_chunk(s) for s in chunk_strs]),
-#     )
-#     return [
-#         LectureChunk(
-#             id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
-#             chunk_text=text,
-#             chunk_embedding=embedding,
-#             chunk_summary=summary,
-#             lecture_title=file_path.stem,
-#         )
-#         for text, embedding, summary in zip(chunk_strs, embeddings, summaries)
-#     ]
-
-
 async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]:
     file_path = pathlib.Path(file_props["source_ref"])
     raw_chunks = split_chunks(
         file_props["raw_content"], file_path.name, file_path.suffix.lower()
     )
     chunk_strs = [await prepare_chunk(s) for s in raw_chunks]
-    # chunk_strs = raw_chunks
 
     embeddings = await embed(chunk_strs)
     return [
@@ -125,6 +111,7 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
         )
         for text, embedding in zip(chunk_strs, embeddings)
     ]
+
 
 # --- config -----------------------------------------------------------
 
@@ -169,6 +156,10 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
 config = defineConfig(
     sources=[
         LocalFilesSource(watched_dir="example/data_corpus"),
+        GoogleDriveSource(
+            watched_dir=_GDRIVE_FOLDER_ID,
+            on_token_expired=get_google_drive_token,
+        ),
     ],
     target=WeaviateTarget(
         collection_name="DataChunks",
@@ -176,7 +167,7 @@ config = defineConfig(
         primary_key="chunk_id",
     ),
     embedder=OpenAIEmbedder(
-        api_key=os.getenv("OPENAI_API_KEY"),
+        api_key=_OPENAI_API_KEY,
         model="text-embedding-3-small",
     ),
     transform=build_lecture_chunks,

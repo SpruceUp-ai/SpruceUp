@@ -3,7 +3,7 @@ import os
 import pathlib
 from dataclasses import dataclass
 
-from ..base import SourceConnector
+from ..base import SourceConnector, SUPPORTED_EXTENSIONS
 from ...utils.hashing import hash_source_ref
 
 
@@ -19,9 +19,26 @@ class LocalFilesSource(SourceConnector):
     def source_identifier(self) -> str:
         return str(pathlib.Path(self.watched_dir).resolve())
 
+    @classmethod
+    async def validate(cls, sources: list["LocalFilesSource"]) -> None:
+        resolved = [pathlib.Path(s.watched_dir).resolve() for s in sources]
+        for i, path_a in enumerate(resolved):
+            for path_b in resolved[i + 1:]:
+                if path_b.is_relative_to(path_a) or path_a.is_relative_to(path_b):
+                    ancestor, descendant = (
+                        (path_a, path_b) if path_b.is_relative_to(path_a) else (path_b, path_a)
+                    )
+                    raise ValueError(
+                        f"LocalFilesSource {str(ancestor)!r} is an ancestor of "
+                        f"{str(descendant)!r}. Nested watched directories cause duplicate processing."
+                    )
+
+    def is_supported(self, file_identifier: str) -> bool:
+        return pathlib.Path(file_identifier).suffix.lstrip(".").lower() in SUPPORTED_EXTENSIONS
+
     def create_watcher(self, data_source_id: int):
         from spruceup.monitoring.local_file_watcher import LocalFileWatcher
-        return LocalFileWatcher(self.watched_dir, data_source_id, self.source_type)
+        return LocalFileWatcher(self.watched_dir, data_source_id, self.source_type, self.is_supported)
 
     def display_name(self, identifier: str) -> str:
         return pathlib.Path(identifier).name
