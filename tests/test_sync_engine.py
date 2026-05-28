@@ -50,7 +50,7 @@ class MockSyncTarget(TargetConnector):
     def ensure_table_exists(self, embedding_dimensions: int) -> None:
         pass
 
-    def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
+    async def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
         self.calls.append({"upserts": list(upserts), "deletes": list(deletes)})
 
     def inserted_ids(self) -> list:
@@ -167,84 +167,85 @@ def data_source_exists(manifest_path: str, source_id: int) -> bool:
 # ---------------------------------------------------------------------------
 
 class TestReconcile:
+    pytestmark = pytest.mark.anyio
 
-    def test_new_chunks_upserted_to_postgres(self, engine, pg):
+    async def test_new_chunks_upserted_to_postgres(self, engine, pg):
         chunks = [
             make_chunk(FILE_PATH_A, "c1", "First chunk", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Second chunk", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, chunks)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks)])
         assert set(pg.inserted_ids()) == {"c1", "c2"}
 
-    def test_new_chunks_written_to_manifest(self, engine, tmp_manifest):
+    async def test_new_chunks_written_to_manifest(self, engine, tmp_manifest):
         chunks = [
             make_chunk(FILE_PATH_A, "c1", "First chunk", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Second chunk", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, chunks)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks)])
         assert chunk_count(tmp_manifest, FILE_ID_A) == 2
 
-    def test_file_row_written_to_manifest(self, engine, tmp_manifest):
+    async def test_file_row_written_to_manifest(self, engine, tmp_manifest):
         chunks = [make_chunk(FILE_PATH_A, "c1", "First chunk", ordinal=1)]
-        engine.reconcile([make_file(FILE_PATH_A, chunks, mtime=1_234_567.0)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks, mtime=1_234_567.0)])
         row = file_row(tmp_manifest, FILE_ID_A)
         assert row is not None
         assert row["mtime"] == 1_234_567.0
 
-    def test_unchanged_chunks_not_reupserted(self, engine, pg):
+    async def test_unchanged_chunks_not_reupserted(self, engine, pg):
         chunks = [make_chunk(FILE_PATH_A, "c1", "Same text", ordinal=1)]
-        engine.reconcile([make_file(FILE_PATH_A, chunks)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks)])
         pg.reset()
-        engine.reconcile([make_file(FILE_PATH_A, chunks)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks)])
         assert pg.inserted_ids() == []
 
-    def test_changed_chunk_is_upserted(self, engine, pg):
+    async def test_changed_chunk_is_upserted(self, engine, pg):
         v1 = [
             make_chunk(FILE_PATH_A, "c1", "Original text", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Unchanged text", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, v1)])
+        await engine.reconcile([make_file(FILE_PATH_A, v1)])
         pg.reset()
 
         v2 = [
             make_chunk(FILE_PATH_A, "c1", "EDITED text", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Unchanged text", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, v2)])
+        await engine.reconcile([make_file(FILE_PATH_A, v2)])
         assert pg.inserted_ids() == ["c1"]
 
-    def test_orphaned_chunk_deleted_from_postgres(self, engine, pg):
+    async def test_orphaned_chunk_deleted_from_postgres(self, engine, pg):
         v1 = [
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, v1)])
+        await engine.reconcile([make_file(FILE_PATH_A, v1)])
         pg.reset()
 
         v2 = [make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1)]
-        engine.reconcile([make_file(FILE_PATH_A, v2)])
+        await engine.reconcile([make_file(FILE_PATH_A, v2)])
         assert "c2" in pg.deleted_ids()
 
-    def test_orphaned_chunk_removed_from_manifest(self, engine, tmp_manifest):
+    async def test_orphaned_chunk_removed_from_manifest(self, engine, tmp_manifest):
         v1 = [
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, v1)])
+        await engine.reconcile([make_file(FILE_PATH_A, v1)])
         assert chunk_count(tmp_manifest, FILE_ID_A) == 2
 
         v2 = [make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1)]
-        engine.reconcile([make_file(FILE_PATH_A, v2)])
+        await engine.reconcile([make_file(FILE_PATH_A, v2)])
         assert chunk_count(tmp_manifest, FILE_ID_A) == 1
 
-    def test_file_row_mtime_updated_on_second_reconcile(self, engine, tmp_manifest):
+    async def test_file_row_mtime_updated_on_second_reconcile(self, engine, tmp_manifest):
         chunks = [make_chunk(FILE_PATH_A, "c1", "Same text", ordinal=1)]
-        engine.reconcile([make_file(FILE_PATH_A, chunks, mtime=1_000_000.0)])
-        engine.reconcile([make_file(FILE_PATH_A, chunks, mtime=2_000_000.0)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks, mtime=1_000_000.0)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks, mtime=2_000_000.0)])
         assert file_row(tmp_manifest, FILE_ID_A)["mtime"] == 2_000_000.0
 
-    def test_multiple_files_in_one_call(self, engine, tmp_manifest):
-        engine.reconcile([
+    async def test_multiple_files_in_one_call(self, engine, tmp_manifest):
+        await engine.reconcile([
             make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "a1", "Doc A", ordinal=1)]),
             make_file(FILE_PATH_B, [
                 make_chunk(FILE_PATH_B, "b1", "Doc B chunk one", ordinal=1),
@@ -256,36 +257,36 @@ class TestReconcile:
         assert file_row(tmp_manifest, FILE_ID_A) is not None
         assert file_row(tmp_manifest, FILE_ID_B) is not None
 
-    def test_reconcile_only_touches_given_files(self, engine, tmp_manifest):
-        engine.reconcile([
+    async def test_reconcile_only_touches_given_files(self, engine, tmp_manifest):
+        await engine.reconcile([
             make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "a1", "Doc A", ordinal=1)]),
             make_file(FILE_PATH_B, [make_chunk(FILE_PATH_B, "b1", "Doc B", ordinal=1)]),
         ])
         # Reconcile only file B — file A's chunks must remain untouched
-        engine.reconcile([
+        await engine.reconcile([
             make_file(FILE_PATH_B, [make_chunk(FILE_PATH_B, "b1", "Doc B", ordinal=1)])
         ])
         assert chunk_count(tmp_manifest, FILE_ID_A) == 1
 
-    def test_empty_file_list_is_noop(self, engine, pg):
-        engine.reconcile([])
+    async def test_empty_file_list_is_noop(self, engine, pg):
+        await engine.reconcile([])
         assert pg.inserted_ids() == []
         assert pg.deleted_ids() == []
 
-    def test_file_with_no_chunks_writes_file_row(self, engine, tmp_manifest):
-        engine.reconcile([make_file(FILE_PATH_A, [])])
+    async def test_file_with_no_chunks_writes_file_row(self, engine, tmp_manifest):
+        await engine.reconcile([make_file(FILE_PATH_A, [])])
         assert file_row(tmp_manifest, FILE_ID_A) is not None
         assert chunk_count(tmp_manifest, FILE_ID_A) == 0
 
-    def test_all_chunks_removed_on_second_reconcile(self, engine, pg, tmp_manifest):
+    async def test_all_chunks_removed_on_second_reconcile(self, engine, pg, tmp_manifest):
         v1 = [
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, v1)])
+        await engine.reconcile([make_file(FILE_PATH_A, v1)])
         pg.reset()
 
-        engine.reconcile([make_file(FILE_PATH_A, [])])
+        await engine.reconcile([make_file(FILE_PATH_A, [])])
         assert set(pg.deleted_ids()) == {"c1", "c2"}
         assert chunk_count(tmp_manifest, FILE_ID_A) == 0
 
@@ -302,7 +303,7 @@ class TestDeleteFile:
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, chunks)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks)])
         pg.reset()
 
         await engine.delete_file(FILE_PATH_A)
@@ -313,13 +314,13 @@ class TestDeleteFile:
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, chunks)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks)])
         await engine.delete_file(FILE_PATH_A)
         assert chunk_count(tmp_manifest, FILE_ID_A) == 0
 
     async def test_removes_file_row_from_manifest(self, engine, tmp_manifest):
         chunks = [make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1)]
-        engine.reconcile([make_file(FILE_PATH_A, chunks)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks)])
         await engine.delete_file(FILE_PATH_A)
         assert file_row(tmp_manifest, FILE_ID_A) is None
 
@@ -337,17 +338,17 @@ class TestMoveFile:
     pytestmark = pytest.mark.anyio
 
     async def test_old_file_row_removed(self, engine, tmp_manifest):
-        engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
+        await engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
         await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_row(tmp_manifest, FILE_ID_A) is None
 
     async def test_new_file_row_created(self, engine, tmp_manifest):
-        engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
+        await engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
         await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_row(tmp_manifest, FILE_ID_B) is not None
 
     async def test_new_file_row_has_correct_ref(self, engine, tmp_manifest):
-        engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
+        await engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
         await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_path_in_manifest(tmp_manifest, FILE_ID_B) == FILE_PATH_B
 
@@ -356,13 +357,13 @@ class TestMoveFile:
             make_chunk(FILE_PATH_A, "c1", "Chunk one", ordinal=1),
             make_chunk(FILE_PATH_A, "c2", "Chunk two", ordinal=2),
         ]
-        engine.reconcile([make_file(FILE_PATH_A, chunks)])
+        await engine.reconcile([make_file(FILE_PATH_A, chunks)])
         await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert chunk_count(tmp_manifest, FILE_ID_A) == 0
         assert chunk_count(tmp_manifest, FILE_ID_B) == 2
 
     async def test_does_not_write_to_postgres(self, engine, pg):
-        engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
+        await engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
         pg.reset()
         await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert pg.calls == []
@@ -378,11 +379,12 @@ class TestMoveFile:
 # ---------------------------------------------------------------------------
 
 class TestDeleteStaleSources:
+    pytestmark = pytest.mark.anyio
 
-    def _seed_two_sources(self, engine):
+    async def _seed_two_sources(self, engine):
         # Source 1 already registered by the engine fixture.
         stale_source_id = engine._manifest.register_source("local", "/old-corpus")
-        engine.reconcile([
+        await engine.reconcile([
             make_file(FILE_PATH_A, [
                 make_chunk(FILE_PATH_A, "a1", "active", ordinal=1),
             ], data_source_id=1),
@@ -393,57 +395,57 @@ class TestDeleteStaleSources:
         ])
         return stale_source_id
 
-    def test_stale_chunks_sent_to_target_as_deletes(self, engine, pg):
-        self._seed_two_sources(engine)
+    async def test_stale_chunks_sent_to_target_as_deletes(self, engine, pg):
+        await self._seed_two_sources(engine)
         pg.reset()
 
-        engine.delete_stale_sources(active_ids=[1])
+        await engine.delete_stale_sources(active_ids=[1])
         assert set(pg.deleted_ids()) == {"s1", "s2"}
 
-    def test_active_chunks_not_sent_as_deletes(self, engine, pg):
-        self._seed_two_sources(engine)
+    async def test_active_chunks_not_sent_as_deletes(self, engine, pg):
+        await self._seed_two_sources(engine)
         pg.reset()
 
-        engine.delete_stale_sources(active_ids=[1])
+        await engine.delete_stale_sources(active_ids=[1])
         assert "a1" not in pg.deleted_ids()
 
-    def test_stale_data_source_row_removed(self, engine, tmp_manifest):
-        stale_id = self._seed_two_sources(engine)
-        engine.delete_stale_sources(active_ids=[1])
+    async def test_stale_data_source_row_removed(self, engine, tmp_manifest):
+        stale_id = await self._seed_two_sources(engine)
+        await engine.delete_stale_sources(active_ids=[1])
         assert not data_source_exists(tmp_manifest, stale_id)
 
-    def test_stale_file_row_cascade_removed(self, engine, tmp_manifest):
-        self._seed_two_sources(engine)
-        engine.delete_stale_sources(active_ids=[1])
+    async def test_stale_file_row_cascade_removed(self, engine, tmp_manifest):
+        await self._seed_two_sources(engine)
+        await engine.delete_stale_sources(active_ids=[1])
         assert file_row(tmp_manifest, FILE_ID_B) is None
 
-    def test_stale_chunks_cascade_removed(self, engine, tmp_manifest):
-        self._seed_two_sources(engine)
-        engine.delete_stale_sources(active_ids=[1])
+    async def test_stale_chunks_cascade_removed(self, engine, tmp_manifest):
+        await self._seed_two_sources(engine)
+        await engine.delete_stale_sources(active_ids=[1])
         assert chunk_count(tmp_manifest, FILE_ID_B) == 0
 
-    def test_active_source_rows_preserved(self, engine, tmp_manifest):
-        self._seed_two_sources(engine)
-        engine.delete_stale_sources(active_ids=[1])
+    async def test_active_source_rows_preserved(self, engine, tmp_manifest):
+        await self._seed_two_sources(engine)
+        await engine.delete_stale_sources(active_ids=[1])
         assert data_source_exists(tmp_manifest, 1)
         assert file_row(tmp_manifest, FILE_ID_A) is not None
         assert chunk_count(tmp_manifest, FILE_ID_A) == 1
 
-    def test_rerun_is_idempotent_noop_on_target(self, engine, pg):
-        self._seed_two_sources(engine)
-        engine.delete_stale_sources(active_ids=[1])
+    async def test_rerun_is_idempotent_noop_on_target(self, engine, pg):
+        await self._seed_two_sources(engine)
+        await engine.delete_stale_sources(active_ids=[1])
         pg.reset()
 
-        engine.delete_stale_sources(active_ids=[1])
+        await engine.delete_stale_sources(active_ids=[1])
         assert pg.deleted_ids() == []
 
-    def test_no_stale_sources_sends_empty_deletes(self, engine, pg):
-        engine.reconcile([
+    async def test_no_stale_sources_sends_empty_deletes(self, engine, pg):
+        await engine.reconcile([
             make_file(FILE_PATH_A, [
                 make_chunk(FILE_PATH_A, "a1", "active", ordinal=1),
             ], data_source_id=1),
         ])
         pg.reset()
 
-        engine.delete_stale_sources(active_ids=[1])
+        await engine.delete_stale_sources(active_ids=[1])
         assert pg.deleted_ids() == []
