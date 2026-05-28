@@ -43,7 +43,7 @@ async def run(pipeline) -> None:
         active_source_ids.append(data_source_id)
         source_registry[data_source_id] = source
         monitor.add_watcher(source.create_watcher(data_source_id))
-    sync_engine.delete_stale_sources(active_source_ids)
+    await sync_engine.delete_stale_sources(active_source_ids)
 
     embedder = EmbeddingBatcher(config.embedder)
 

@@ -110,7 +110,7 @@ class Coordinator:
 
         spruce_file.chunks = chunks
 
-        self._sync_engine.reconcile([spruce_file])
+        await self._sync_engine.reconcile([spruce_file])
 
     async def run(self) -> None:
         while True:

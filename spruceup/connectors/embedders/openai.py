@@ -16,7 +16,7 @@ class OpenAIEmbedder(EmbedderConnector):
         self,
         api_key: str,
         model: str = "text-embedding-3-small",
-        max_batch_size: int = 150,
+        max_batch_size: int = 512,
         embedding_dimensions: int | None = None,
     ) -> None:
         if not api_key:

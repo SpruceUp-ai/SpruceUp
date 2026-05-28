@@ -14,7 +14,7 @@ class SyncEngine:
         self._manifest = manifest
         self._target = target
 
-    def delete_stale_sources(self, active_ids: list[int]) -> None:
+    async def delete_stale_sources(self, active_ids: list[int]) -> None:
         target_deletes: list = []
         with self._manifest.connect() as conn:
             stale_file_ids = self._manifest.get_stale_file_ids(conn, active_ids)
@@ -24,12 +24,14 @@ class SyncEngine:
                 )
                 target_deletes.extend(chunk["user_pk"] for chunk in chunks)
 
-            self._target.sync([], target_deletes)
+        await self._target.sync([], target_deletes)
+
+        with self._manifest.connect() as conn:
             self._manifest.delete_stale_data_sources(conn, active_ids)
 
         log.info("Deleted %d stale chunk(s) from target db", len(target_deletes))
 
-    def reconcile(self, files: list[SpruceFile]) -> None:
+    async def reconcile(self, files: list[SpruceFile]) -> None:
         manifest_upserts: list[tuple[bytes, ChunkWrapper]] = []
         target_upserts: list[ChunkWrapper] = []
         manifest_deletes: list[bytes] = []
@@ -70,8 +72,9 @@ class SyncEngine:
                     conn, file.file_id, file.file_path
                 )
 
-            self._target.sync(target_upserts, target_deletes)
+        await self._target.sync(target_upserts, target_deletes)
 
+        with self._manifest.connect() as conn:
             self._manifest.upsert_chunks(conn, manifest_upserts)
             self._manifest.delete_chunks(conn, manifest_deletes)
 
@@ -102,11 +105,12 @@ class SyncEngine:
             chunks = self._manifest.get_chunks_for_file(
                 conn, file_id, self._target.primary_key
             )
-            manifest_chunk_ids = [c["manifest_chunk_id"] for c in chunks]
-            target_pks = [c["user_pk"] for c in chunks]
+        manifest_chunk_ids = [c["manifest_chunk_id"] for c in chunks]
+        target_pks = [c["user_pk"] for c in chunks]
 
-            self._target.sync([], target_pks)
+        await self._target.sync([], target_pks)
 
+        with self._manifest.connect() as conn:
             self._manifest.delete_chunks(conn, manifest_chunk_ids)
             self._manifest.delete_file_row(conn, file_id)
         log.info(
