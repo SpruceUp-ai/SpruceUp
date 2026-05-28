@@ -20,6 +20,7 @@ class Coordinator:
         embedder: EmbedderConnector,
         sync_engine: SyncEngine,
         source_registry: dict,
+        max_concurrency: int = 32,
     ):
         self._queue = queue
         self._transform = transform
@@ -29,6 +30,7 @@ class Coordinator:
         self._manifest = sync_engine._manifest
         self._source_registry = source_registry
         self._active_tasks = set()
+        self._semaphore = asyncio.Semaphore(max_concurrency)
 
     async def process_task(self, task: SyncTask) -> None:
         source = self._source_registry[task.data_source_id]
@@ -92,6 +94,13 @@ class Coordinator:
     async def run(self) -> None:
         while True:
             next_task: SyncTask = await self._queue.get()
-            asyncio_task = asyncio.create_task(self.process_task(next_task))
+            await self._semaphore.acquire()
+            asyncio_task = asyncio.create_task(self._process_and_release(next_task))
             self._active_tasks.add(asyncio_task)
             asyncio_task.add_done_callback(self._active_tasks.discard)
+
+    async def _process_and_release(self, task: SyncTask) -> None:
+        try:
+            await self.process_task(task)
+        finally:
+            self._semaphore.release()

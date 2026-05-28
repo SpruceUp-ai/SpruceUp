@@ -7,15 +7,56 @@ from .models import ChunkWrapper, SpruceFile
 _MANIFEST_PATH = "spruceup_manifest.db"
 
 
+class _ManifestConnection:
+    """Single long-lived sqlite3 connection assigned to the entire pipeline
+    process. Every manifest call reuses one underlying connection
+    instead of opening and closing a fresh one which, at three connections per
+    file, was weighing heavily on RAM as the corpus size grew.
+    
+    Designed so that existing code didn't need to change. The __enter__/__exit__
+    methods delegate to the real connection's transaction handling, and anytime
+    a method calls close(), the call is ignored and the conn left open.
+
+    Safe because every manifest DB section is synchronous — no two coroutines
+    interleave a transaction on the shared connection.
+    """
+
+    def __init__(self, conn: sqlite3.Connection):
+        self._conn = conn
+
+    def __enter__(self) -> "_ManifestConnection":
+        self._conn.__enter__()
+        return self
+
+    def __exit__(self, *exc) -> object:
+        return self._conn.__exit__(*exc)
+
+    def execute(self, *args, **kwargs):
+        return self._conn.execute(*args, **kwargs)
+
+    def executemany(self, *args, **kwargs):
+        return self._conn.executemany(*args, **kwargs)
+
+    def cursor(self):
+        return self._conn.cursor()
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def close(self) -> None:
+        pass
+
+
 class Manifest:
     """Single access point for all SQLite manifest reads and writes."""
 
     def __init__(self, path: str = _MANIFEST_PATH):
         self._path = path
         self._init_db()
+        self._conn = self._new_connection()
 
     def _init_db(self) -> None:
-        con = self.connect()
+        con = self._new_connection()
         try:
             con.execute(
                 """
@@ -41,6 +82,9 @@ class Manifest:
                 """
             )
             con.execute(
+                "CREATE INDEX IF NOT EXISTS ix_files_src_inode ON files(data_source_id, inode)"
+            )
+            con.execute(
                 """
                 CREATE TABLE IF NOT EXISTS chunks (
                     id                     BLOB PRIMARY KEY,
@@ -49,6 +93,9 @@ class Manifest:
                     user_chunk_object      BLOB
                 )
                 """
+            )
+            con.execute(
+                "CREATE INDEX IF NOT EXISTS ix_chunks_file_id ON chunks(file_id)"
             )
             con.execute(
                 """
@@ -72,11 +119,17 @@ class Manifest:
         finally:
             con.close()
 
-    def connect(self) -> sqlite3.Connection:
-        """Return a connection suitable for use as a context manager (transaction semantics)."""
+    def _new_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self._path)
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
+
+    def connect(self) -> "_ManifestConnection":
+        """Return the shared long-lived connection, wrapped so it can be used as
+        a context manager and "closed" without being torn down.
+        See _ManifestConnection for why a single connection is reused.
+        """
+        return _ManifestConnection(self._conn)
 
     # ------------------------------------------------------------------
     # Chunk and file operations (callers manage the connection/transaction)
@@ -274,6 +327,9 @@ class Manifest:
             con.execute(
                 "CREATE TEMP TABLE IF NOT EXISTS _sweep_keys (fn_hash BLOB, args_hash BLOB)"
             )
+            # The connection is shared and long-lived, so this TEMP table persists
+            # across files; clear last file's keys before loading this file's.
+            con.execute("DELETE FROM _sweep_keys")
             with con:
                 con.executemany("INSERT INTO _sweep_keys VALUES (?, ?)", temp_keys)
                 con.execute(

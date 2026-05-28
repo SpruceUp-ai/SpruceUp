@@ -172,6 +172,28 @@ def test_sweep_with_empty_temp_keys_clears_all(manifest):
     assert cache_row_count(manifest) == 0
 
 
+def test_sweep_does_not_leak_keys_across_files(manifest):
+    # The manifest reuses one long-lived connection, so the sweep's TEMP table
+    # persists between calls. Each sweep must start from a clean key set, or a
+    # later file would wrongly preserve a stale entry whose (fn, args) signature
+    # happened to be swept-as-live for an earlier file.
+    file_a = hash_file_path("corpus/a.txt")
+    file_b = hash_file_path("corpus/b.txt")
+    seed_file_row(manifest, file_id=file_a, file_path="corpus/a.txt")
+    seed_file_row(manifest, file_id=file_b, file_path="corpus/b.txt")
+
+    manifest.set_memoized(file_a, FN_HASH, ARGS_HASH_A, b'"a_live"')
+    manifest.sweep_memoized(file_a, {(FN_HASH, ARGS_HASH_A)})
+
+    # File B has a stale entry with the same signature A just kept alive.
+    manifest.set_memoized(file_b, FN_HASH, ARGS_HASH_A, b'"b_stale"')
+    manifest.set_memoized(file_b, FN_HASH, ARGS_HASH_B, b'"b_live"')
+    manifest.sweep_memoized(file_b, {(FN_HASH, ARGS_HASH_B)})
+
+    assert manifest.get_memoized(file_b, FN_HASH, ARGS_HASH_A) is None
+    assert manifest.get_memoized(file_b, FN_HASH, ARGS_HASH_B) is not None
+
+
 # ---------------------------------------------------------------------------
 # 5 — Move: cache reassigned to new file_id
 # ---------------------------------------------------------------------------
