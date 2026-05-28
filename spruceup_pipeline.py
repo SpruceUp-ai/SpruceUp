@@ -15,9 +15,14 @@ import dotenv
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
 from spruceup import (
     # GoogleDriveSource,
+    CohereEmbedder,
+    GeminiEmbedder,
+    GoogleDriveSource,
     LocalFilesSource,
     OpenAIEmbedder,
     PgVectorTarget,
+    PineconeTarget,
+    VoyageAIEmbedder,
     defineConfig,
     memoize,
 )
@@ -50,6 +55,7 @@ def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
 
 
 # --- memoized helpers -------------------------------------------------
+
 
 @memoize(returns=str)
 async def prepare_chunk(chunk_text: str) -> str:
@@ -133,6 +139,10 @@ config = defineConfig(
         #     folder_id="1QY9VJYPpKtIQsCBvl-SsxZf6CHJ601t5",
         #     on_token_expired=lambda: os.getenv("GOOGLE_DRIVE_TOKEN"),
         # ),
+        GoogleDriveSource(
+            watched_dir_id="1QY9VJYPpKtIQsCBvl-SsxZf6CHJ601t5",
+            on_token_expired=lambda: os.getenv("GOOGLE_DRIVE_TOKEN"),
+        ),
     ],
     target=PgVectorTarget(
         connstr=os.getenv("PG_CONNSTR"),
@@ -162,6 +172,9 @@ config = defineConfig(
     #     api_key=os.getenv("GEMINI_API_KEY"),
     #     model="gemini-embedding-001"
     # )
+    embedder=GeminiEmbedder(
+        api_key=os.getenv("GEMINI_API_KEY"), model="gemini-embedding-001"
+    ),
 )
 
 # config = defineConfig(

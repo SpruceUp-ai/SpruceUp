@@ -28,6 +28,12 @@ async def run(pipeline) -> None:
     else:
         log.info("Transform function unchanged — incremental sync")
 
+    source_types: dict[type, list] = {}
+    for source in config.sources:
+        source_types.setdefault(type(source), []).append(source)
+    for source_cls, typed_sources in source_types.items():
+        await source_cls.validate(typed_sources)
+
     config.target.ensure_table_exists(
         embedding_dimensions=config.embedder.embedding_dimensions
     )

@@ -15,6 +15,10 @@ class SourceConnector(ABC):
     @abstractmethod
     def create_watcher(self, data_source_id: int): ...
 
+    @classmethod
+    @abstractmethod
+    async def validate(cls, sources: list["SourceConnector"]) -> None: ...
+
     @abstractmethod
     async def fetch(self, task) -> "SpruceFile": ...
 
