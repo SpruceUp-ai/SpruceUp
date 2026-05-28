@@ -3,18 +3,18 @@ import os
 import pathlib
 from dataclasses import dataclass
 
-from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
-from spruceup import LocalFilesSource, OpenAIEmbedder, PgVectorTarget, VoyageAIEmbedder, CohereEmbedder, GeminiEmbedder, defineConfig, memoize
-from spruceup import PineconeTarget
-
 import dotenv
 
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
 from spruceup import (
+    CohereEmbedder,
+    GeminiEmbedder,
     GoogleDriveSource,
     LocalFilesSource,
     OpenAIEmbedder,
     PgVectorTarget,
+    PineconeTarget,
+    VoyageAIEmbedder,
     defineConfig,
     memoize,
 )
@@ -46,6 +46,7 @@ def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
 
 
 # --- memoized helpers -------------------------------------------------
+
 
 @memoize(returns=str)
 def prepare_chunk(chunk_text: str) -> str:
@@ -81,7 +82,7 @@ config = defineConfig(
     sources=[
         LocalFilesSource(watched_dir="example/data_corpus"),
         GoogleDriveSource(
-            folder_id="1QY9VJYPpKtIQsCBvl-SsxZf6CHJ601t5",
+            watched_dir_id="1QY9VJYPpKtIQsCBvl-SsxZf6CHJ601t5",
             on_token_expired=lambda: os.getenv("GOOGLE_DRIVE_TOKEN"),
         ),
     ],
@@ -110,9 +111,8 @@ config = defineConfig(
     # ),
     transform=build_lecture_chunks,
     embedder=GeminiEmbedder(
-        api_key=os.getenv("GEMINI_API_KEY"),
-        model="gemini-embedding-001"
-    )
+        api_key=os.getenv("GEMINI_API_KEY"), model="gemini-embedding-001"
+    ),
 )
 
 # config = defineConfig(

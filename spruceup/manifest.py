@@ -120,7 +120,9 @@ class Manifest:
     # Chunk and file operations (callers manage the connection/transaction)
     # ------------------------------------------------------------------
 
-    def get_chunks_for_file(self, conn: sqlite3.Connection, file_id: bytes, pk_col: str) -> list[dict]:
+    def get_chunks_for_file(
+        self, conn: sqlite3.Connection, file_id: bytes, pk_col: str
+    ) -> list[dict]:
         """Return all manifest chunk records for a file."""
         cursor = conn.execute(
             "SELECT id, user_chunk_object_hash, user_chunk_object FROM chunks WHERE file_id = ?",
@@ -129,14 +131,18 @@ class Manifest:
         results = []
         for manifest_chunk_id, obj_hash, obj_blob in cursor:
             user_chunk_data = json.loads(obj_blob.decode())
-            results.append({
-                "manifest_chunk_id": manifest_chunk_id,
-                "user_chunk_object_hash": obj_hash,
-                "user_pk": user_chunk_data[pk_col],
-            })
+            results.append(
+                {
+                    "manifest_chunk_id": manifest_chunk_id,
+                    "user_chunk_object_hash": obj_hash,
+                    "user_pk": user_chunk_data[pk_col],
+                }
+            )
         return results
 
-    def upsert_chunks(self, conn: sqlite3.Connection, chunks: list[tuple[bytes, ChunkWrapper]]) -> None:
+    def upsert_chunks(
+        self, conn: sqlite3.Connection, chunks: list[tuple[bytes, ChunkWrapper]]
+    ) -> None:
         if not chunks:
             return
         rows = [
@@ -155,7 +161,9 @@ class Manifest:
             rows,
         )
 
-    def ensure_file_row_exists(self, conn: sqlite3.Connection, file_id: bytes, source_ref: str) -> None:
+    def ensure_file_row_exists(
+        self, conn: sqlite3.Connection, file_id: bytes, source_ref: str
+    ) -> None:
         # Insert a skeleton file row so the FK constraint on chunks.file_id is
         # satisfied before chunk writes. Full fields filled by upsert_file_row.
         conn.execute(
@@ -176,8 +184,11 @@ class Manifest:
                    data_source_id = excluded.data_source_id,
                    file_type      = excluded.file_type""",
             (
-                file.file_id, file.source_ref,
-                file.content_hash, file.data_source_id, file.file_type,
+                file.file_id,
+                file.source_ref,
+                file.content_hash,
+                file.data_source_id,
+                file.file_type,
             ),
         )
 
@@ -197,6 +208,14 @@ class Manifest:
             (file_id,),
         ).fetchall()
         return {key: value for key, value in rows}
+
+    def get_source_refs(self, conn: sqlite3.Connection, data_source_id: int) -> set[str]:
+        """Return the set of source_refs currently tracked for a source."""
+        rows = conn.execute(
+            "SELECT source_ref FROM files WHERE data_source_id = ?",
+            (data_source_id,),
+        ).fetchall()
+        return {row[0] for row in rows}
 
     def get_files_with_metadata(
         self, conn: sqlite3.Connection, data_source_id: int
@@ -258,16 +277,22 @@ class Manifest:
         )
         conn.execute("DELETE FROM files WHERE id = ?", (old_file_id,))
 
-    def delete_chunks(self, conn: sqlite3.Connection, manifest_chunk_ids: list[bytes]) -> None:
+    def delete_chunks(
+        self, conn: sqlite3.Connection, manifest_chunk_ids: list[bytes]
+    ) -> None:
         if not manifest_chunk_ids:
             return
         placeholders = ",".join("?" * len(manifest_chunk_ids))
-        conn.execute(f"DELETE FROM chunks WHERE id IN ({placeholders})", manifest_chunk_ids)
+        conn.execute(
+            f"DELETE FROM chunks WHERE id IN ({placeholders})", manifest_chunk_ids
+        )
 
     def delete_file_row(self, conn: sqlite3.Connection, file_id: bytes) -> None:
         conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
 
-    def get_stale_file_ids(self, conn: sqlite3.Connection, active_source_ids: list[int]) -> list[bytes]:
+    def get_stale_file_ids(
+        self, conn: sqlite3.Connection, active_source_ids: list[int]
+    ) -> list[bytes]:
         placeholders = ",".join("?" * len(active_source_ids))
         cursor = conn.execute(
             f"SELECT id FROM files WHERE data_source_id NOT IN ({placeholders})",
@@ -275,7 +300,9 @@ class Manifest:
         )
         return [row[0] for row in cursor]
 
-    def delete_stale_data_sources(self, conn: sqlite3.Connection, active_source_ids: list[int]) -> None:
+    def delete_stale_data_sources(
+        self, conn: sqlite3.Connection, active_source_ids: list[int]
+    ) -> None:
         placeholders = ",".join("?" * len(active_source_ids))
         conn.execute(
             f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
@@ -313,11 +340,11 @@ class Manifest:
     # ------------------------------------------------------------------
 
     def transform_hash_changed(self, transform_hash: bytes) -> bool:
-        """Return True if transform_hash is absent from the manifest."""
         con = self.connect()
         try:
             row = con.execute(
-                "SELECT 1 FROM transform_hashes WHERE transform_hash = ?", (transform_hash,)
+                "SELECT 1 FROM transform_hashes WHERE transform_hash = ?",
+                (transform_hash,),
             ).fetchone()
             return row is None
         finally:
@@ -399,7 +426,9 @@ class Manifest:
             if own:
                 conn.close()
 
-    def sweep_memoized(self, file_id: bytes, temp_keys: set[tuple[bytes, bytes]]) -> None:
+    def sweep_memoized(
+        self, file_id: bytes, temp_keys: set[tuple[bytes, bytes]]
+    ) -> None:
         con = self.connect()
         try:
             con.execute(
@@ -422,7 +451,8 @@ class Manifest:
         try:
             con.execute("DELETE FROM transform_hashes")
             con.execute(
-                "INSERT INTO transform_hashes (transform_hash) VALUES (?)", (transform_hash,)
+                "INSERT INTO transform_hashes (transform_hash) VALUES (?)",
+                (transform_hash,),
             )
             con.commit()
         finally:
