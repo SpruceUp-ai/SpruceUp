@@ -58,6 +58,7 @@ Move events are handled by `SyncEngine.move_file()`, which only touches the SQLi
 | [spruceup/models.py](spruceup/models.py) | Core dataclasses: `SpruceFile`, `ChunkWrapper`, `SyncTask` |
 | [spruceup/connectors/base.py](spruceup/connectors/base.py) | Abstract bases: `SourceConnector`, `TargetConnector`, `EmbedderConnector` |
 | [spruceup/connectors/sources/local.py](spruceup/connectors/sources/local.py) | `LocalFilesSource` — watches a local directory, fetches file bytes |
+| [spruceup/connectors/sources/google_drive.py](spruceup/connectors/sources/google_drive.py) | `GoogleDriveSource` — watches a Google Drive folder, fetches file bytes (stub) |
 | [spruceup/connectors/targets/pgvector.py](spruceup/connectors/targets/pgvector.py) | `PgVectorTarget` — writes to a Postgres pgvector table, including `ensure_table_exists` schema introspection |
 | [spruceup/connectors/embedders/openai.py](spruceup/connectors/embedders/openai.py) | `OpenAIEmbedder` — calls the OpenAI embeddings API with tenacity retry |
 | [spruceup/connectors/embedders/embedding_batcher.py](spruceup/connectors/embedders/embedding_batcher.py) | `EmbeddingBatcher` — wraps an inner embedder and merges chunks across concurrent files into batched API calls |
@@ -85,14 +86,25 @@ data_sources    (id INTEGER PK AUTOINCREMENT,
                  source_identifier TEXT NOT NULL,
                  UNIQUE(source_type, source_identifier))
 
-files           (id BLOB PK,                  -- hash_file_path(file_path)
-                 file_path TEXT NOT NULL,
-                 inode INTEGER,               -- used by monitor for move detection
-                 content_hash BLOB, mtime REAL,
+source_state    (data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
+                 key TEXT NOT NULL,
+                 value TEXT NOT NULL,
+                 PRIMARY KEY (data_source_id, key))
+                 -- connector-specific cursor state (e.g. Google Drive page tokens)
+
+files           (id BLOB PK,                  -- hash_source_ref(source_ref)
+                 source_ref TEXT NOT NULL,     -- connector-agnostic file identifier
+                 content_hash BLOB,
                  data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
                  file_type TEXT)
 
-chunks          (id BLOB PK,                  -- hash_chunk_id(file_path, ordinal)
+file_metadata   (file_id BLOB REFERENCES files(id) ON DELETE CASCADE,
+                 key TEXT NOT NULL,
+                 value TEXT NOT NULL,
+                 PRIMARY KEY (file_id, key))
+                 -- connector-specific metadata (e.g. inode, mtime, modified_at)
+
+chunks          (id BLOB PK,                  -- hash_chunk_id(source_ref, ordinal)
                  file_id BLOB REFERENCES files(id) ON DELETE CASCADE,
                  user_chunk_object_hash BLOB, -- change detection
                  user_chunk_object BLOB)      -- JSON-serialized user dataclass
@@ -107,6 +119,10 @@ memoize_cache   (file_id BLOB REFERENCES files(id) ON DELETE CASCADE,
 ```
 
 `transform_hashes` stores the BLAKE2B hash of the transform function's source. Using the hash (not the function name) as PK means renaming a function doesn't trigger a false full-reindex.
+
+`file_metadata` stores connector-specific key/value pairs per file (e.g. `inode`, `mtime`, `modified_at` for local files). `LocalFileWatcher` uses the `inode` key for move detection during catch-up and watch phases.
+
+`source_state` stores per-source connector cursors that persist across restarts (e.g. Google Drive Changes API page tokens, webhook channel expiry times).
 
 `memoize_cache` rows live and die with their owning file via `ON DELETE CASCADE`. They are also re-pointed by `move_file_row` so caches survive a rename.
 
@@ -129,7 +145,7 @@ class MyChunk:
 **Transform function** — async; receives `file_props` and an `embed` callable, returns a list of your schema objects. It is passed directly to `defineConfig` — there is no decorator:
 ```python
 async def my_transform(*, file_props: dict, embed) -> list[MyChunk]:
-    # file_props keys: raw_content, file_path, mtime, file_type
+    # file_props keys: raw_content, source_ref, modified_at, file_type
     chunks = split_into_chunks(file_props["raw_content"])
     embeddings = await embed(chunks)  # returns list[list[float]]
     return [MyChunk(id=..., chunk_text=c, chunk_embedding=e) for c, e in zip(chunks, embeddings)]
@@ -180,6 +196,8 @@ Supported `returns` types: `str, int, float, bool, list, dict`. The cache key is
 - **Manifest auto-initializes its schema** — constructing `Manifest()` calls `_init_db()`, so no separate `init_db` step exists.
 - **`_BufferedQueue`** — captures `_watch` events that arrive while `_catch_up` is still running, then replays them in order once catch-up is complete. This prevents double-processing a file that changed between startup scan and watch start.
 - **`_watch` filters directories** — `pathlib.Path(path).is_file()` guard is required because `watchfiles` can emit events for the watched directory itself when files are added to it.
+- **`source_ref` is the connector-agnostic file identifier** — local paths, Drive file IDs, etc. `file_props["source_ref"]` is what the transform receives; `file_props["modified_at"]` is the normalized cross-connector timestamp (from `source_metadata`).
+- **`source_metadata` carries connector-specific fields** — `LocalFilesSource.fetch()` populates `{"inode": ..., "mtime": ..., "modified_at": ...}`; written to `file_metadata` by `SyncEngine.reconcile` after each `upsert_file_row`.
 - **Postgres vectors survive moves** — `SyncEngine.move_file()` updates only the SQLite manifest; no Postgres writes happen. Chunk PKs are content-derived (user-defined), not path-based.
 - **`ensure_file_row_exists` before chunk writes** — the `files` FK on `chunks` requires the file row to exist before any chunk for that file is inserted; `SyncEngine.reconcile` calls it explicitly before chunk upserts.
 - **`upsert_file_row` uses `ON CONFLICT DO UPDATE`** — in-place update, not DELETE+INSERT, so it does not trigger the `ON DELETE CASCADE` on `chunks.file_id` or `memoize_cache.file_id`.

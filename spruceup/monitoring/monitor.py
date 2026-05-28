@@ -9,8 +9,8 @@ from tenacity import (
     wait_exponential,
 )
 
-from ..models import SyncTask
 from ..manifest import Manifest
+from ..models import SyncTask
 
 log = logging.getLogger(__name__)
 
@@ -117,7 +117,12 @@ class BaseWatcher(ABC):
 
 
 class Monitor:
-    def __init__(self, queue: asyncio.Queue, manifest: "Manifest", transform_hash: bytes | None = None):
+    def __init__(
+        self,
+        queue: asyncio.Queue,
+        manifest: "Manifest",
+        transform_hash: bytes | None = None,
+    ):
         self._watchers: list[BaseWatcher] = []
         self._queue = queue
         self._manifest = manifest
@@ -126,22 +131,21 @@ class Monitor:
     def add_watcher(self, watcher: BaseWatcher) -> None:
         self._watchers.append(watcher)
 
-    async def run(self, force_reindex: bool = False, startup_done: asyncio.Event | None = None) -> None:
-        """fire all watchers concurrently → wait until they've all finished
-        startup → tell main.py we're live → then just keep the watcher tasks
-        alive forever."""
+    async def run(
+        self, force_reindex: bool = False, startup_done: asyncio.Event | None = None
+    ) -> None:
         watcher_events = [asyncio.Event() for _ in self._watchers]
         tasks = [
             asyncio.create_task(
-                _with_retry(watcher.run, self._queue, self._manifest, force_reindex, event)
+                _with_retry(
+                    watcher.run, self._queue, self._manifest, force_reindex, event
+                )
             )
             for watcher, event in zip(self._watchers, watcher_events)
         ]
         await asyncio.gather(*[event.wait() for event in watcher_events])
-        if force_reindex and self._manifest and self._transform_hash is not None:
+        if self._manifest is not None and self._transform_hash is not None:
             self._manifest.update_transform_hash(self._transform_hash)
         if startup_done:
             startup_done.set()
         await asyncio.gather(*tasks)
-
-

@@ -18,7 +18,7 @@ from spruceup.sync_engine import (
     SpruceFile,
     SyncEngine,
     hash_chunk_id,
-    hash_file_path,
+    hash_source_ref,
     hash_object,
 )
 from spruceup.connectors.base import TargetConnector
@@ -69,8 +69,8 @@ class MockSyncTarget(TargetConnector):
 
 FILE_PATH_A = "corpus/doc_a.pdf"
 FILE_PATH_B = "corpus/doc_b.md"
-FILE_ID_A = hash_file_path(FILE_PATH_A)
-FILE_ID_B = hash_file_path(FILE_PATH_B)
+FILE_ID_A = hash_source_ref(FILE_PATH_A)
+FILE_ID_B = hash_source_ref(FILE_PATH_B)
 
 
 @pytest.fixture
@@ -94,33 +94,32 @@ def engine(tmp_manifest, pg):
 # Helper constructors and manifest query utilities
 # ---------------------------------------------------------------------------
 
-def make_chunk(file_path: str, chunk_id: str, text: str, ordinal: int) -> ChunkWrapper:
+def make_chunk(source_ref: str, chunk_id: str, text: str, ordinal: int) -> ChunkWrapper:
     user_chunk = SimpleChunk(id=chunk_id, chunk_text=text, chunk_embedding=[0.1, 0.2, 0.3])
     return ChunkWrapper(
         user_chunk=user_chunk,
         user_chunk_object_hash=hash_object(user_chunk),
         ordinal=ordinal,
-        chunk_id=hash_chunk_id(file_path, ordinal),
+        chunk_id=hash_chunk_id(source_ref, ordinal),
     )
 
 
 def make_file(
-    file_path: str,
+    source_ref: str,
     chunks: list[ChunkWrapper],
     mtime: float = 1_000_000.0,
     data_source_id: int = 1,
 ) -> SpruceFile:
-    fid = hash_file_path(file_path)
+    fid = hash_source_ref(source_ref)
     return SpruceFile(
         file_id=fid,
-        file_path=file_path,
-        inode=0,
-        mtime=mtime,
+        source_ref=source_ref,
         content_hash=fid,
-        file_type=file_path.rsplit(".", 1)[-1],
+        file_type=source_ref.rsplit(".", 1)[-1],
         data_source_id=data_source_id,
         raw_content=b"",
         chunks=chunks,
+        source_metadata={"mtime": mtime, "modified_at": mtime},
     )
 
 
@@ -136,15 +135,21 @@ def chunk_count(manifest_path: str, file_id: bytes | None = None) -> int:
 def file_row(manifest_path: str, file_id: bytes) -> dict | None:
     with sqlite3.connect(manifest_path) as conn:
         row = conn.execute(
-            "SELECT id, mtime FROM files WHERE id = ?", (file_id,)
+            "SELECT id FROM files WHERE id = ?", (file_id,)
         ).fetchone()
-    return {"id": row[0], "mtime": row[1]} if row else None
+        if row is None:
+            return None
+        mtime_row = conn.execute(
+            "SELECT value FROM file_metadata WHERE file_id = ? AND key = 'mtime'",
+            (file_id,),
+        ).fetchone()
+    return {"id": row[0], "mtime": float(mtime_row[0]) if mtime_row else None}
 
 
 def file_path_in_manifest(manifest_path: str, file_id: bytes) -> str | None:
     with sqlite3.connect(manifest_path) as conn:
         row = conn.execute(
-            "SELECT file_path FROM files WHERE id = ?", (file_id,)
+            "SELECT source_ref FROM files WHERE id = ?", (file_id,)
         ).fetchone()
     return row[0] if row else None
 
@@ -341,7 +346,7 @@ class TestMoveFile:
         await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_row(tmp_manifest, FILE_ID_B) is not None
 
-    async def test_new_file_row_has_correct_path(self, engine, tmp_manifest):
+    async def test_new_file_row_has_correct_ref(self, engine, tmp_manifest):
         engine.reconcile([make_file(FILE_PATH_A, [make_chunk(FILE_PATH_A, "c1", "text", ordinal=1)])])
         await engine.move_file(FILE_PATH_A, FILE_PATH_B)
         assert file_path_in_manifest(tmp_manifest, FILE_ID_B) == FILE_PATH_B

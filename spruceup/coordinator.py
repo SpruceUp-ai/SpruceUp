@@ -58,7 +58,7 @@ class Coordinator:
         memo_conn = self._manifest.connect()
         try:
             with self._manifest.connect() as conn:
-                self._manifest.ensure_file_row_exists(conn, spruce_file.file_id, spruce_file.file_path)
+                self._manifest.ensure_file_row_exists(conn, spruce_file.file_id, spruce_file.source_ref)
 
             temp_keys: set[tuple[bytes, bytes]] = set()
             memo_stats = [0, 0]  # [hits, total]
@@ -79,8 +79,8 @@ class Coordinator:
             schema_objs = await self._transform(
                 file_props={
                     "raw_content": source.decode_content(spruce_file.raw_content),
-                    "file_path": spruce_file.file_path,
-                    "mtime": spruce_file.mtime,
+                    "source_ref": spruce_file.source_ref,
+                    "modified_at": spruce_file.source_metadata.get("modified_at"),
                     "file_type": spruce_file.file_type,
                 },
                 embed=_embed,
