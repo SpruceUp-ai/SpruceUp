@@ -3,7 +3,7 @@ import os
 import pathlib
 from dataclasses import dataclass
 
-from ..base import SourceConnector
+from ..base import SourceConnector, SUPPORTED_EXTENSIONS
 from ...utils.hashing import hash_source_ref
 
 
@@ -33,9 +33,12 @@ class LocalFilesSource(SourceConnector):
                         f"{str(descendant)!r}. Nested watched directories cause duplicate processing."
                     )
 
+    def is_supported(self, file_identifier: str) -> bool:
+        return pathlib.Path(file_identifier).suffix.lstrip(".").lower() in SUPPORTED_EXTENSIONS
+
     def create_watcher(self, data_source_id: int):
         from spruceup.monitoring.local_file_watcher import LocalFileWatcher
-        return LocalFileWatcher(self.watched_dir, data_source_id, self.source_type)
+        return LocalFileWatcher(self.watched_dir, data_source_id, self.source_type, self.is_supported)
 
     def display_name(self, identifier: str) -> str:
         return pathlib.Path(identifier).name

@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 
 from ..models import ChunkWrapper, SpruceFile
 
+SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({
+    "txt", "md", "html", "json", "pdf", "doc", "docx",
+})
+
 
 class SourceConnector(ABC):
     @property
@@ -18,6 +22,9 @@ class SourceConnector(ABC):
     @classmethod
     @abstractmethod
     async def validate(cls, sources: list["SourceConnector"]) -> None: ...
+
+    @abstractmethod
+    def is_supported(self, file_identifier: str) -> bool: ...
 
     @abstractmethod
     async def fetch(self, task) -> "SpruceFile": ...

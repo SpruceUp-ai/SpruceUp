@@ -4,7 +4,7 @@ import pathlib
 from collections.abc import Callable
 from datetime import datetime, timezone
 
-from ..base import SourceConnector
+from ..base import SourceConnector, SUPPORTED_EXTENSIONS
 from ...utils.hashing import hash_source_ref
 
 # Google Docs are exported as plain text; other Workspace types are not supported.
@@ -12,17 +12,20 @@ _WORKSPACE_EXPORT_MIME: dict[str, str] = {
     "application/vnd.google-apps.document": "text/plain",
 }
 
-# Non-Workspace MIME types accepted for download.
-# PDF and Office formats are passed as raw bytes — text extraction is the transform's responsibility.
-_SUPPORTED_MIME_TYPES: frozenset[str] = frozenset({
-    "text/plain",
-    "text/markdown",
-    "text/html",
-    "application/json",
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-})
+# Maps file extensions from SUPPORTED_EXTENSIONS to their Drive MIME types.
+_EXTENSION_TO_MIME: dict[str, str] = {
+    "txt":  "text/plain",
+    "md":   "text/markdown",
+    "html": "text/html",
+    "json": "application/json",
+    "pdf":  "application/pdf",
+    "doc":  "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+_SUPPORTED_MIME_TYPES: frozenset[str] = frozenset(
+    mime for ext, mime in _EXTENSION_TO_MIME.items() if ext in SUPPORTED_EXTENSIONS
+)
 
 
 def _build_drive_service(on_token_expired):
@@ -108,6 +111,9 @@ class GoogleDriveSource(SourceConnector):
                         f"{src_a._folder_id!r}. Nested watched directories cause duplicate processing."
                     )
 
+    def is_supported(self, file_identifier: str) -> bool:
+        return file_identifier in _WORKSPACE_EXPORT_MIME or file_identifier in _SUPPORTED_MIME_TYPES
+
     def create_watcher(self, data_source_id: int):
         from spruceup.monitoring.google_drive_watcher import GoogleDriveWatcher
 
@@ -116,6 +122,7 @@ class GoogleDriveSource(SourceConnector):
             data_source_id,
             self.source_type,
             self._on_token_expired,
+            self.is_supported,
         )
 
     def display_name(self, identifier: str) -> str:

@@ -13,10 +13,11 @@ log = logging.getLogger(__name__)
 
 
 class LocalFileWatcher(BaseWatcher):
-    def __init__(self, dir_path: str, data_source_id: int, source_type: str):
+    def __init__(self, dir_path: str, data_source_id: int, source_type: str, is_supported):
         self._root_path = str(pathlib.Path(dir_path).resolve())
         self._data_source_id = data_source_id
         self._source_type = source_type
+        self._is_supported = is_supported
 
     @property
     def source_type(self) -> str:
@@ -45,7 +46,7 @@ class LocalFileWatcher(BaseWatcher):
             seen_inodes: set[int] = set()
 
             for path in pathlib.Path(self._root_path).rglob("*"):
-                if not path.is_file():
+                if not path.is_file() or not self._is_supported(str(path)):
                     continue
                 inode = path.stat().st_ino
                 current_path_str = str(path)
@@ -112,7 +113,7 @@ class LocalFileWatcher(BaseWatcher):
                 for path in deleted_paths - moved_old:
                     buffer.append(SyncTask(self._source_type, path, "delete", data_source_id=self._data_source_id))
                 for path in (added_paths - moved_new) | modified_paths:
-                    if pathlib.Path(path).is_file():
+                    if pathlib.Path(path).is_file() and self._is_supported(path):
                         buffer.append(SyncTask(self._source_type, path, "upsert", data_source_id=self._data_source_id))
 
                 if catchup_done.is_set():

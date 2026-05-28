@@ -21,12 +21,14 @@ class GoogleDriveWatcher(BaseWatcher):
         data_source_id: int,
         source_type: str,
         on_token_expired: Callable[[], str],
+        is_supported: Callable[[str], bool],
         poll_interval: float = 30.0,
     ):
         self._folder_id = folder_id
         self._data_source_id = data_source_id
         self._source_type = source_type
         self._on_token_expired = on_token_expired
+        self._is_supported = is_supported
         self._poll_interval = poll_interval
 
     @property
@@ -68,7 +70,7 @@ class GoogleDriveWatcher(BaseWatcher):
                     if f["mimeType"] == _FOLDER_MIME:
                         all_folder_ids.add(f["id"])
                         folders_to_scan.append(f["id"])
-                    else:
+                    elif self._is_supported(f["mimeType"]):
                         await queue.put(SyncTask(
                             self._source_type, f["id"], "upsert",
                             data_source_id=self._data_source_id,
@@ -177,7 +179,7 @@ class GoogleDriveWatcher(BaseWatcher):
                                     data_source_id=self._data_source_id,
                                 ))
                                 n_deletes += 1
-                        elif in_tree:
+                        elif in_tree and self._is_supported(mime):
                             await queue.put(SyncTask(
                                 self._source_type, file_id, "upsert",
                                 data_source_id=self._data_source_id,
