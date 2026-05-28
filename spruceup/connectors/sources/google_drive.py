@@ -1,7 +1,28 @@
 import asyncio
+import hashlib
+import pathlib
 from collections.abc import Callable
+from datetime import datetime, timezone
 
 from ..base import SourceConnector
+from ...utils.hashing import hash_source_ref
+
+# Google Docs are exported as plain text; other Workspace types are not supported.
+_WORKSPACE_EXPORT_MIME: dict[str, str] = {
+    "application/vnd.google-apps.document": "text/plain",
+}
+
+# Non-Workspace MIME types accepted for download.
+# PDF and Office formats are passed as raw bytes — text extraction is the transform's responsibility.
+_SUPPORTED_MIME_TYPES: frozenset[str] = frozenset({
+    "text/plain",
+    "text/markdown",
+    "text/html",
+    "application/json",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+})
 
 
 def _build_drive_service(on_token_expired):
@@ -97,8 +118,57 @@ class GoogleDriveSource(SourceConnector):
             self._on_token_expired,
         )
 
-    def display_name(self, identifier: str) -> str: ...
+    def display_name(self, identifier: str) -> str:
+        return identifier
 
-    def decode_content(self, raw_content: bytes) -> str: ...
+    def decode_content(self, raw_content: bytes) -> str:
+        return raw_content.decode("utf-8", errors="replace")
 
-    async def fetch(self, task): ...
+    async def fetch(self, task):
+        from spruceup.models import SpruceFile
+
+        drive_file_id = task.identifier
+        service = await asyncio.to_thread(_build_drive_service, self._on_token_expired)
+
+        meta = await asyncio.to_thread(
+            service.files().get(
+                fileId=drive_file_id,
+                fields="name,mimeType,modifiedTime",
+            ).execute
+        )
+
+        mime_type: str = meta["mimeType"]
+        export_mime = _WORKSPACE_EXPORT_MIME.get(mime_type)
+
+        if export_mime:
+            raw_content: bytes = await asyncio.to_thread(
+                service.files().export(
+                    fileId=drive_file_id, mimeType=export_mime
+                ).execute
+            )
+        elif mime_type in _SUPPORTED_MIME_TYPES:
+            raw_content = await asyncio.to_thread(
+                service.files().get_media(fileId=drive_file_id).execute
+            )
+        else:
+            raise ValueError(
+                f"Unsupported file type {mime_type!r} for {meta['name']!r} — "
+                f"only Google Docs, plain text, markdown, HTML, JSON, PDF, DOC, and DOCX are supported."
+            )
+
+        file_type = pathlib.PurePosixPath(meta["name"]).suffix.lstrip(".")
+        content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
+        modified_at = datetime.fromisoformat(
+            meta["modifiedTime"].replace("Z", "+00:00")
+        ).timestamp()
+
+        return SpruceFile(
+            file_id=hash_source_ref(drive_file_id),
+            source_ref=drive_file_id,
+            content_hash=content_hash,
+            file_type=file_type,
+            data_source_id=task.data_source_id,
+            raw_content=raw_content,
+            chunks=[],
+            source_metadata={"modified_at": modified_at},
+        )
