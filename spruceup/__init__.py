@@ -1,4 +1,5 @@
 from .config import defineConfig
+from .models import FileProps
 from .connectors import (
     CohereEmbedder,
     GeminiEmbedder,
@@ -13,6 +14,7 @@ from .memoize import memoize
 
 __all__ = [
     "defineConfig",
+    "FileProps",
     "GoogleDriveSource",
     "LocalFilesSource",
     "PgVectorTarget",

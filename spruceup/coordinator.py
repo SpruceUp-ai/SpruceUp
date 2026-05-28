@@ -76,13 +76,15 @@ class Coordinator:
                 memo_conn.commit()
                 return await self._embedder.process_chunks(chunks)
 
+            from .models import FileProps
             schema_objs = await self._transform(
-                file_props={
-                    "raw_content": source.decode_content(spruce_file.raw_content),
-                    "source_ref": spruce_file.source_ref,
-                    "modified_at": spruce_file.source_metadata.get("modified_at"),
-                    "file_type": spruce_file.file_type,
-                },
+                file_props=FileProps(
+                    raw_content=source.decode_content(spruce_file.raw_content),
+                    source_ref=spruce_file.source_ref,
+                    display_name=spruce_file.display_name,
+                    modified_at=spruce_file.source_metadata.get("modified_at"),
+                    file_type=spruce_file.file_type,
+                ),
                 embed=_embed,
             )
             memo_conn.commit()  # cover any writes that happen after embed returns
