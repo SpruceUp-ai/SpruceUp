@@ -14,7 +14,7 @@ import dotenv
 
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
 from spruceup import (
-    GoogleDriveSource,
+    # GoogleDriveSource,
     LocalFilesSource,
     OpenAIEmbedder,
     PgVectorTarget,
@@ -32,7 +32,7 @@ class LectureChunk:
     id: str
     chunk_text: str
     chunk_embedding: list[float]
-    chunk_summary: str
+    # chunk_summary: str
     lecture_title: str
 
 
@@ -69,17 +69,40 @@ def _get_openai_client() -> openai.AsyncOpenAI:
     return _openai_client
 
 
-@memoize(returns=str)
-async def summarize_chunk(chunk_text: str) -> str:
-    response = await _get_openai_client().chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": f"Summarize in less than 10 words:\n\n{chunk_text}"}],
-        max_tokens=20,
-    )
-    return response.choices[0].message.content.strip()
+# @memoize(returns=str)
+# async def summarize_chunk(chunk_text: str) -> str:
+#     response = await _get_openai_client().chat.completions.create(
+#         model="gpt-4o-mini",
+#         messages=[{"role": "user", "content": f"Summarize in less than 10 words:\n\n{chunk_text}"}],
+#         max_tokens=20,
+#     )
+#     return response.choices[0].message.content.strip()
 
 
 # --- transform --------------------------------------------------------
+
+
+# async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]:
+#     file_path = pathlib.Path(file_props["source_ref"])
+#     raw_chunks = split_chunks(
+#         file_props["raw_content"], file_path.name, file_path.suffix.lower()
+#     )
+#     chunk_strs = [await prepare_chunk(s) for s in raw_chunks]
+
+#     embeddings, summaries = await asyncio.gather(
+#         embed(chunk_strs),
+#         asyncio.gather(*[summarize_chunk(s) for s in chunk_strs]),
+#     )
+#     return [
+#         LectureChunk(
+#             id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
+#             chunk_text=text,
+#             chunk_embedding=embedding,
+#             chunk_summary=summary,
+#             lecture_title=file_path.stem,
+#         )
+#         for text, embedding, summary in zip(chunk_strs, embeddings, summaries)
+#     ]
 
 
 async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]:
@@ -88,32 +111,28 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
         file_props["raw_content"], file_path.name, file_path.suffix.lower()
     )
     chunk_strs = [await prepare_chunk(s) for s in raw_chunks]
+    # chunk_strs = raw_chunks
 
-    embeddings, summaries = await asyncio.gather(
-        embed(chunk_strs),
-        asyncio.gather(*[summarize_chunk(s) for s in chunk_strs]),
-    )
+    embeddings = await embed(chunk_strs)
     return [
         LectureChunk(
             id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
             chunk_text=text,
             chunk_embedding=embedding,
-            chunk_summary=summary,
             lecture_title=file_path.stem,
         )
-        for text, embedding, summary in zip(chunk_strs, embeddings, summaries)
+        for text, embedding in zip(chunk_strs, embeddings)
     ]
-
 
 # --- config -----------------------------------------------------------
 
 config = defineConfig(
     sources=[
         LocalFilesSource(watched_dir="example/data_corpus"),
-        GoogleDriveSource(
-            folder_id="1QY9VJYPpKtIQsCBvl-SsxZf6CHJ601t5",
-            on_token_expired=lambda: os.getenv("GOOGLE_DRIVE_TOKEN"),
-        ),
+        # GoogleDriveSource(
+        #     folder_id="1QY9VJYPpKtIQsCBvl-SsxZf6CHJ601t5",
+        #     on_token_expired=lambda: os.getenv("GOOGLE_DRIVE_TOKEN"),
+        # ),
     ],
     target=PgVectorTarget(
         connstr=os.getenv("PG_CONNSTR"),
