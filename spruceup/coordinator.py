@@ -123,3 +123,4 @@ class Coordinator:
             await self.process_task(task)
         finally:
             self._semaphore.release()
+            self._queue.task_done()
