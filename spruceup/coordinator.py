@@ -30,6 +30,7 @@ class Coordinator:
         self._manifest = sync_engine._manifest
         self._source_registry = source_registry
         self._active_tasks = set()
+        self._failed_files: list[str] = []
         self._semaphore = asyncio.Semaphore(max_concurrency)
 
     async def process_task(self, task: SyncTask) -> None:
@@ -48,6 +49,7 @@ class Coordinator:
                 await self.upsert_file(task, filename, source)
         except Exception:
             log.exception("[error] %s — task failed", filename)
+            self._failed_files.append(filename)
 
     async def upsert_file(self, task: SyncTask, filename: str, source) -> None:
         from .memoize.context import (
