@@ -1,7 +1,6 @@
 import dataclasses
 import json
 import sqlite3
-from contextlib import contextmanager
 
 from .models import ChunkWrapper, SpruceFile
 
@@ -127,19 +126,6 @@ class Manifest:
         coroutines interleave a transaction on the connection.
         """
         return self._conn
-
-    @contextmanager
-    def transaction(self):
-        """Context manager that opens a connection, commits on success, rolls back on error, and always closes."""
-        conn = self.connect()
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
 
     # ------------------------------------------------------------------
     # Chunk and file operations (callers manage the connection/transaction)

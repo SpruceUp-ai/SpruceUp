@@ -17,7 +17,6 @@ from spruceup import (
     PgVectorTarget,
     PineconeTarget,
     VoyageAIEmbedder,
-    WeaviateTarget,
     defineConfig,
     memoize,
 )
@@ -41,8 +40,7 @@ def get_google_drive_token() -> str:
 
 @dataclass
 class LectureChunk:
-    # id: str  # reserved by Weaviate; use chunk_id instead when targeting Weaviate
-    chunk_id: str
+    id: str
     chunk_text: str
     chunk_embedding: list[float]
     # chunk_summary: str
@@ -103,8 +101,7 @@ async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureC
     embeddings = await embed(chunk_strs)
     return [
         LectureChunk(
-            # id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
-            chunk_id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
+            id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
             chunk_text=text,
             chunk_embedding=embedding,
             lecture_title=title or file_props.display_name,
@@ -114,44 +111,6 @@ async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureC
 
 
 # --- config -----------------------------------------------------------
-
-# config = defineConfig(
-#     sources=[
-#         LocalFilesSource(watched_dir="example/data_corpus"),
-#         # GoogleDriveSource(
-#         #     folder_id="1QY9VJYPpKtIQsCBvl-SsxZf6CHJ601t5",
-#         #     on_token_expired=lambda: os.getenv("GOOGLE_DRIVE_TOKEN"),
-#         # ),
-#     ],
-#     target=PgVectorTarget(
-#         connstr=os.getenv("PG_CONNSTR"),
-#         table="data_chunks",             # original table
-#         # table="data_chunks_voyageai",    # table for default 1024 dim vectors
-#         # table="data_chunks_voyageai512", # table for 512 dim vectors
-#         # table="data_chunks_cohere",      # table for cohere
-#         # table="data_chunks_gemini",
-#         schema=LectureChunk,
-#         primary_key="id",
-#     ),
-#     embedder=OpenAIEmbedder(
-#         api_key=os.getenv("OPENAI_API_KEY"),
-#         model="text-embedding-3-small",
-#     ),
-#     # embedder=VoyageAIEmbedder(
-#     #     api_key=os.getenv("VOYAGE_API_KEY"),
-#     #     model="voyage-4-lite",
-#     #     # embedding_dimensions=512
-#     # ),
-#     # embedder=CohereEmbedder(
-#     #     api_key=os.getenv("COHERE_API_KEY"),
-#     #     model="embed-v4.0"
-#     # ),
-#     transform=build_lecture_chunks,
-#     # embedder=GeminiEmbedder(
-#     #     api_key=os.getenv("GEMINI_API_KEY"),
-#     #     model="gemini-embedding-001"
-#     # )
-# )
 
 config = defineConfig(
     sources=[
@@ -165,7 +124,7 @@ config = defineConfig(
         connstr=_PG_CONNSTR,
         table="data_chunks",
         schema=LectureChunk,
-        primary_key="chunk_id",
+        primary_key="id",
     ),
     embedder=OpenAIEmbedder(
         api_key=_OPENAI_API_KEY,
