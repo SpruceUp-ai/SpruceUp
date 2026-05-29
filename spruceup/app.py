@@ -37,37 +37,47 @@ async def run(pipeline) -> None:
     config.target.ensure_table_exists(
         embedding_dimensions=config.embedder.embedding_dimensions
     )
-    sync_engine = SyncEngine(manifest=manifest, target=config.target)
+    try:
+        sync_engine = SyncEngine(manifest=manifest, target=config.target)
 
-    queue: asyncio.Queue = asyncio.Queue()
+        queue: asyncio.Queue = asyncio.Queue()
 
-    monitor = Monitor(queue, manifest, transform_hash=transform_hash)
-    active_source_ids = []
-    source_registry = {}
-    for source in config.sources:
-        data_source_id = manifest.register_source(source.source_type, source.source_identifier)
-        active_source_ids.append(data_source_id)
-        source_registry[data_source_id] = source
-        monitor.add_watcher(source.create_watcher(data_source_id))
-    await sync_engine.delete_stale_sources(active_source_ids)
+        monitor = Monitor(queue, manifest, transform_hash=transform_hash)
+        active_source_ids = []
+        source_registry = {}
+        for source in config.sources:
+            data_source_id = manifest.register_source(source.source_type, source.source_identifier)
+            active_source_ids.append(data_source_id)
+            source_registry[data_source_id] = source
+            monitor.add_watcher(source.create_watcher(data_source_id))
+        await sync_engine.delete_stale_sources(active_source_ids)
 
-    embedder = EmbeddingBatcher(config.embedder)
+        embedder = EmbeddingBatcher(config.embedder)
 
-    coordinator = Coordinator(
-        queue=queue,
-        transform=config.transform,
-        embedder=embedder,
-        sync_engine=sync_engine,
-        source_registry=source_registry,
-    )
+        coordinator = Coordinator(
+            queue=queue,
+            transform=config.transform,
+            embedder=embedder,
+            sync_engine=sync_engine,
+            source_registry=source_registry,
+        )
 
-    startup_done = asyncio.Event()
+        startup_done = asyncio.Event()
 
-    monitor_task = asyncio.create_task(monitor.run(force_reindex, startup_done))
-    coordinator_task = asyncio.create_task(coordinator.run())
+        monitor_task = asyncio.create_task(monitor.run(force_reindex, startup_done))
+        coordinator_task = asyncio.create_task(coordinator.run())
 
-    await startup_done.wait()
-    watched = ", ".join(repr(source) for source in config.sources)
-    log.info("Startup complete — watching %s for changes", watched)
+        await startup_done.wait()
+        watched = ", ".join(repr(source) for source in config.sources)
+        log.info("Startup complete — watching %s for changes", watched)
 
-    await asyncio.gather(monitor_task, coordinator_task)
+        try:
+            await asyncio.gather(monitor_task, coordinator_task)
+        except asyncio.CancelledError:
+            monitor_task.cancel()
+            coordinator_task.cancel()
+            await asyncio.gather(monitor_task, coordinator_task, return_exceptions=True)
+            raise
+    finally:
+        config.target.close()
+        manifest._conn.close()

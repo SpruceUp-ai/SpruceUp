@@ -1,5 +1,4 @@
 import typing
-from dataclasses import dataclass, field
 from typing import Any
 
 from pinecone import Pinecone, ServerlessSpec
@@ -18,18 +17,28 @@ def _vector_field(hints: dict) -> str:
     raise ValueError("Schema has no list[float] field for vector values")
 
 
-@dataclass
 class PineconeTarget(TargetConnector):
-    api_key: str | None
-    index_name: str
-    schema: type
-    primary_key: str
-    namespace: str = ""
-    metric: str = "cosine"
-    cloud: str = "aws"
-    region: str = "us-east-1"
-    _pc: Any = field(default=None, init=False, repr=False)
-    _index: Any = field(default=None, init=False, repr=False)
+    def __init__(
+        self,
+        api_key: str | None,
+        index_name: str,
+        schema: type,
+        primary_key: str,
+        namespace: str = "",
+        metric: str = "cosine",
+        cloud: str = "aws",
+        region: str = "us-east-1",
+    ) -> None:
+        self.api_key = api_key
+        self.index_name = index_name
+        self.schema = schema
+        self.primary_key = primary_key
+        self.namespace = namespace
+        self.metric = metric
+        self.cloud = cloud
+        self.region = region
+        self._pc: Any = None
+        self._index: Any = None
 
     @property
     def display_name(self) -> str:
@@ -51,7 +60,7 @@ class PineconeTarget(TargetConnector):
             )
         self._index = pc.Index(self.index_name)
 
-    def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
+    async def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
         index = self._index
         hints = typing.get_type_hints(self.schema)
         vector_col = _vector_field(hints)

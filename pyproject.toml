@@ -16,6 +16,7 @@ dependencies = [
     "voyageai @ git+https://github.com/voyage-ai/voyageai-python.git@86422e15dab9ce512437b90594e8b26d20bbf259",
     "cohere (>=7.0.0,<8.0.0)",
     "google-genai (>=2.6.0,<3.0.0)",
+    "weaviate-client (>=4.0.0,<5.0.0)",
     "google-api-python-client (>=2.197.0,<3.0.0)",
     "google-auth (>=2.53.0,<3.0.0)"
 ]

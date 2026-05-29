@@ -8,6 +8,7 @@ from .connectors import (
     OpenAIEmbedder,
     PgVectorTarget,
     PineconeTarget,
+    WeaviateTarget,
     VoyageAIEmbedder,
 )
 from .memoize import memoize
@@ -19,6 +20,7 @@ __all__ = [
     "LocalFilesSource",
     "PgVectorTarget",
     "PineconeTarget",
+    "WeaviateTarget",
     "CohereEmbedder",
     "GeminiEmbedder",
     "OpenAIEmbedder",
