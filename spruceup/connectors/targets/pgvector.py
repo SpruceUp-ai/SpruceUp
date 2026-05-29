@@ -1,5 +1,4 @@
 import typing
-from dataclasses import dataclass
 
 import psycopg
 
@@ -27,12 +26,12 @@ def _py_to_pg_type(tp, embedding_dimensions: int) -> str:
     return _PY_TO_PG.get(tp, "TEXT")
 
 
-@dataclass
 class PgVectorTarget(TargetConnector):
-    connstr: str
-    table: str
-    schema: type
-    primary_key: str
+    def __init__(self, connstr: str, table: str, schema: type, primary_key: str) -> None:
+        self.connstr = connstr
+        self.table = table
+        self.schema = schema
+        self.primary_key = primary_key
 
     @property
     def display_name(self) -> str:

@@ -1,6 +1,5 @@
 import asyncio
 import typing
-from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
@@ -36,16 +35,24 @@ def _vector_field(hints: dict) -> str:
     raise ValueError("Schema has no list[float] field for the embedding vector")
 
 
-@dataclass
 class WeaviateTarget(TargetConnector):
-    collection_name: str
-    schema: type
-    primary_key: str
-    url: str = "http://localhost:8080"
-    cluster_url: str | None = None 
-    api_key: str | None = None
-    _client: Any = field(default=None, init=False, repr=False)
-    _collection: Any = field(default=None, init=False, repr=False)
+    def __init__(
+        self,
+        collection_name: str,
+        schema: type,
+        primary_key: str,
+        url: str = "http://localhost:8080",
+        cluster_url: str | None = None,
+        api_key: str | None = None,
+    ) -> None:
+        self.collection_name = collection_name
+        self.schema = schema
+        self.primary_key = primary_key
+        self.url = url
+        self.cluster_url = cluster_url
+        self.api_key = api_key
+        self._client: Any = None
+        self._collection: Any = None
 
     @property
     def display_name(self) -> str:
