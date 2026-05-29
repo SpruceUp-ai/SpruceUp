@@ -114,6 +114,7 @@ def make_file(
     return SpruceFile(
         file_id=fid,
         source_ref=source_ref,
+        display_name=source_ref.rsplit("/", 1)[-1],
         content_hash=fid,
         file_type=source_ref.rsplit(".", 1)[-1],
         data_source_id=data_source_id,

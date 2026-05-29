@@ -1,5 +1,14 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
+
+
+@dataclass
+class FileProps:
+    raw_content: str
+    source_ref: str
+    display_name: str
+    file_type: str
+    modified_at: Optional[float]
 
 
 @dataclass
@@ -14,6 +23,7 @@ class ChunkWrapper:
 class SpruceFile:
     file_id: bytes
     source_ref: str
+    display_name: str
     content_hash: bytes
     file_type: str
     data_source_id: int

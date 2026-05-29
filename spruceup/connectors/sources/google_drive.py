@@ -4,7 +4,7 @@ import pathlib
 from collections.abc import Callable
 from datetime import datetime, timezone
 
-from ..base import SourceConnector
+from ..base import SourceConnector, SUPPORTED_EXTENSIONS
 from ...utils.hashing import hash_source_ref
 
 # Google Docs are exported as plain text; other Workspace types are not supported.
@@ -12,24 +12,38 @@ _WORKSPACE_EXPORT_MIME: dict[str, str] = {
     "application/vnd.google-apps.document": "text/plain",
 }
 
-# Non-Workspace MIME types accepted for download.
-# PDF and Office formats are passed as raw bytes — text extraction is the transform's responsibility.
-_SUPPORTED_MIME_TYPES: frozenset[str] = frozenset({
-    "text/plain",
-    "text/markdown",
-    "text/html",
-    "application/json",
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-})
+# Maps file extensions from SUPPORTED_EXTENSIONS to their Drive MIME types.
+_EXTENSION_TO_MIME: dict[str, str] = {
+    "txt":  "text/plain",
+    "md":   "text/markdown",
+    "html": "text/html",
+    "json": "application/json",
+    "pdf":  "application/pdf",
+    "doc":  "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+_SUPPORTED_MIME_TYPES: frozenset[str] = frozenset(
+    mime for ext, mime in _EXTENSION_TO_MIME.items() if ext in SUPPORTED_EXTENSIONS
+)
 
 
 def _build_drive_service(on_token_expired):
     from googleapiclient.discovery import build
     from google.oauth2.credentials import Credentials
 
-    return build("drive", "v3", credentials=Credentials(token=on_token_expired()))
+    try:
+        token = on_token_expired()
+    except Exception as exc:
+        raise RuntimeError(
+            "GoogleDriveSource: on_token_expired() raised an error — "
+            "ensure it returns a valid access token string."
+        ) from exc
+    if not token:
+        raise RuntimeError(
+            "GoogleDriveSource: on_token_expired() returned an empty token."
+        )
+    return build("drive", "v3", credentials=Credentials(token=token))
 
 
 async def _folder_is_ancestor(
@@ -64,11 +78,11 @@ async def _folder_is_ancestor(
 class GoogleDriveSource(SourceConnector):
     def __init__(
         self,
-        folder_id: str,
+        watched_dir: str,
         on_token_expired: Callable[[], str],
         recursive: bool = True,
     ):
-        self._folder_id = folder_id
+        self._folder_id = watched_dir
         self._on_token_expired = on_token_expired
         self._recursive = recursive
 
@@ -108,6 +122,9 @@ class GoogleDriveSource(SourceConnector):
                         f"{src_a._folder_id!r}. Nested watched directories cause duplicate processing."
                     )
 
+    def is_supported(self, file_identifier: str) -> bool:
+        return file_identifier in _WORKSPACE_EXPORT_MIME or file_identifier in _SUPPORTED_MIME_TYPES
+
     def create_watcher(self, data_source_id: int):
         from spruceup.monitoring.google_drive_watcher import GoogleDriveWatcher
 
@@ -116,6 +133,7 @@ class GoogleDriveSource(SourceConnector):
             data_source_id,
             self.source_type,
             self._on_token_expired,
+            self.is_supported,
         )
 
     def display_name(self, identifier: str) -> str:
@@ -165,6 +183,7 @@ class GoogleDriveSource(SourceConnector):
         return SpruceFile(
             file_id=hash_source_ref(drive_file_id),
             source_ref=drive_file_id,
+            display_name=meta["name"],
             content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,

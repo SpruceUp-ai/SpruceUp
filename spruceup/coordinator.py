@@ -69,13 +69,15 @@ class Coordinator:
         # No per-file memo connection / commit-before-yield wrapper: the manifest
         # uses one shared connection and set_memoized commits synchronously, so no
         # write transaction is ever held across the embed await.
+        from .models import FileProps
         schema_objs = await self._transform(
-            file_props={
-                "raw_content": source.decode_content(spruce_file.raw_content),
-                "source_ref": spruce_file.source_ref,
-                "modified_at": spruce_file.source_metadata.get("modified_at"),
-                "file_type": spruce_file.file_type,
-            },
+            file_props=FileProps(
+                raw_content=source.decode_content(spruce_file.raw_content),
+                source_ref=spruce_file.source_ref,
+                display_name=spruce_file.display_name,
+                modified_at=spruce_file.source_metadata.get("modified_at"),
+                file_type=spruce_file.file_type,
+            ),
             embed=self._embedder.process_chunks,
         )
 
