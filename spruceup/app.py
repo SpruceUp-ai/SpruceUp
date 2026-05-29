@@ -80,3 +80,4 @@ async def run(pipeline) -> None:
             raise
     finally:
         config.target.close()
+        manifest._conn.close()

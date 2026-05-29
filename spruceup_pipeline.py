@@ -16,6 +16,7 @@ from spruceup import (
     OpenAIEmbedder,
     PgVectorTarget,
     PineconeTarget,
+    WeaviateTarget,
     VoyageAIEmbedder,
     defineConfig,
     memoize,
@@ -26,9 +27,9 @@ dotenv.load_dotenv()
 # --- credentials (hardcoded for local testing) ------------------------
 
 _GOOGLE_DRIVE_TOKEN = ""
-_OPENAI_API_KEY = ""
+_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or ""
 _GDRIVE_FOLDER_ID = ""
-_PG_CONNSTR = ""
+_PG_CONNSTR = os.getenv("PG_CONNSTR") or ""
 
 
 def get_google_drive_token() -> str:
@@ -40,7 +41,8 @@ def get_google_drive_token() -> str:
 
 @dataclass
 class LectureChunk:
-    id: str
+    # id: str  # reserved by Weaviate; use chunk_id instead
+    chunk_id: str
     chunk_text: str
     chunk_embedding: list[float]
     # chunk_summary: str
@@ -101,7 +103,8 @@ async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureC
     embeddings = await embed(chunk_strs)
     return [
         LectureChunk(
-            id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
+            # id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
+            chunk_id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
             chunk_text=text,
             chunk_embedding=embedding,
             lecture_title=title or file_props.display_name,
@@ -112,26 +115,26 @@ async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureC
 
 # --- config -----------------------------------------------------------
 
-config = defineConfig(
-    sources=[
-        LocalFilesSource(watched_dir="example/data_corpus"),
-        GoogleDriveSource(
-            watched_dir=_GDRIVE_FOLDER_ID,
-            on_token_expired=get_google_drive_token,
-        ),
-    ],
-    target=PgVectorTarget(
-        connstr=_PG_CONNSTR,
-        table="data_chunks",
-        schema=LectureChunk,
-        primary_key="id",
-    ),
-    embedder=OpenAIEmbedder(
-        api_key=_OPENAI_API_KEY,
-        model="text-embedding-3-small",
-    ),
-    transform=build_lecture_chunks,
-)
+# config = defineConfig(
+#     sources=[
+#         LocalFilesSource(watched_dir="example/data_corpus"),
+#         # GoogleDriveSource(
+#         #     watched_dir=_GDRIVE_FOLDER_ID,
+#         #     on_token_expired=get_google_drive_token,
+#         # ),
+#     ],
+#     target=PgVectorTarget(
+#         connstr=_PG_CONNSTR,
+#         table="data_chunks",
+#         schema=LectureChunk,
+#         primary_key="chunk_id",
+#     ),
+#     embedder=OpenAIEmbedder(
+#         api_key=_OPENAI_API_KEY,
+#         model="text-embedding-3-small",
+#     ),
+#     transform=build_lecture_chunks,
+# )
 
 # config = defineConfig(
 #     sources=[
@@ -142,7 +145,7 @@ config = defineConfig(
 #         api_key=os.getenv("PINECONE_API_KEY"),
 #         index_name="data-chunks",
 #         schema=LectureChunk,
-#         primary_key="id",
+#         primary_key="chunk_id",
 #     ),
 #     embedder=OpenAIEmbedder(
 #         api_key=os.getenv("OPENAI_API_KEY"),
@@ -150,3 +153,20 @@ config = defineConfig(
 #     ),
 #     transform=build_lecture_chunks,
 # )
+
+config = defineConfig(
+    sources=[
+        LocalFilesSource(watched_dir="example/data_corpus"),
+    ],
+    target=WeaviateTarget(
+        url="http://localhost:8080",
+        collection_name="dataChunks",
+        schema=LectureChunk,
+        primary_key="chunk_id",
+    ),
+    embedder=OpenAIEmbedder(
+        api_key=_OPENAI_API_KEY,
+        model="text-embedding-3-small",
+    ),
+    transform=build_lecture_chunks,
+)
