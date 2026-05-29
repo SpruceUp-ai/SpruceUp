@@ -42,7 +42,7 @@ async def run(pipeline) -> None:
 
         queue: asyncio.Queue = asyncio.Queue()
 
-        monitor = Monitor(queue, manifest, transform_hash=transform_hash)
+        monitor = Monitor(queue, manifest)
         active_source_ids = []
         source_registry = {}
         for source in config.sources:
@@ -72,6 +72,18 @@ async def run(pipeline) -> None:
         log.info("Startup complete — watching %s for changes", watched)
 
         try:
+            if force_reindex:
+                await queue.join()
+                if coordinator._failed_files:
+                    log.warning(
+                        "Reindex incomplete — %d file(s) failed; transform hash not "
+                        "recorded, will retry next run. Failed: %s",
+                        len(coordinator._failed_files),
+                        ", ".join(coordinator._failed_files[:10]),
+                    )
+                else:
+                    manifest.update_transform_hash(transform_hash)
+                    log.info("Reindex complete — transform hash recorded")
             await asyncio.gather(monitor_task, coordinator_task)
         except asyncio.CancelledError:
             monitor_task.cancel()
