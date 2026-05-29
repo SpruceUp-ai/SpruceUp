@@ -56,6 +56,13 @@ class GoogleDriveWatcher(BaseWatcher):
         self, service, queue: asyncio.Queue, manifest: "Manifest"
     ) -> int:
         """BFS the folder tree, enqueue upserts, anchor the Changes cursor. Returns upsert count."""
+        # Anchor the cursor before the BFS so any changes that race with the
+        # scan are picked up by the first _incremental_scan in _watch.
+        token_resp = await asyncio.to_thread(
+            service.changes().getStartPageToken().execute
+        )
+        start_page_token = token_resp["startPageToken"]
+
         all_folder_ids: set[str] = {self._folder_id}
         folders_to_scan = [self._folder_id]
         n_upserts = 0
@@ -98,12 +105,8 @@ class GoogleDriveWatcher(BaseWatcher):
             json.dumps(sorted(all_folder_ids)),
         )
 
-        # Anchor the Changes cursor at "now" for upcoming _watch calls.
-        token_resp = await asyncio.to_thread(
-            service.changes().getStartPageToken().execute
-        )
         manifest.set_source_state(
-            self._data_source_id, _STATE_PAGE_TOKEN, token_resp["startPageToken"]
+            self._data_source_id, _STATE_PAGE_TOKEN, start_page_token
         )
 
         return n_upserts
@@ -172,14 +175,15 @@ class GoogleDriveWatcher(BaseWatcher):
                             folder_ids_updated = True
                     else:
                         if file_id in known_refs:
-                            if in_tree:
+                            if in_tree and self._is_supported(mime):
                                 await queue.put(SyncTask(
                                     self._source_type, file_id, "upsert",
                                     data_source_id=self._data_source_id,
                                 ))
                                 n_upserts += 1
                             else:
-                                # File we were tracking moved out of our watched tree.
+                                # File moved out of the watched tree, or its MIME
+                                # type changed to something unsupported.
                                 await queue.put(SyncTask(
                                     self._source_type, file_id, "delete",
                                     data_source_id=self._data_source_id,
