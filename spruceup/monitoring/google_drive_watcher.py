@@ -116,11 +116,7 @@ class GoogleDriveWatcher(BaseWatcher):
         stored_token: str,
     ) -> tuple[int, int]:
         """Drain Changes API since stored_token. Returns (n_upserts, n_deletes)."""
-        con = manifest.connect()
-        try:
-            known_refs = manifest.get_source_refs(con, self._data_source_id)
-        finally:
-            con.close()
+        known_refs = manifest.get_source_refs(manifest.connect(), self._data_source_id)
 
         folder_ids_str = manifest.get_source_state(self._data_source_id, _STATE_FOLDER_IDS)
         watched_folder_ids: set[str] = (

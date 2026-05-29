@@ -56,24 +56,17 @@ def memo_ctx(manifest):
 
 def seed_file_row(manifest, file_id=FILE_ID, file_path=FILE_PATH):
     con = manifest.connect()
-    try:
+    with con:
         con.execute(
             "INSERT OR IGNORE INTO files (id, source_ref) VALUES (?, ?)",
             (file_id, file_path),
         )
-        con.commit()
-    finally:
-        con.close()
 
 
 def cache_row_count(manifest, file_id=FILE_ID) -> int:
-    con = manifest.connect()
-    try:
-        return con.execute(
-            "SELECT COUNT(*) FROM memoize_cache WHERE file_id=?", (file_id,)
-        ).fetchone()[0]
-    finally:
-        con.close()
+    return manifest.connect().execute(
+        "SELECT COUNT(*) FROM memoize_cache WHERE file_id=?", (file_id,)
+    ).fetchone()[0]
 
 
 # ---------------------------------------------------------------------------

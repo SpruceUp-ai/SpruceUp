@@ -96,17 +96,13 @@ async def drive(args) -> None:
     source_registry = {data_source_id: source}
 
     if args.index_chunks:
-        con = manifest.connect()
-        con.execute("CREATE INDEX IF NOT EXISTS ix_chunks_file_id ON chunks(file_id)")
-        con.commit()
-        con.close()
+        with manifest.connect() as con:
+            con.execute("CREATE INDEX IF NOT EXISTS ix_chunks_file_id ON chunks(file_id)")
 
     if args.index_files:
-        con = manifest.connect()
-        con.execute("CREATE INDEX IF NOT EXISTS ix_files_inode_src ON files(inode, data_source_id)")
-        con.execute("CREATE INDEX IF NOT EXISTS ix_files_src ON files(data_source_id)")
-        con.commit()
-        con.close()
+        with manifest.connect() as con:
+            con.execute("CREATE INDEX IF NOT EXISTS ix_files_inode_src ON files(inode, data_source_id)")
+            con.execute("CREATE INDEX IF NOT EXISTS ix_files_src ON files(data_source_id)")
 
     if args.shared_conn:
         # Diagnostic: reuse ONE real SQLite connection for the whole run instead

@@ -7,69 +7,26 @@ from .models import ChunkWrapper, SpruceFile
 _MANIFEST_PATH = "spruceup_manifest.db"
 
 
-class _ManifestConnection:
-    """Single long-lived sqlite3 connection assigned to the entire pipeline
-    process. Every manifest call reuses one underlying connection
-    instead of opening and closing a fresh one which, at three connections per
-    file, was weighing heavily on RAM as the corpus size grew.
-
-    Designed so that existing code didn't need to change. The __enter__/__exit__
-    methods delegate to the real connection's transaction handling, and anytime
-    a method calls close(), the call is ignored and the conn left open.
-
-    Safe because every manifest DB section is synchronous — no two coroutines
-    interleave a transaction on the shared connection.
-    """
-
-    def __init__(self, conn: sqlite3.Connection):
-        self._conn = conn
-
-    def __enter__(self) -> "_ManifestConnection":
-        self._conn.__enter__()
-        return self
-
-    def __exit__(self, *exc) -> object:
-        return self._conn.__exit__(*exc)
-
-    def execute(self, *args, **kwargs):
-        return self._conn.execute(*args, **kwargs)
-
-    def executemany(self, *args, **kwargs):
-        return self._conn.executemany(*args, **kwargs)
-
-    def cursor(self):
-        return self._conn.cursor()
-
-    def commit(self) -> None:
-        self._conn.commit()
-
-    def close(self) -> None:
-        pass
-
-
 class Manifest:
     """Single access point for all SQLite manifest reads and writes."""
 
     def __init__(self, path: str = _MANIFEST_PATH):
         self._path = path
+        self._conn = sqlite3.connect(self._path)
+        self._conn.execute("PRAGMA foreign_keys = ON")
         self._init_db()
-        self._conn = self._new_connection()
 
     # ------------------------------------------------------------------
     # Schema init
     # ------------------------------------------------------------------
 
     def _init_db(self) -> None:
-        con = self._new_connection()
-        try:
-            self._init_sources_schema(con)
-            self._init_files_schema(con)
-            self._init_chunks_schema(con)
-            self._init_transform_schema(con)
-            self._init_memoize_schema(con)
-            con.commit()
-        finally:
-            con.close()
+        with self._conn:
+            self._init_sources_schema(self._conn)
+            self._init_files_schema(self._conn)
+            self._init_chunks_schema(self._conn)
+            self._init_transform_schema(self._conn)
+            self._init_memoize_schema(self._conn)
 
     def _init_sources_schema(self, con: sqlite3.Connection) -> None:
         con.execute(
@@ -156,17 +113,19 @@ class Manifest:
             """
         )
 
-    def _new_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self._path)
-        conn.execute("PRAGMA foreign_keys = ON")
-        return conn
+    def connect(self) -> sqlite3.Connection:
+        """Return the process-wide shared SQLite connection.
 
-    def connect(self) -> "_ManifestConnection":
-        """Return the shared long-lived connection, wrapped so it can be used as
-        a context manager and "closed" without being torn down.
-        See _ManifestConnection for why a single connection is reused.
+        The Manifest keeps a single connection for the whole pipeline process —
+        opening a fresh one per call was, at three connections per file, weighing
+        heavily on RAM as the corpus grew. Use it directly, or as a context
+        manager (`with manifest.connect() as conn:`) to group writes into one
+        transaction. Do not close it; the Manifest owns its lifetime.
+
+        Safe to share because every manifest DB section is synchronous — no two
+        coroutines interleave a transaction on the connection.
         """
-        return _ManifestConnection(self._conn)
+        return self._conn
 
     # ------------------------------------------------------------------
     # Chunk and file operations (callers manage the connection/transaction)
@@ -366,130 +325,94 @@ class Manifest:
     # ------------------------------------------------------------------
 
     def get_source_state(self, data_source_id: int, key: str) -> str | None:
-        con = self.connect()
-        try:
-            row = con.execute(
-                "SELECT value FROM source_state WHERE data_source_id = ? AND key = ?",
-                (data_source_id, key),
-            ).fetchone()
-            return row[0] if row else None
-        finally:
-            con.close()
+        row = self._conn.execute(
+            "SELECT value FROM source_state WHERE data_source_id = ? AND key = ?",
+            (data_source_id, key),
+        ).fetchone()
+        return row[0] if row else None
 
     def set_source_state(self, data_source_id: int, key: str, value: str) -> None:
-        con = self.connect()
-        try:
-            con.execute(
+        with self._conn:
+            self._conn.execute(
                 "INSERT OR REPLACE INTO source_state (data_source_id, key, value) VALUES (?, ?, ?)",
                 (data_source_id, key, value),
             )
-            con.commit()
-        finally:
-            con.close()
 
     # ------------------------------------------------------------------
-    # Transform-hash operations (self-contained — manage their own connections)
+    # Self-contained operations (run on the shared connection)
     # ------------------------------------------------------------------
 
     def transform_hash_changed(self, transform_hash: bytes) -> bool:
-        con = self.connect()
-        try:
-            row = con.execute(
-                "SELECT 1 FROM transform_hashes WHERE transform_hash = ?",
-                (transform_hash,),
-            ).fetchone()
-            return row is None
-        finally:
-            con.close()
+        row = self._conn.execute(
+            "SELECT 1 FROM transform_hashes WHERE transform_hash = ?",
+            (transform_hash,),
+        ).fetchone()
+        return row is None
 
     def register_source(self, source_type: str, source_identifier: str) -> int:
-        con = self.connect()
-        try:
-            con.execute(
+        with self._conn:
+            self._conn.execute(
                 "INSERT OR IGNORE INTO data_sources (source_type, source_identifier) VALUES (?, ?)",
                 (source_type, source_identifier),
             )
-            row = con.execute(
+            row = self._conn.execute(
                 "SELECT id FROM data_sources WHERE source_type = ? AND source_identifier = ?",
                 (source_type, source_identifier),
             ).fetchone()
-            con.commit()
-            return row[0]
-        finally:
-            con.close()
+        return row[0]
 
     def delete_stale_sources(self, active_ids: list[int]) -> None:
         if not active_ids:
             return
         placeholders = ",".join("?" * len(active_ids))
-        con = self.connect()
-        try:
-            con.execute(
+        with self._conn:
+            self._conn.execute(
                 f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
                 active_ids,
             )
-            con.commit()
-        finally:
-            con.close()
 
     def get_memoized(self, file_id: bytes, fn_hash: bytes, args_hash: bytes) -> bytes | None:
-        con = self.connect()
-        try:
-            row = con.execute(
-                "SELECT result FROM memoize_cache WHERE file_id=? AND fn_hash=? AND args_hash=?",
-                (file_id, fn_hash, args_hash),
-            ).fetchone()
-            return row[0] if row else None
-        finally:
-            con.close()
+        row = self._conn.execute(
+            "SELECT result FROM memoize_cache WHERE file_id=? AND fn_hash=? AND args_hash=?",
+            (file_id, fn_hash, args_hash),
+        ).fetchone()
+        return row[0] if row else None
 
     def set_memoized(self, file_id: bytes, fn_hash: bytes, args_hash: bytes, result: bytes) -> None:
-        con = self.connect()
-        try:
-            con.execute(
+        # `with self._conn` commits on exit. Committing synchronously here releases
+        # the write before the transform's next `await`, so no write transaction is
+        # ever held across a yield (the single-conn answer to "database is locked"
+        # / commit-before-yield).
+        with self._conn:
+            self._conn.execute(
                 "INSERT OR REPLACE INTO memoize_cache (file_id, fn_hash, args_hash, result) "
                 "VALUES (?, ?, ?, ?)",
                 (file_id, fn_hash, args_hash, result),
             )
-            # Commit synchronously: on the shared connection this releases the
-            # write before the transform's next `await`, so no write transaction
-            # is ever held across a yield (the single-conn answer to "database is
-            # locked" / commit-before-yield).
-            con.commit()
-        finally:
-            con.close()
 
     def sweep_memoized(
         self, file_id: bytes, temp_keys: set[tuple[bytes, bytes]]
     ) -> None:
-        con = self.connect()
-        try:
-            con.execute(
-                "CREATE TEMP TABLE IF NOT EXISTS _sweep_keys (fn_hash BLOB, args_hash BLOB)"
+        self._conn.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS _sweep_keys (fn_hash BLOB, args_hash BLOB)"
+        )
+        # The connection is shared and long-lived, so this TEMP table persists
+        # across files; clear the last file's keys before loading this file's.
+        self._conn.execute("DELETE FROM _sweep_keys")
+        with self._conn:
+            self._conn.executemany("INSERT INTO _sweep_keys VALUES (?, ?)", temp_keys)
+            self._conn.execute(
+                "DELETE FROM memoize_cache "
+                "WHERE file_id = ? "
+                "AND (fn_hash, args_hash) NOT IN (SELECT fn_hash, args_hash FROM _sweep_keys)",
+                (file_id,),
             )
-            # The connection is shared and long-lived, so this TEMP table persists
-            # across files; clear the last file's keys before loading this file's.
-            con.execute("DELETE FROM _sweep_keys")
-            with con:
-                con.executemany("INSERT INTO _sweep_keys VALUES (?, ?)", temp_keys)
-                con.execute(
-                    "DELETE FROM memoize_cache "
-                    "WHERE file_id = ? "
-                    "AND (fn_hash, args_hash) NOT IN (SELECT fn_hash, args_hash FROM _sweep_keys)",
-                    (file_id,),
-                )
-        finally:
-            con.close()
 
     def update_transform_hash(self, transform_hash: bytes) -> None:
         """Replace the stored transform hash with the current one."""
-        con = self.connect()
-        try:
-            con.execute("DELETE FROM transform_hashes")
-            con.execute(
+        with self._conn:
+            self._conn.execute("DELETE FROM transform_hashes")
+            self._conn.execute(
                 "INSERT INTO transform_hashes (transform_hash) VALUES (?)",
                 (transform_hash,),
             )
-            con.commit()
-        finally:
-            con.close()
