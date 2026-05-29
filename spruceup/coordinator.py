@@ -20,6 +20,7 @@ class Coordinator:
         embedder: EmbedderConnector,
         sync_engine: SyncEngine,
         source_registry: dict,
+        max_concurrency: int = 32,
     ):
         self._queue = queue
         self._transform = transform
@@ -29,6 +30,7 @@ class Coordinator:
         self._manifest = sync_engine._manifest
         self._source_registry = source_registry
         self._active_tasks = set()
+        self._semaphore = asyncio.Semaphore(max_concurrency)
 
     async def process_task(self, task: SyncTask) -> None:
         source = self._source_registry[task.data_source_id]
@@ -49,46 +51,35 @@ class Coordinator:
 
     async def upsert_file(self, task: SyncTask, filename: str, source) -> None:
         from .memoize.context import (
-            _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_conn_var,
-            _memo_stats_var,
+            _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var,
         )
 
         spruce_file = await source.fetch(task)
 
-        memo_conn = self._manifest.connect()
-        try:
-            with self._manifest.transaction() as conn:
-                self._manifest.ensure_file_row_exists(conn, spruce_file.file_id, spruce_file.source_ref)
+        with self._manifest.connect() as conn:
+            self._manifest.ensure_file_row_exists(conn, spruce_file.file_id, spruce_file.source_ref)
 
-            temp_keys: set[tuple[bytes, bytes]] = set()
-            memo_stats = [0, 0]  # [hits, total]
-            _memo_manifest_var.set(self._manifest)
-            _memo_file_id_var.set(spruce_file.file_id)
-            _memo_temp_keys_var.set(temp_keys)
-            _memo_conn_var.set(memo_conn)
-            _memo_stats_var.set(memo_stats)
+        temp_keys: set[tuple[bytes, bytes]] = set()
+        memo_stats = [0, 0]  # [hits, total]
+        _memo_manifest_var.set(self._manifest)
+        _memo_file_id_var.set(spruce_file.file_id)
+        _memo_temp_keys_var.set(temp_keys)
+        _memo_stats_var.set(memo_stats)
 
-            async def _embed(chunks):
-                # Commit memoize writes accumulated before this yield point so
-                # the write lock is released while we wait for the embedding API.
-                # Other concurrent file tasks can then write to the manifest
-                # without hitting "database is locked".
-                memo_conn.commit()
-                return await self._embedder.process_chunks(chunks)
-
-            schema_objs = await self._transform(
-                file_props={
-                    "raw_content": source.decode_content(spruce_file.raw_content),
-                    "source_ref": spruce_file.source_ref,
-                    "modified_at": spruce_file.source_metadata.get("modified_at"),
-                    "file_type": spruce_file.file_type,
-                },
-                embed=_embed,
-            )
-            memo_conn.commit()  # cover any writes that happen after embed returns
-        finally:
-            memo_conn.close()
-            _memo_conn_var.set(None)
+        # No per-file memo connection / commit-before-yield wrapper: the manifest
+        # uses one shared connection and set_memoized commits synchronously, so no
+        # write transaction is ever held across the embed await.
+        from .models import FileProps
+        schema_objs = await self._transform(
+            file_props=FileProps(
+                raw_content=source.decode_content(spruce_file.raw_content),
+                source_ref=spruce_file.source_ref,
+                display_name=spruce_file.display_name,
+                modified_at=spruce_file.source_metadata.get("modified_at"),
+                file_type=spruce_file.file_type,
+            ),
+            embed=self._embedder.process_chunks,
+        )
 
         if memo_stats[1] > 0:
             log.info("[memoize] %s — %d/%d hits", filename, memo_stats[0], memo_stats[1])
@@ -115,7 +106,10 @@ class Coordinator:
     async def run(self) -> None:
         while True:
             next_task: SyncTask = await self._queue.get()
-            asyncio_task = asyncio.create_task(self.process_task(next_task))
+            # Bound concurrent in-flight file tasks so peak memory (file bytes +
+            # frames + embeddings) does not grow with corpus size.
+            await self._semaphore.acquire()
+            asyncio_task = asyncio.create_task(self._process_and_release(next_task))
             self._active_tasks.add(asyncio_task)
             asyncio_task.add_done_callback(self._active_tasks.discard)
             # Queue.get() only suspends when the queue is empty, so during catch-up
@@ -123,3 +117,9 @@ class Coordinator:
             # start (and the embedding batcher's flusher fire) before the next task
             # is created, so batches roll rather than all files piling up at once.
             await asyncio.sleep(0)
+
+    async def _process_and_release(self, task: SyncTask) -> None:
+        try:
+            await self.process_task(task)
+        finally:
+            self._semaphore.release()

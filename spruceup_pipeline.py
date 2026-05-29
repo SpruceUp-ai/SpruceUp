@@ -1,7 +1,6 @@
 import asyncio
 import hashlib
 import os
-import pathlib
 from dataclasses import dataclass
 
 import dotenv
@@ -10,6 +9,7 @@ import openai
 from example.dummy_pipeline import chunk_qa_md, chunk_txt_file
 from spruceup import (
     CohereEmbedder,
+    FileProps,
     GeminiEmbedder,
     GoogleDriveSource,
     LocalFilesSource,
@@ -26,9 +26,10 @@ dotenv.load_dotenv()
 
 # --- credentials (hardcoded for local testing) ------------------------
 
-_GOOGLE_DRIVE_TOKEN = "your-google-drive-access-token-here"
-_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-openai-api-key-here")
-_GDRIVE_FOLDER_ID = "your-google-drive-folder-id-here"
+_GOOGLE_DRIVE_TOKEN = ""
+_OPENAI_API_KEY = ""
+_GDRIVE_FOLDER_ID = ""
+_PG_CONNSTR = ""
 
 
 def get_google_drive_token() -> str:
@@ -93,13 +94,12 @@ def _get_openai_client() -> openai.AsyncOpenAI:
 # --- transform --------------------------------------------------------
 
 
-async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]:
-    file_path = pathlib.Path(file_props["source_ref"])
-    raw_chunks = split_chunks(
-        file_props["raw_content"], file_path.name, file_path.suffix.lower()
-    )
+async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureChunk]:
+    ext = "." + file_props.file_type if file_props.file_type else ""
+    raw_chunks = split_chunks(file_props.raw_content, file_props.display_name, ext)
     chunk_strs = [await prepare_chunk(s) for s in raw_chunks]
 
+    title, _, _ = file_props.display_name.rpartition(".")
     embeddings = await embed(chunk_strs)
     return [
         LectureChunk(
@@ -107,7 +107,7 @@ async def build_lecture_chunks(*, file_props: dict, embed) -> list[LectureChunk]
             chunk_id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
             chunk_text=text,
             chunk_embedding=embedding,
-            lecture_title=file_path.stem,
+            lecture_title=title or file_props.display_name,
         )
         for text, embedding in zip(chunk_strs, embeddings)
     ]
@@ -161,8 +161,9 @@ config = defineConfig(
             on_token_expired=get_google_drive_token,
         ),
     ],
-    target=WeaviateTarget(
-        collection_name="DataChunks",
+    target=PgVectorTarget(
+        connstr=_PG_CONNSTR,
+        table="data_chunks",
         schema=LectureChunk,
         primary_key="chunk_id",
     ),

@@ -3,7 +3,7 @@ import functools
 import inspect
 
 from ..utils.hashing import hash_transform, hash_args
-from .context import _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_conn_var, _memo_stats_var
+from .context import _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var
 from .serialization import validate_return_type, serialize, deserialize
 
 
@@ -26,7 +26,6 @@ def memoize(*, returns):
             manifest  = _memo_manifest_var.get()
             file_id   = _memo_file_id_var.get()
             temp_keys = _memo_temp_keys_var.get()
-            conn      = _memo_conn_var.get()
             if manifest is None:
                 raise RuntimeError(
                     f"@memoize function '{fn.__name__}' was called outside a transform "
@@ -35,16 +34,16 @@ def memoize(*, returns):
                 )
             args_h = hash_args(fn, args, kwargs)
             temp_keys.add((fn_hash, args_h))
-            cached = manifest.get_memoized(file_id, fn_hash, args_h, conn)
-            return manifest, file_id, args_h, cached, conn
+            cached = manifest.get_memoized(file_id, fn_hash, args_h)
+            return manifest, file_id, args_h, cached
 
-        def _store(manifest, file_id, args_h, result, conn):
-            manifest.set_memoized(file_id, fn_hash, args_h, serialize(result, returns), conn)
+        def _store(manifest, file_id, args_h, result):
+            manifest.set_memoized(file_id, fn_hash, args_h, serialize(result, returns))
 
         if inspect.iscoroutinefunction(fn):
             @functools.wraps(fn)
             async def wrapper(*args, **kwargs):
-                manifest, file_id, args_h, cached, conn = _lookup(args, kwargs)
+                manifest, file_id, args_h, cached = _lookup(args, kwargs)
                 stats = _memo_stats_var.get()
                 if stats is not None:
                     stats[1] += 1
@@ -52,15 +51,13 @@ def memoize(*, returns):
                     if stats is not None:
                         stats[0] += 1
                     return deserialize(cached, returns)
-                if conn is not None:
-                    conn.commit()
                 result = await fn(*args, **kwargs)
-                _store(manifest, file_id, args_h, result, conn)
+                _store(manifest, file_id, args_h, result)
                 return result
         else:
             @functools.wraps(fn)
             def wrapper(*args, **kwargs):
-                manifest, file_id, args_h, cached, conn = _lookup(args, kwargs)
+                manifest, file_id, args_h, cached = _lookup(args, kwargs)
                 stats = _memo_stats_var.get()
                 if stats is not None:
                     stats[1] += 1
@@ -69,7 +66,7 @@ def memoize(*, returns):
                         stats[0] += 1
                     return deserialize(cached, returns)
                 result = fn(*args, **kwargs)
-                _store(manifest, file_id, args_h, result, conn)
+                _store(manifest, file_id, args_h, result)
                 return result
 
         return wrapper

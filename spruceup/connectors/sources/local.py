@@ -57,6 +57,7 @@ class LocalFilesSource(SourceConnector):
         return SpruceFile(
             file_id=hash_source_ref(path),
             source_ref=path,
+            display_name=pathlib.Path(path).name,
             content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,

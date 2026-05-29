@@ -32,7 +32,18 @@ def _build_drive_service(on_token_expired):
     from googleapiclient.discovery import build
     from google.oauth2.credentials import Credentials
 
-    return build("drive", "v3", credentials=Credentials(token=on_token_expired()))
+    try:
+        token = on_token_expired()
+    except Exception as exc:
+        raise RuntimeError(
+            "GoogleDriveSource: on_token_expired() raised an error — "
+            "ensure it returns a valid access token string."
+        ) from exc
+    if not token:
+        raise RuntimeError(
+            "GoogleDriveSource: on_token_expired() returned an empty token."
+        )
+    return build("drive", "v3", credentials=Credentials(token=token))
 
 
 async def _folder_is_ancestor(
@@ -172,6 +183,7 @@ class GoogleDriveSource(SourceConnector):
         return SpruceFile(
             file_id=hash_source_ref(drive_file_id),
             source_ref=drive_file_id,
+            display_name=meta["name"],
             content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,
