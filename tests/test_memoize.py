@@ -56,24 +56,17 @@ def memo_ctx(manifest):
 
 def seed_file_row(manifest, file_id=FILE_ID, file_path=FILE_PATH):
     con = manifest.connect()
-    try:
+    with con:
         con.execute(
             "INSERT OR IGNORE INTO files (id, source_ref) VALUES (?, ?)",
             (file_id, file_path),
         )
-        con.commit()
-    finally:
-        con.close()
 
 
 def cache_row_count(manifest, file_id=FILE_ID) -> int:
-    con = manifest.connect()
-    try:
-        return con.execute(
-            "SELECT COUNT(*) FROM memoize_cache WHERE file_id=?", (file_id,)
-        ).fetchone()[0]
-    finally:
-        con.close()
+    return manifest.connect().execute(
+        "SELECT COUNT(*) FROM memoize_cache WHERE file_id=?", (file_id,)
+    ).fetchone()[0]
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +163,28 @@ def test_sweep_with_empty_temp_keys_clears_all(manifest):
     manifest.sweep_memoized(FILE_ID, set())
 
     assert cache_row_count(manifest) == 0
+
+
+def test_sweep_does_not_leak_keys_across_files(manifest):
+    # The manifest reuses one long-lived connection, so the sweep's TEMP table
+    # persists between calls. Each sweep must start from a clean key set, or a
+    # later file would wrongly preserve a stale entry whose (fn, args) signature
+    # happened to be swept-as-live for an earlier file.
+    file_a = hash_source_ref("corpus/a.txt")
+    file_b = hash_source_ref("corpus/b.txt")
+    seed_file_row(manifest, file_id=file_a, file_path="corpus/a.txt")
+    seed_file_row(manifest, file_id=file_b, file_path="corpus/b.txt")
+
+    manifest.set_memoized(file_a, FN_HASH, ARGS_HASH_A, b'"a_live"')
+    manifest.sweep_memoized(file_a, {(FN_HASH, ARGS_HASH_A)})
+
+    # File B has a stale entry with the same signature A just kept alive.
+    manifest.set_memoized(file_b, FN_HASH, ARGS_HASH_A, b'"b_stale"')
+    manifest.set_memoized(file_b, FN_HASH, ARGS_HASH_B, b'"b_live"')
+    manifest.sweep_memoized(file_b, {(FN_HASH, ARGS_HASH_B)})
+
+    assert manifest.get_memoized(file_b, FN_HASH, ARGS_HASH_A) is None
+    assert manifest.get_memoized(file_b, FN_HASH, ARGS_HASH_B) is not None
 
 
 # ---------------------------------------------------------------------------
