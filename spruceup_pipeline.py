@@ -41,8 +41,8 @@ def get_google_drive_token() -> str:
 
 @dataclass
 class LectureChunk:
-    # id: str  # reserved by Weaviate; use chunk_id instead
-    chunk_id: str
+    id: str  # reserved by Weaviate; use chunk_id instead
+    # chunk_id: str
     chunk_text: str
     chunk_embedding: list[float]
     # chunk_summary: str
@@ -115,26 +115,26 @@ async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureC
 
 # --- config -----------------------------------------------------------
 
-# config = defineConfig(
-#     sources=[
-#         LocalFilesSource(watched_dir="example/data_corpus"),
-#         # GoogleDriveSource(
-#         #     watched_dir=_GDRIVE_FOLDER_ID,
-#         #     on_token_expired=get_google_drive_token,
-#         # ),
-#     ],
-#     target=PgVectorTarget(
-#         connstr=_PG_CONNSTR,
-#         table="data_chunks",
-#         schema=LectureChunk,
-#         primary_key="chunk_id",
-#     ),
-#     embedder=OpenAIEmbedder(
-#         api_key=_OPENAI_API_KEY,
-#         model="text-embedding-3-small",
-#     ),
-#     transform=build_lecture_chunks,
-# )
+config = defineConfig(
+    sources=[
+        LocalFilesSource(watched_dir="example/data_corpus"),
+        # GoogleDriveSource(
+        #     watched_dir=_GDRIVE_FOLDER_ID,
+        #     on_token_expired=get_google_drive_token,
+        # ),
+    ],
+    target=PgVectorTarget(
+        connstr=_PG_CONNSTR,
+        table="data_chunks",
+        schema=LectureChunk,
+        primary_key="id",
+    ),
+    embedder=OpenAIEmbedder(
+        api_key=_OPENAI_API_KEY,
+        model="text-embedding-3-small",
+    ),
+    transform=build_lecture_chunks,
+)
 
 # config = defineConfig(
 #     sources=[
@@ -154,19 +154,19 @@ async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureC
 #     transform=build_lecture_chunks,
 # )
 
-config = defineConfig(
-    sources=[
-        LocalFilesSource(watched_dir="example/data_corpus"),
-    ],
-    target=WeaviateTarget(
-        url="http://localhost:8080",
-        collection_name="dataChunks",
-        schema=LectureChunk,
-        primary_key="chunk_id",
-    ),
-    embedder=OpenAIEmbedder(
-        api_key=_OPENAI_API_KEY,
-        model="text-embedding-3-small",
-    ),
-    transform=build_lecture_chunks,
-)
+# config = defineConfig(
+#     sources=[
+#         LocalFilesSource(watched_dir="example/data_corpus"),
+#     ],
+#     target=WeaviateTarget(
+#         url="http://localhost:8080",
+#         collection_name="dataChunks",
+#         schema=LectureChunk,
+#         primary_key="chunk_id",
+#     ),
+#     embedder=OpenAIEmbedder(
+#         api_key=_OPENAI_API_KEY,
+#         model="text-embedding-3-small",
+#     ),
+#     transform=build_lecture_chunks,
+# )
