@@ -3,6 +3,7 @@
 **/.venv
 .pytest_cache/
 pyrightconfig.json
+poetry.lock
 
 Notes.md
 tenacity_test.py
