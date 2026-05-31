@@ -189,9 +189,14 @@ async def test_catch_up_renamed_file_emits_move(watcher, manifest, corpus, ds_id
 @pytest.mark.asyncio
 async def test_catch_up_mtime_changed_and_content_changed_emits_upsert(watcher, manifest, corpus, ds_id):
     path = corpus / "doc.txt"
-    path.write_bytes(b"version 1")
-    seed_file(manifest, path, ds_id, content=b"version 1")
-    path.write_bytes(b"version 2")  # changes both mtime and content hash
+    path.write_bytes(b"version 2")
+    stat = path.stat()
+    # Seed the previous run's state: old content hash plus an mtime that differs
+    # from the file's current mtime. Offsetting the stored mtime (rather than
+    # rewriting the file and hoping mtime advances) keeps this deterministic on
+    # filesystems like WSL2 where two rapid writes share an identical mtime.
+    # mtime fast-path fails -> hash comparison fires -> upsert.
+    seed_file(manifest, path, ds_id, content=b"version 1", mtime=stat.st_mtime - 1.0)
     queue = asyncio.Queue()
     await watcher._catch_up(queue, manifest)
     tasks = drain(queue)
