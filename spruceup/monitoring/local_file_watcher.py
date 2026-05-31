@@ -43,11 +43,16 @@ class LocalFileWatcher(BaseWatcher):
             by_inode = {}
 
         seen_inodes: set[int] = set()
+        n_skipped = 0
 
         for path in pathlib.Path(self._root_path).rglob("*"):
-            if not path.is_file() or not self._is_supported(str(path)):
+            if not path.is_file():
                 continue
-            inode = path.stat().st_ino
+            if not self._is_supported(str(path)):
+                n_skipped += 1
+                continue
+            stat = path.stat()
+            inode = stat.st_ino
             current_path_str = str(path)
             seen_inodes.add(inode)
 
@@ -62,12 +67,18 @@ class LocalFileWatcher(BaseWatcher):
                 else:
                     db_path_val = db_record["source_ref"]
                     db_hash = db_record["content_hash"]
-                    if db_hash != hash_file_content(path):
-                        await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
-                        n_upserts += 1
-                    elif db_path_val != current_path_str:
-                        await queue.put(SyncTask(self._source_type, current_path_str, "move", old_identifier=db_path_val, data_source_id=self._data_source_id))
-                        n_moves += 1
+                    db_mtime = db_record["metadata"].get("mtime")
+                    if db_mtime is not None and db_mtime == str(stat.st_mtime):
+                        if db_path_val != current_path_str:
+                            await queue.put(SyncTask(self._source_type, current_path_str, "move", old_identifier=db_path_val, data_source_id=self._data_source_id))
+                            n_moves += 1
+                    else:
+                        if db_hash != hash_file_content(path):
+                            await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
+                            n_upserts += 1
+                        elif db_path_val != current_path_str:
+                            await queue.put(SyncTask(self._source_type, current_path_str, "move", old_identifier=db_path_val, data_source_id=self._data_source_id))
+                            n_moves += 1
 
         for inode, rec in by_inode.items():
             if inode not in seen_inodes:
@@ -75,9 +86,15 @@ class LocalFileWatcher(BaseWatcher):
                 n_deletes += 1
 
         log.info(
-            "Catch-up complete — %d upsert(s)  %d move(s)  %d delete(s)",
-            n_upserts, n_moves, n_deletes,
+            "Catch-up complete — %d upsert(s)  %d move(s)  %d delete(s)  %d skipped",
+            n_upserts, n_moves, n_deletes, n_skipped,
         )
+        if n_skipped:
+            log.info(
+                "%d file(s) were skipped due to unsupported file type. "
+                "See documentation for the list of supported file types.",
+                n_skipped,
+            )
 
     async def _watch(self, queue: asyncio.Queue, manifest: "Manifest", catchup_done: asyncio.Event) -> None:
         buffer: list[SyncTask] = []

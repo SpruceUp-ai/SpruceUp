@@ -164,17 +164,19 @@ class GoogleDriveSource(SourceConnector):
                     fileId=drive_file_id, mimeType=export_mime
                 ).execute
             )
+            # Google Docs have no file extension in their Drive name; derive
+            # file_type from the export format instead.
+            file_type = "txt"
         elif mime_type in _SUPPORTED_MIME_TYPES:
             raw_content = await asyncio.to_thread(
                 service.files().get_media(fileId=drive_file_id).execute
             )
+            file_type = pathlib.PurePosixPath(meta["name"]).suffix.lstrip(".")
         else:
             raise ValueError(
                 f"Unsupported file type {mime_type!r} for {meta['name']!r} — "
                 f"only Google Docs, plain text, markdown, HTML, JSON, PDF, DOC, and DOCX are supported."
             )
-
-        file_type = pathlib.PurePosixPath(meta["name"]).suffix.lstrip(".")
         content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
         modified_at = datetime.fromisoformat(
             meta["modifiedTime"].replace("Z", "+00:00")
