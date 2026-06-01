@@ -235,42 +235,20 @@ class Manifest:
                 files[file_id]["metadata"][key] = value
         return list(files.values())
 
-    def move_file_row(
-        self,
-        conn: sqlite3.Connection,
-        old_file_id: bytes,
-        new_file_id: bytes,
-        new_ref: str,
-    ) -> None:
+    def get_file_id_by_ref(
+        self, conn: sqlite3.Connection, source_ref: str
+    ) -> bytes | None:
         row = conn.execute(
-            "SELECT content_hash, data_source_id, file_type FROM files WHERE id = ?",
-            (old_file_id,),
+            "SELECT id FROM files WHERE source_ref = ?", (source_ref,)
         ).fetchone()
-        if row is None:
-            return
-        content_hash, data_source_id, file_type = row
+        return row[0] if row else None
+
+    def update_file_ref(
+        self, conn: sqlite3.Connection, file_id: bytes, new_ref: str
+    ) -> None:
         conn.execute(
-            """INSERT INTO files (id, source_ref, content_hash, data_source_id, file_type)
-               VALUES (?, ?, ?, ?, ?)""",
-            (new_file_id, new_ref, content_hash, data_source_id, file_type),
+            "UPDATE files SET source_ref = ? WHERE id = ?", (new_ref, file_id)
         )
-        # Copy file_metadata rows to the new file_id
-        conn.execute("DELETE FROM file_metadata WHERE file_id = ?", (new_file_id,))
-        conn.execute(
-            "INSERT OR REPLACE INTO file_metadata "
-            "SELECT ?, key, value FROM file_metadata WHERE file_id = ?",
-            (new_file_id, old_file_id),
-        )
-        conn.execute("DELETE FROM memoize_cache WHERE file_id = ?", (new_file_id,))
-        conn.execute(
-            "UPDATE memoize_cache SET file_id = ? WHERE file_id = ?",
-            (new_file_id, old_file_id),
-        )
-        conn.execute(
-            "UPDATE chunks SET file_id = ? WHERE file_id = ?",
-            (new_file_id, old_file_id),
-        )
-        conn.execute("DELETE FROM files WHERE id = ?", (old_file_id,))
 
     def delete_chunks(
         self, conn: sqlite3.Connection, chunk_keys: list[tuple[bytes, bytes]]

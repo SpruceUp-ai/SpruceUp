@@ -88,7 +88,7 @@ class Coordinator:
 
         self._manifest.sweep_memoized(spruce_file.file_id, temp_keys)
 
-        validate_schema_objects(user_chunks, self._target.schema, self._target.primary_key)
+        validate_schema_objects(user_chunks, self._target.schema)
         log.info("[upsert] %s — %d chunk(s)", filename, len(user_chunks))
 
         chunks = [
@@ -101,7 +101,7 @@ class Coordinator:
 
         spruce_file.chunks = chunks
 
-        await self._sync_engine.reconcile([spruce_file])
+        await self._sync_engine.reconcile(spruce_file)
 
     async def run(self) -> None:
         while True:
