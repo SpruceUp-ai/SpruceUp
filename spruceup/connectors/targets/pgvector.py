@@ -27,44 +27,46 @@ def _py_to_pg_type(tp, embedding_dimensions: int) -> str:
 
 
 class PgVectorTarget(TargetConnector):
-    def __init__(self, connstr: str, table: str, schema: type, primary_key: str) -> None:
+    def __init__(self, connstr: str, table: str, schema: type) -> None:
         self.connstr = connstr
         self.table = table
-        self.schema = schema
-        self.primary_key = primary_key
+        self._schema = schema
 
     @property
     def display_name(self) -> str:
         return self.table
 
+    @property
+    def schema(self) -> type:
+        return self._schema
+
     def ensure_table_exists(self, embedding_dimensions: int) -> None:
-        hints = typing.get_type_hints(self.schema)
-        col_defs = [
-            f"{col} {_py_to_pg_type(tp, embedding_dimensions)}{' PRIMARY KEY' if col == self.primary_key else ''}"
+        hints = typing.get_type_hints(self._schema)
+        user_col_defs = [
+            f"{col} {_py_to_pg_type(tp, embedding_dimensions)}"
             for col, tp in hints.items()
         ]
+        col_defs = ["id TEXT PRIMARY KEY"] + user_col_defs
         with psycopg.connect(self.connstr) as conn:
             conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
             conn.execute(
                 f"CREATE TABLE IF NOT EXISTS {self.table} ({', '.join(col_defs)})"
             )
 
-    async def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
+    async def sync(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         async with await psycopg.AsyncConnection.connect(self.connstr) as conn:
             if upserts:
-                hints = typing.get_type_hints(self.schema)
+                hints = typing.get_type_hints(self._schema)
                 col_names = list(hints.keys())
-                placeholders = ", ".join(["%s"] * len(col_names))
-                update_set = ", ".join(
-                    f"{col} = EXCLUDED.{col}" for col in col_names if col != self.primary_key
-                )
+                all_cols = ["id"] + col_names
+                placeholders = ", ".join(["%s"] * len(all_cols))
                 sql = (
-                    f"INSERT INTO {self.table} ({', '.join(col_names)}) "
+                    f"INSERT INTO {self.table} ({', '.join(all_cols)}) "
                     f"VALUES ({placeholders}) "
-                    f"ON CONFLICT ({self.primary_key}) DO UPDATE SET {update_set}"
+                    f"ON CONFLICT (id) DO NOTHING"
                 )
                 rows = [
-                    [getattr(chunk.user_chunk, col) for col in col_names]
+                    [chunk.user_chunk_object_hash.hex()] + [getattr(chunk.user_chunk, col) for col in col_names]
                     for chunk in upserts
                 ]
                 async with conn.cursor() as cur:
@@ -73,6 +75,6 @@ class PgVectorTarget(TargetConnector):
             if deletes:
                 placeholders = ", ".join(["%s"] * len(deletes))
                 await conn.execute(
-                    f"DELETE FROM {self.table} WHERE {self.primary_key} IN ({placeholders})",
-                    deletes,
+                    f"DELETE FROM {self.table} WHERE id IN ({placeholders})",
+                    [h.hex() for h in deletes],
                 )
