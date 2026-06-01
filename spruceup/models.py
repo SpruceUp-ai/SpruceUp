@@ -15,8 +15,6 @@ class FileProps:
 class ChunkWrapper:
     user_chunk: Any
     user_chunk_object_hash: bytes
-    ordinal: int
-    chunk_id: bytes
 
 
 @dataclass

@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import os
 from dataclasses import dataclass
 
@@ -41,11 +40,8 @@ def get_google_drive_token() -> str:
 
 @dataclass
 class LectureChunk:
-    id: str  # reserved by Weaviate; use chunk_id instead
-    # chunk_id: str
     chunk_text: str
     chunk_embedding: list[float]
-    # chunk_summary: str
     lecture_title: str
 
 
@@ -103,8 +99,6 @@ async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureC
     embeddings = await embed(chunk_strs)
     return [
         LectureChunk(
-            # id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
-            chunk_id=hashlib.blake2b(text.encode(), digest_size=16).hexdigest(),
             chunk_text=text,
             chunk_embedding=embedding,
             lecture_title=title or file_props.display_name,
@@ -127,7 +121,6 @@ config = defineConfig(
         connstr=_PG_CONNSTR,
         table="data_chunks",
         schema=LectureChunk,
-        primary_key="id",
     ),
     embedder=OpenAIEmbedder(
         api_key=_OPENAI_API_KEY,

@@ -2,7 +2,7 @@ from spruceup.config import SpruceUpConfig
 
 _MISSING = object()
 
-def validate_schema_objects(objs: list, schema_class: type, primary_key: str) -> None:
+def validate_schema_objects(objs: list, schema_class: type) -> None:
     """Raise ValueError if objs is not a valid list of schema_class instances.
 
     Called after the user's @transform function returns, before chunk wrappers
@@ -18,16 +18,6 @@ def validate_schema_objects(objs: list, schema_class: type, primary_key: str) ->
             raise ValueError(
                 f"transform returned {type(obj).__name__!r} at index {i}, "
                 f"expected {schema_class.__name__!r}"
-            )
-        pk_val = getattr(obj, primary_key, _MISSING)
-        if pk_val is _MISSING:
-            raise ValueError(
-                f"object at index {i} has no field {primary_key!r} "
-                f"(declared as PRIMARY_KEY in pipeline)"
-            )
-        if pk_val is None:
-            raise ValueError(
-                f"object at index {i} has {primary_key!r} = None"
             )
 
 def validate_pipeline(pipeline) -> None:

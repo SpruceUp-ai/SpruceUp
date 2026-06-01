@@ -23,7 +23,6 @@ class PineconeTarget(TargetConnector):
         api_key: str | None,
         index_name: str,
         schema: type,
-        primary_key: str,
         namespace: str = "",
         metric: str = "cosine",
         cloud: str = "aws",
@@ -31,8 +30,7 @@ class PineconeTarget(TargetConnector):
     ) -> None:
         self.api_key = api_key
         self.index_name = index_name
-        self.schema = schema
-        self.primary_key = primary_key
+        self._schema = schema
         self.namespace = namespace
         self.metric = metric
         self.cloud = cloud
@@ -43,6 +41,10 @@ class PineconeTarget(TargetConnector):
     @property
     def display_name(self) -> str:
         return self.index_name
+
+    @property
+    def schema(self) -> type:
+        return self._schema
 
     def _client(self) -> Any:
         if self._pc is None:
@@ -60,20 +62,20 @@ class PineconeTarget(TargetConnector):
             )
         self._index = pc.Index(self.index_name)
 
-    async def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
+    async def sync(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         index = self._index
-        hints = typing.get_type_hints(self.schema)
+        hints = typing.get_type_hints(self._schema)
         vector_col = _vector_field(hints)
 
         if upserts:
             vectors = [
                 {
-                    "id": str(getattr(chunk.user_chunk, self.primary_key)),
+                    "id": chunk.user_chunk_object_hash.hex(),
                     "values": getattr(chunk.user_chunk, vector_col),
                     "metadata": {
                         col: getattr(chunk.user_chunk, col)
                         for col in hints
-                        if col != self.primary_key and col != vector_col
+                        if col != vector_col
                     },
                 }
                 for chunk in upserts
@@ -81,4 +83,4 @@ class PineconeTarget(TargetConnector):
             index.upsert(vectors=vectors, namespace=self.namespace)
 
         if deletes:
-            index.delete(ids=[str(d) for d in deletes], namespace=self.namespace)
+            index.delete(ids=[h.hex() for h in deletes], namespace=self.namespace)

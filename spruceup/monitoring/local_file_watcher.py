@@ -4,7 +4,7 @@ import pathlib
 
 from watchfiles import awatch, Change
 
-from ..utils.hashing import hash_file_content, hash_source_ref
+from ..utils.hashing import hash_file_content
 from ..models import SyncTask
 from ..manifest import Manifest
 from .monitor import BaseWatcher
@@ -112,7 +112,7 @@ class LocalFileWatcher(BaseWatcher):
 
             moves = []
             for old_path in deleted_paths:
-                file_id = hash_source_ref(old_path)
+                file_id = manifest.get_file_id_by_ref(con, old_path)
                 meta = manifest.get_file_metadata(con, file_id)
                 inode = int(meta["inode"]) if meta and "inode" in meta else None
                 if inode is not None and inode in added_by_inode:

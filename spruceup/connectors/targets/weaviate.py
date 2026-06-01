@@ -1,5 +1,6 @@
 import asyncio
 import typing
+import uuid
 from typing import Any
 from urllib.parse import urlparse
 
@@ -40,14 +41,12 @@ class WeaviateTarget(TargetConnector):
         self,
         collection_name: str,
         schema: type,
-        primary_key: str,
         url: str = "http://localhost:8080",
         cluster_url: str | None = None,
         api_key: str | None = None,
     ) -> None:
         self.collection_name = collection_name
-        self.schema = schema
-        self.primary_key = primary_key
+        self._schema = schema
         self.url = url
         self.cluster_url = cluster_url
         self.api_key = api_key
@@ -57,6 +56,10 @@ class WeaviateTarget(TargetConnector):
     @property
     def display_name(self) -> str:
         return self.collection_name
+
+    @property
+    def schema(self) -> type:
+        return self._schema
 
     def _get_client(self) -> Any:
         if self._client is not None:
@@ -77,7 +80,7 @@ class WeaviateTarget(TargetConnector):
 
     def ensure_table_exists(self, embedding_dimensions: int) -> None: # Weaviate doesn't have a dimensions config. It infers it from the first vector inserted.
         client = self._get_client()
-        hints = typing.get_type_hints(self.schema)
+        hints = typing.get_type_hints(self._schema)
         _vector_field(hints)  # validate a vector field exists before creating the collection
 
         if not client.collections.exists(self.collection_name):
@@ -97,23 +100,24 @@ class WeaviateTarget(TargetConnector):
             )
         self._collection = client.collections.get(self.collection_name)
 
-    def _sync_blocking(self, upserts: list[ChunkWrapper], deletes: list) -> None:
+    def _sync_blocking(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         collection = self._collection
-        hints = typing.get_type_hints(self.schema)
+        hints = typing.get_type_hints(self._schema)
         vec_col = _vector_field(hints)
 
         if deletes:
             collection.data.delete_many(
-                where=wvc.query.Filter.by_id().contains_any(deletes)
+                where=wvc.query.Filter.by_id().contains_any(
+                    [str(uuid.UUID(bytes=h)) for h in deletes]
+                )
             )
 
         if upserts:
             with self._get_client().batch.dynamic() as batch:
                 for chunk in upserts:
-                    pk_val = getattr(chunk.user_chunk, self.primary_key)
                     batch.add_object(
                         collection=self.collection_name,
-                        uuid=pk_val,
+                        uuid=str(uuid.UUID(bytes=chunk.user_chunk_object_hash)),
                         properties={
                             col: getattr(chunk.user_chunk, col)
                             for col in hints
@@ -122,7 +126,7 @@ class WeaviateTarget(TargetConnector):
                         vector=getattr(chunk.user_chunk, vec_col),
                     )
 
-    async def sync(self, upserts: list[ChunkWrapper], deletes: list) -> None:
+    async def sync(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         await asyncio.to_thread(self._sync_blocking, upserts, deletes)
 
     def close(self) -> None:
