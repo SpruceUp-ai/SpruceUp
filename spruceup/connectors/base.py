@@ -64,3 +64,24 @@ class EmbedderConnector(ABC):
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         return await self.embed_batch(chunks)
+
+    @property
+    def embedding_spec(self) -> str:
+        """Canonical "{model}:{dimensions}" string identifying the embedding
+        space. Both a model change and a dimensions change yield a new spec, so
+        it is the single key the cache and the reindex trigger compare on.
+
+        Default behaviour covers the two shapes in the codebase: a wrapper
+        has `_embedder_connector` and delegates to the wrapped lower layer object;
+        a concrete API embedder has `_model` + `embedding_dimensions` and builds the spec
+        from those fields.
+        A subclass with neither must override this."""
+        embedder_connector = getattr(self, "_embedder_connector", None)
+        if embedder_connector is not None:
+            return embedder_connector.embedding_spec
+        model = getattr(self, "_model", None)
+        if model is not None:
+            return f"{model}:{self.embedding_dimensions}"
+        raise NotImplementedError(
+            f"{type(self).__name__} must define embedding_spec"
+        )

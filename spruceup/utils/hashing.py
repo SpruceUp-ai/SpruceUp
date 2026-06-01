@@ -1,3 +1,4 @@
+import array
 import dataclasses
 import hashlib
 import inspect
@@ -30,6 +31,33 @@ def hash_chunk_content(obj) -> bytes:
     }
     serialized = json.dumps(filtered, sort_keys=True, default=str).encode()
     return hashlib.blake2b(serialized, digest_size=DIGEST_SIZE).digest()
+
+
+def hash_chunk_text(text: str) -> bytes:
+    """Hash only the embeddable text — NOT the surrounding chunk object.
+
+    The embedding cache keys on this so that a metadata-only transform edit
+    (which changes user_chunk_object_hash but leaves the embedded text alone)
+    still hits the cache. Reusing hash_chunk_content here would defeat the
+    feature's headline win.
+    """
+    return hashlib.blake2b(text.encode(), digest_size=DIGEST_SIZE).digest()
+
+
+def pack_floats(values: list[float]) -> bytes:
+    """Pack a vector as little-endian float32 bytes for BLOB storage.
+
+    float32 is exact for the embedder's float32 API output; float64 would
+    double the size for precision the source doesn't carry.
+    """
+    return array.array("f", values).tobytes()
+
+
+def unpack_floats(blob: bytes) -> list[float]:
+    """Inverse of pack_floats — decode float32 bytes back to a list."""
+    arr = array.array("f")
+    arr.frombytes(blob)
+    return arr.tolist()
 
 
 def hash_transform(func: Callable) -> bytes:

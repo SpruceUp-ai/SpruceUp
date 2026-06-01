@@ -17,6 +17,10 @@ class ChunkWrapper:
     user_chunk_object_hash: bytes
     ordinal: int
     chunk_id: bytes
+    # Hash of the embeddable text (ADR-0001 provenance). Sourced from the
+    # CachingEmbedder ContextVar, not re-derived from user_chunk. None when the
+    # cache is disabled or the transform made no embed() call for this chunk.
+    text_hash: bytes | None = None
 
 
 @dataclass

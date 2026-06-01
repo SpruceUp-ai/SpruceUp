@@ -5,7 +5,7 @@ from .models import SyncTask
 from .utils.hashing import hash_chunk_id, hash_chunk_content
 from .sync_engine import SyncEngine
 from .utils.validation import validate_schema_objects
-from .connectors.base import EmbedderConnector 
+from .connectors.base import EmbedderConnector
 import asyncio
 
 log = logging.getLogger(__name__)
@@ -54,6 +54,7 @@ class Coordinator:
     async def upsert_file(self, task: SyncTask, filename: str, source) -> None:
         from .memoize.context import (
             _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var,
+            _embed_text_hashes_var,
         )
 
         spruce_file = await source.fetch(task)
@@ -63,10 +64,14 @@ class Coordinator:
 
         temp_keys: set[tuple[bytes, bytes]] = set()
         memo_stats = [0, 0]  # [hits, total]
+        # CachingEmbedder appends the text-hashes it computes here, in embed-call
+        # order; we map them 1:1 onto the returned chunks below.
+        embed_text_hashes: list[bytes] = []
         _memo_manifest_var.set(self._manifest)
         _memo_file_id_var.set(spruce_file.file_id)
         _memo_temp_keys_var.set(temp_keys)
         _memo_stats_var.set(memo_stats)
+        _embed_text_hashes_var.set(embed_text_hashes)
 
         # No per-file memo connection / commit-before-yield wrapper: the manifest
         # uses one shared connection and set_memoized commits synchronously, so no
@@ -91,12 +96,27 @@ class Coordinator:
         validate_schema_objects(schema_objs, self._target.schema, self._target.primary_key)
         log.info("[upsert] %s — %d chunk(s)", filename, len(schema_objs))
 
+        # Map embed text-hashes 1:1 onto chunks.
+        # If the counts don't line up — transform made no embed() call, or violated the
+        # 1:1 contract — drop provenance to `None rather than mis-attribute a hash
+        # to the wrong chunk. `None` text_hash just means "no cache row to sweep
+        # against," never a wrong hit.
+        if len(embed_text_hashes) != len(schema_objs):
+            if embed_text_hashes:
+                log.warning(
+                    "[cache] %s — %d embed hash(es) for %d chunk(s); "
+                    "skipping text_hash provenance for this file",
+                    filename, len(embed_text_hashes), len(schema_objs),
+                )
+            embed_text_hashes = [None] * len(schema_objs)
+
         chunks = [
             ChunkWrapper(
                 user_chunk=obj,
                 user_chunk_object_hash=hash_chunk_content(obj),
                 ordinal=i,
                 chunk_id=hash_chunk_id(task.identifier, i),
+                text_hash=embed_text_hashes[i],
             )
             for i, obj in enumerate(schema_objs)
         ]

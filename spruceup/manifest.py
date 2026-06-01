@@ -27,6 +27,8 @@ class Manifest:
             self._init_chunks_schema(self._conn)
             self._init_transform_schema(self._conn)
             self._init_memoize_schema(self._conn)
+            self._init_embedding_spec_schema(self._conn)
+            self._init_embedding_cache_schema(self._conn)
 
     def _init_sources_schema(self, con: sqlite3.Connection) -> None:
         con.execute(
@@ -81,14 +83,55 @@ class Manifest:
                 id                     BLOB PRIMARY KEY,
                 file_id                BLOB REFERENCES files(id) ON DELETE CASCADE,
                 user_chunk_object_hash BLOB,
-                user_chunk_object      BLOB
+                user_chunk_object      BLOB,
+                text_hash              BLOB
             )
             """
         )
+        # Migrate manifests created before text_hash existed: CREATE TABLE IF NOT
+        # EXISTS above is a no-op on an existing table, so the column must be added
+        # explicitly before the index below can reference it. SQLite has no
+        # ADD COLUMN IF NOT EXISTS, so guard on table_info. No-op on fresh DBs.
+        cols = {row[1] for row in con.execute("PRAGMA table_info(chunks)")}
+        if "text_hash" not in cols:
+            con.execute("ALTER TABLE chunks ADD COLUMN text_hash BLOB")
         # reconcile/delete look up chunks by file_id on every file; without this
         # index that is a full scan of the growing chunks table (O(N^2) ingest).
         con.execute(
             "CREATE INDEX IF NOT EXISTS ix_chunks_file_id ON chunks(file_id)"
+        )
+        # The embedding-cache orphan sweep joins live chunks by text_hash; index
+        # it so the sweep doesn't full-scan chunks. See sweep_embedding_cache.
+        con.execute(
+            "CREATE INDEX IF NOT EXISTS ix_chunks_text_hash ON chunks(text_hash)"
+        )
+
+    def _init_embedding_spec_schema(self, con: sqlite3.Connection) -> None:
+        # Single-row table holding the embedding_spec the cache was last built
+        # under. A change here is a distinct force_reindex cause that also wipes
+        # the cache up front (ADR-0002). Kept separate from transform_hashes so
+        # the two causes never get conflated.
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS embedding_specs (
+                embedding_spec TEXT PRIMARY KEY
+            )
+            """
+        )
+
+    def _init_embedding_cache_schema(self, con: sqlite3.Connection) -> None:
+        # Global, content-scoped cache of embeddings. No file_id / FK: a row is
+        # keyed by embeddable text + spec and may be shared across many chunks
+        # and files, so it cannot cascade off any single chunk.
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS embedding_cache (
+                text_hash      BLOB,
+                embedding_spec TEXT,
+                embedding      BLOB NOT NULL,
+                PRIMARY KEY (text_hash, embedding_spec)
+            )
+            """
         )
 
     def _init_transform_schema(self, con: sqlite3.Connection) -> None:
@@ -162,13 +205,14 @@ class Manifest:
                 file_id,
                 chunk.user_chunk_object_hash,
                 json.dumps(dataclasses.asdict(chunk.user_chunk), default=str).encode(),
+                chunk.text_hash,
             )
             for file_id, chunk in chunks
         ]
         conn.executemany(
             """INSERT OR REPLACE INTO chunks
-                   (id, file_id, user_chunk_object_hash, user_chunk_object)
-               VALUES (?, ?, ?, ?)""",
+                   (id, file_id, user_chunk_object_hash, user_chunk_object, text_hash)
+               VALUES (?, ?, ?, ?, ?)""",
             rows,
         )
 
@@ -349,6 +393,25 @@ class Manifest:
         ).fetchone()
         return row is None
 
+    def embedding_spec_changed(self, embedding_spec: str) -> bool:
+        """True when the active spec differs from the one the cache was built
+        under (including the first-ever run, when nothing is stored).
+        If `True`, inititate a distinct `force_reindex` that wipes the cache.
+        """
+        row = self._conn.execute(
+            "SELECT 1 FROM embedding_specs WHERE embedding_spec = ?",
+            (embedding_spec,),
+        ).fetchone()
+        return row is None
+
+    def update_embedding_spec(self, embedding_spec: str) -> None:
+        with self._conn:
+            self._conn.execute("DELETE FROM embedding_specs")
+            self._conn.execute(
+                "INSERT INTO embedding_specs (embedding_spec) VALUES (?)",
+                (embedding_spec,),
+            )
+
     def register_source(self, source_type: str, source_identifier: str) -> int:
         with self._conn:
             self._conn.execute(
@@ -407,6 +470,87 @@ class Manifest:
                 "AND (fn_hash, args_hash) NOT IN (SELECT fn_hash, args_hash FROM _sweep_keys)",
                 (file_id,),
             )
+
+    # ------------------------------------------------------------------
+    # Embedding cache (content-scoped, global)
+    # ------------------------------------------------------------------
+
+    def get_embeddings(
+        self, text_hashes: list[bytes], embedding_spec: str
+    ) -> dict[bytes, list[float]]:
+        """Return cached embeddings for the given text hashes under one spec.
+
+        One SELECT scoped to a single embedding_spec (the active run's). Returns
+        a dict keyed by text_hash; misses are simply absent. The blob is decoded
+        to a list[float] so callers stay connector-agnostic.
+        """
+        from .utils.hashing import unpack_floats
+
+        if not text_hashes:
+            return {}
+        placeholders = ",".join("?" * len(text_hashes))
+        rows = self._conn.execute(
+            f"SELECT text_hash, embedding FROM embedding_cache "
+            f"WHERE embedding_spec = ? AND text_hash IN ({placeholders})",
+            (embedding_spec, *text_hashes),
+        ).fetchall()
+        return {text_hash: unpack_floats(blob) for text_hash, blob in rows}
+
+    def set_embeddings(
+        self, rows: list[tuple[bytes, str, list[float]]]
+    ) -> None:
+        """Persist freshly embedded vectors. rows: (text_hash, spec, vector).
+
+        Commits synchronously (mirrors set_memoized): files process concurrently
+        on one shared connection, so a write transaction left open across the
+        transform's next await would collide. The write happens after the embed
+        await, so the reason is concurrency on the shared conn — not a write held
+        across the embed call itself. See the synchronous-commit invariant.
+        """
+        from .utils.hashing import pack_floats
+
+        if not rows:
+            return
+        packed = [
+            (text_hash, embedding_spec, pack_floats(vector))
+            for text_hash, embedding_spec, vector in rows
+        ]
+        with self._conn:
+            self._conn.executemany(
+                "INSERT OR REPLACE INTO embedding_cache "
+                "(text_hash, embedding_spec, embedding) VALUES (?, ?, ?)",
+                packed,
+            )
+
+    def wipe_embedding_cache(self) -> None:
+        """Empty the cache. Called up front only when force_reindex is caused by
+        an embedding-spec change — every old vector lives in the wrong space and
+        is permanently dead. A transform-only reindex must NOT call this (that
+        preservation is the headline win)."""
+        with self._conn:
+            self._conn.execute("DELETE FROM embedding_cache")
+
+    def sweep_embedding_cache(self) -> int:
+        """Delete cache rows whose text is no longer referenced by any live chunk.
+
+        Housekeeping for storage, not correctness — stale rows are harmless; a hit needs an
+        exact (text_hash, embedding_spec) match, so a stale row can't be a hit.
+        Currently manually called.
+        Returns the number of rows deleted.
+        """
+        with self._conn:
+            cur = self._conn.execute(
+                "DELETE FROM embedding_cache "
+                "WHERE text_hash NOT IN "
+                "(SELECT text_hash FROM chunks WHERE text_hash IS NOT NULL)"
+            )
+            return cur.rowcount
+
+    def embedding_cache_size(self) -> int:
+        """Row count, for the startup log."""
+        return self._conn.execute(
+            "SELECT COUNT(*) FROM embedding_cache"
+        ).fetchone()[0]
 
     def update_transform_hash(self, transform_hash: bytes) -> None:
         """Replace the stored transform hash with the current one."""

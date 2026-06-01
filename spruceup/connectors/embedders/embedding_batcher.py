@@ -15,21 +15,21 @@ class _PendingChunksForFile:
 class EmbeddingBatcher(EmbedderConnector):
     def __init__(
         self,
-        inner: EmbedderConnector,
+        embedder_connector: EmbedderConnector,
         max_wait_ms: int = 100,
         max_concurrent_batches: int = 5,
         max_batch_size: int | None = None,
     ) -> None:
-        self._inner = inner
+        self._embedder_connector = embedder_connector
         self._max_wait = max_wait_ms / 1000
-        self._max_batch_size = max_batch_size or getattr(inner, "max_batch_size", 50)
+        self._max_batch_size = max_batch_size or getattr(embedder_connector, "max_batch_size", 50)
         self._semaphore = asyncio.Semaphore(max_concurrent_batches)
         self._all_pending_files: list[_PendingChunksForFile] = []
         self._wake = asyncio.Event()
         self._flusher_task: asyncio.Task | None = None
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        return await self._inner.embed_batch(batch)
+        return await self._embedder_connector.embed_batch(batch)
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         """Called by user's pipeline file, receives all the chunks from one file
@@ -102,7 +102,7 @@ class EmbeddingBatcher(EmbedderConnector):
         touched_files = {file_index for file_index, _, _ in batch}
         async with self._semaphore:
             try:
-                embeddings = await self._inner.embed_batch(batch_strs)
+                embeddings = await self._embedder_connector.embed_batch(batch_strs)
             except Exception as err:
                 for file_index in touched_files:
                     if not files_in_flight[file_index].future.done():
