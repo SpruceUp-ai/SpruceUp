@@ -250,6 +250,18 @@ class Manifest:
             "UPDATE files SET source_ref = ? WHERE id = ?", (new_ref, file_id)
         )
 
+    def chunk_hash_referenced_elsewhere(
+        self,
+        conn: sqlite3.Connection,
+        content_hash: bytes,
+        exclude_file_ids: list[bytes],
+    ) -> bool:
+        placeholders = ",".join("?" * len(exclude_file_ids))
+        return conn.execute(
+            f"SELECT 1 FROM chunks WHERE user_chunk_object_hash = ? AND file_id NOT IN ({placeholders})",
+            [content_hash, *exclude_file_ids],
+        ).fetchone() is not None
+
     def delete_chunks(
         self, conn: sqlite3.Connection, chunk_keys: list[tuple[bytes, bytes]]
     ) -> None:

@@ -18,9 +18,13 @@ class SyncEngine:
         target_deletes: list[bytes] = []
         with self._manifest.connect() as conn:
             stale_file_ids = self._manifest.get_orphaned_file_ids(conn, active_ids)
+            stale_hashes: set[bytes] = set()
             for file_id in stale_file_ids:
                 chunks = self._manifest.get_chunks_for_file(conn, file_id)
-                target_deletes.extend(c["content_hash"] for c in chunks)
+                stale_hashes.update(c["content_hash"] for c in chunks)
+            for h in stale_hashes:
+                if not self._manifest.chunk_hash_referenced_elsewhere(conn, h, stale_file_ids):
+                    target_deletes.append(h)
 
         await self._target.sync([], target_deletes)
 
@@ -50,7 +54,8 @@ class SyncEngine:
             for h in prev_hashes:
                 if h not in curr_hashes:
                     manifest_deletes.append((file.file_id, h))
-                    target_deletes.append(h)
+                    if not self._manifest.chunk_hash_referenced_elsewhere(conn, h, [file.file_id]):
+                        target_deletes.append(h)
 
             self._manifest.ensure_file_row_exists(conn, file.file_id, file.source_ref)
 
@@ -79,7 +84,10 @@ class SyncEngine:
         with self._manifest.connect() as conn:
             file_id = self._manifest.get_file_id_by_ref(conn, source_ref)
             chunks = self._manifest.get_chunks_for_file(conn, file_id)
-        content_hashes = [c["content_hash"] for c in chunks]
+            content_hashes = [
+                c["content_hash"] for c in chunks
+                if not self._manifest.chunk_hash_referenced_elsewhere(conn, c["content_hash"], [file_id])
+            ]
 
         await self._target.sync([], content_hashes)
 
