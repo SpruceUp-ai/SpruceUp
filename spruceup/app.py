@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from spruceup.connectors.embedders.caching import CachingEmbedder
 from spruceup.connectors.embedders.embedding_batcher import EmbeddingBatcher
 from spruceup.coordinator import Coordinator
 from spruceup.manifest import Manifest
@@ -22,11 +23,30 @@ async def run(pipeline) -> None:
     )
 
     transform_hash = hash_transform(config.transform)
-    force_reindex = manifest.transform_hash_changed(transform_hash)
+    transform_changed = manifest.transform_hash_changed(transform_hash)
+
+    # The embedding spec ("model:dimensions") is a distinct reindex cause from a
+    # transform change. A spec change means every cached vector lives in the
+    # wrong space, so we wipe the cache UP FRONT — bound to this cause only. A
+    # transform-only change must PRESERVE the cache (that preservation is what
+    # makes a metadata-only edit a ~100% cache hit).
+    embedding_spec = config.embedder.embedding_spec
+    embedding_spec_changed = manifest.embedding_spec_changed(embedding_spec)
+    if embedding_spec_changed:
+        log.info("Embedding spec changed (%s) — wiping embedding cache", embedding_spec)
+        manifest.wipe_embedding_cache()
+    log.info("Embedding cache: %d row(s)", manifest.embedding_cache_size())
+
+    force_reindex = transform_changed or embedding_spec_changed
     if force_reindex:
-        log.info("Transform function changed — full reindex scheduled")
+        causes = []
+        if transform_changed:
+            causes.append("transform changed")
+        if embedding_spec_changed:
+            causes.append("embedding spec changed")
+        log.info("Full reindex scheduled (%s)", "; ".join(causes))
     else:
-        log.info("Transform function unchanged — incremental sync")
+        log.info("Transform and embedding spec unchanged — incremental sync")
 
     source_types: dict[type, list] = {}
     for source in config.sources:
@@ -52,7 +72,13 @@ async def run(pipeline) -> None:
             monitor.add_watcher(source.create_watcher(data_source_id))
         await sync_engine.delete_stale_sources(active_source_ids)
 
-        embedder = EmbeddingBatcher(config.embedder)
+        # Embedder chain (outermost first): cache → batcher → api. Caching is
+        # outermost so hits are filtered before batching.
+        embedder = CachingEmbedder(
+            EmbeddingBatcher(config.embedder),
+            manifest=manifest,
+            embedding_spec=embedding_spec,
+        )
 
         coordinator = Coordinator(
             queue=queue,
@@ -83,7 +109,8 @@ async def run(pipeline) -> None:
                     )
                 else:
                     manifest.update_transform_hash(transform_hash)
-                    log.info("Reindex complete — transform hash recorded")
+                    manifest.update_embedding_spec(embedding_spec)
+                    log.info("Reindex complete — transform hash + embedding spec recorded")
             await asyncio.gather(monitor_task, coordinator_task)
         except asyncio.CancelledError:
             monitor_task.cancel()
