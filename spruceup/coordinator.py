@@ -2,7 +2,7 @@ import logging
 
 from .models import ChunkWrapper
 from .models import SyncTask
-from .utils.hashing import hash_chunk_id, hash_chunk_content
+from .utils.hashing import hash_chunk_content
 from .sync_engine import SyncEngine
 from .utils.validation import validate_schema_objects
 from .connectors.base import EmbedderConnector 
@@ -72,7 +72,7 @@ class Coordinator:
         # uses one shared connection and set_memoized commits synchronously, so no
         # write transaction is ever held across the embed await.
         from .models import FileProps
-        schema_objs = await self._transform(
+        user_chunks = await self._transform(
             file_props=FileProps(
                 raw_content=source.decode_content(spruce_file.raw_content),
                 source_ref=spruce_file.source_ref,
@@ -88,17 +88,15 @@ class Coordinator:
 
         self._manifest.sweep_memoized(spruce_file.file_id, temp_keys)
 
-        validate_schema_objects(schema_objs, self._target.schema, self._target.primary_key)
-        log.info("[upsert] %s — %d chunk(s)", filename, len(schema_objs))
+        validate_schema_objects(user_chunks, self._target.schema, self._target.primary_key)
+        log.info("[upsert] %s — %d chunk(s)", filename, len(user_chunks))
 
         chunks = [
             ChunkWrapper(
                 user_chunk=obj,
                 user_chunk_object_hash=hash_chunk_content(obj),
-                ordinal=i,
-                chunk_id=hash_chunk_id(task.identifier, i),
             )
-            for i, obj in enumerate(schema_objs)
+            for obj in user_chunks
         ]
 
         spruce_file.chunks = chunks

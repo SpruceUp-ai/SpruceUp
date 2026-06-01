@@ -1,4 +1,5 @@
 import logging
+from typing import final
 
 from ..connectors.base import TargetConnector
 from ..manifest import Manifest
@@ -8,6 +9,7 @@ from ..utils.hashing import hash_source_ref
 log = logging.getLogger(__name__)
 
 
+@final
 class SyncEngine:
     def __init__(self, manifest: Manifest, target: TargetConnector) -> None:
         self._manifest = manifest
@@ -79,7 +81,9 @@ class SyncEngine:
 
             for file in files:
                 self._manifest.upsert_file_row(conn, file)
-                self._manifest.upsert_file_metadata(conn, file.file_id, file.source_metadata)
+                self._manifest.upsert_file_metadata(
+                    conn, file.file_id, file.source_metadata
+                )
 
         log.info(
             "Synced %s — %d upserted  %d deleted",

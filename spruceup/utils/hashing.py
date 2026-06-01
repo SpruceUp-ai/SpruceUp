@@ -12,9 +12,6 @@ def hash_source_ref(source_ref: str) -> bytes:
     return hashlib.blake2b(source_ref.encode(), digest_size=DIGEST_SIZE).digest()
 
 
-def hash_chunk_id(file_path: str, ordinal: int) -> bytes:
-    return hashlib.blake2b(f"{file_path}{ordinal}".encode(), digest_size=DIGEST_SIZE).digest()
-
 
 def hash_object(obj) -> bytes:
     data = dataclasses.asdict(obj) if dataclasses.is_dataclass(obj) else obj.__dict__
