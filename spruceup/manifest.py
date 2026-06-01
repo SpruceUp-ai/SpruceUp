@@ -78,17 +78,12 @@ class Manifest:
         con.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
-                id                     BLOB PRIMARY KEY,
-                file_id                BLOB REFERENCES files(id) ON DELETE CASCADE,
-                user_chunk_object_hash BLOB,
-                user_chunk_object      BLOB
+                file_id                BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+                user_chunk_object_hash BLOB NOT NULL,
+                user_chunk_object      BLOB NOT NULL,
+                PRIMARY KEY (file_id, user_chunk_object_hash)
             )
             """
-        )
-        # reconcile/delete look up chunks by file_id on every file; without this
-        # index that is a full scan of the growing chunks table (O(N^2) ingest).
-        con.execute(
-            "CREATE INDEX IF NOT EXISTS ix_chunks_file_id ON chunks(file_id)"
         )
 
     def _init_transform_schema(self, con: sqlite3.Connection) -> None:
@@ -132,24 +127,14 @@ class Manifest:
     # ------------------------------------------------------------------
 
     def get_chunks_for_file(
-        self, conn: sqlite3.Connection, file_id: bytes, pk_col: str
+        self, conn: sqlite3.Connection, file_id: bytes
     ) -> list[dict]:
         """Return all manifest chunk records for a file."""
         cursor = conn.execute(
-            "SELECT id, user_chunk_object_hash, user_chunk_object FROM chunks WHERE file_id = ?",
+            "SELECT user_chunk_object_hash FROM chunks WHERE file_id = ?",
             (file_id,),
         )
-        results = []
-        for manifest_chunk_id, obj_hash, obj_blob in cursor:
-            user_chunk_data = json.loads(obj_blob.decode())
-            results.append(
-                {
-                    "manifest_chunk_id": manifest_chunk_id,
-                    "user_chunk_object_hash": obj_hash,
-                    "user_pk": user_chunk_data[pk_col],
-                }
-            )
-        return results
+        return [{"content_hash": row[0]} for row in cursor]
 
     def upsert_chunks(
         self, conn: sqlite3.Connection, chunks: list[tuple[bytes, ChunkWrapper]]
@@ -158,7 +143,6 @@ class Manifest:
             return
         rows = [
             (
-                chunk.chunk_id,
                 file_id,
                 chunk.user_chunk_object_hash,
                 json.dumps(dataclasses.asdict(chunk.user_chunk), default=str).encode(),
@@ -166,9 +150,9 @@ class Manifest:
             for file_id, chunk in chunks
         ]
         conn.executemany(
-            """INSERT OR REPLACE INTO chunks
-                   (id, file_id, user_chunk_object_hash, user_chunk_object)
-               VALUES (?, ?, ?, ?)""",
+            """INSERT OR IGNORE INTO chunks
+                   (file_id, user_chunk_object_hash, user_chunk_object)
+               VALUES (?, ?, ?)""",
             rows,
         )
 
@@ -289,19 +273,19 @@ class Manifest:
         conn.execute("DELETE FROM files WHERE id = ?", (old_file_id,))
 
     def delete_chunks(
-        self, conn: sqlite3.Connection, manifest_chunk_ids: list[bytes]
+        self, conn: sqlite3.Connection, chunk_keys: list[tuple[bytes, bytes]]
     ) -> None:
-        if not manifest_chunk_ids:
+        if not chunk_keys:
             return
-        placeholders = ",".join("?" * len(manifest_chunk_ids))
-        conn.execute(
-            f"DELETE FROM chunks WHERE id IN ({placeholders})", manifest_chunk_ids
+        conn.executemany(
+            "DELETE FROM chunks WHERE file_id = ? AND user_chunk_object_hash = ?",
+            chunk_keys,
         )
 
     def delete_file_row(self, conn: sqlite3.Connection, file_id: bytes) -> None:
         conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
 
-    def get_stale_file_ids(
+    def get_orphaned_file_ids(
         self, conn: sqlite3.Connection, active_source_ids: list[int]
     ) -> list[bytes]:
         placeholders = ",".join("?" * len(active_source_ids))
@@ -311,7 +295,7 @@ class Manifest:
         )
         return [row[0] for row in cursor]
 
-    def delete_stale_data_sources(
+    def purge_inactive_sources(
         self, conn: sqlite3.Connection, active_source_ids: list[int]
     ) -> None:
         placeholders = ",".join("?" * len(active_source_ids))
@@ -360,16 +344,6 @@ class Manifest:
                 (source_type, source_identifier),
             ).fetchone()
         return row[0]
-
-    def delete_stale_sources(self, active_ids: list[int]) -> None:
-        if not active_ids:
-            return
-        placeholders = ",".join("?" * len(active_ids))
-        with self._conn:
-            self._conn.execute(
-                f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
-                active_ids,
-            )
 
     def get_memoized(self, file_id: bytes, fn_hash: bytes, args_hash: bytes) -> bytes | None:
         row = self._conn.execute(
