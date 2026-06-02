@@ -75,13 +75,12 @@ def make_service(
 def seed_known_ref(manifest: Manifest, ds_id: int, drive_file_id: str) -> None:
     """Insert a minimal file row so the Drive file ID appears in get_source_refs."""
     fid = hash_source_ref(drive_file_id)
-    with manifest.connect() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO files "
-            "(id, source_ref, content_hash, data_source_id, file_type) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (fid, drive_file_id, b"\x00" * 16, ds_id, "txt"),
-        )
+    manifest._conn.execute(
+        "INSERT OR REPLACE INTO files "
+        "(id, source_ref, content_hash, data_source_id, file_type) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (fid, drive_file_id, b"\x00" * 16, ds_id, "txt"),
+    )
 
 
 def set_stored_folder_ids(manifest: Manifest, ds_id: int, folder_ids: list[str]) -> None:

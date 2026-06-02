@@ -15,57 +15,53 @@ class SyncEngine:
         self._target = target
 
     async def delete_stale_sources(self, active_ids: list[int]) -> None:
-        target_deletes: list[bytes] = []
-        with self._manifest.connect() as conn:
-            stale_file_ids = self._manifest.get_orphaned_file_ids(conn, active_ids)
-            stale_hashes: set[bytes] = set()
-            for file_id in stale_file_ids:
-                chunks = self._manifest.get_chunks_for_file(conn, file_id)
-                stale_hashes.update(c["content_hash"] for c in chunks)
-            for h in stale_hashes:
-                if not self._manifest.chunk_hash_referenced_elsewhere(conn, h, stale_file_ids):
-                    target_deletes.append(h)
+        stale_file_ids = self._manifest.get_orphaned_file_ids(active_ids)
+        stale_hashes: set[bytes] = set()
+        for file_id in stale_file_ids:
+            chunks = self._manifest.get_chunks_for_file(file_id)
+            stale_hashes.update(c["content_hash"] for c in chunks)
+        target_deletes = [
+            h for h in stale_hashes
+            if not self._manifest.chunk_hash_referenced_elsewhere(h, stale_file_ids)
+        ]
 
         await self._target.sync([], target_deletes)
-
-        with self._manifest.connect() as conn:
-            self._manifest.purge_inactive_sources(conn, active_ids)
+        self._manifest.purge_inactive_sources(active_ids)
 
         log.info("Deleted %d stale chunk(s) from target db", len(target_deletes))
 
     async def reconcile(self, file: SpruceFile) -> None:
         manifest_upserts: list[tuple[bytes, ChunkWrapper]] = []
         target_upserts: list[ChunkWrapper] = []
-        manifest_deletes: list[tuple[bytes, bytes]] = []  # (file_id, content_hash)
-        target_deletes: list[bytes] = []  # content hashes
+        manifest_deletes: list[tuple[bytes, bytes]] = []
+        target_deletes: list[bytes] = []
 
-        with self._manifest.connect() as conn:
-            prev_chunks = self._manifest.get_chunks_for_file(conn, file.file_id)
-            prev_hashes: set[bytes] = {c["content_hash"] for c in prev_chunks}
-            curr_hashes: dict[bytes, ChunkWrapper] = {
-                chunk.user_chunk_object_hash: chunk for chunk in file.chunks
-            }
+        prev_chunks = self._manifest.get_chunks_for_file(file.file_id)
+        prev_hashes: set[bytes] = {c["content_hash"] for c in prev_chunks}
+        curr_hashes: dict[bytes, ChunkWrapper] = {
+            chunk.user_chunk_object_hash: chunk for chunk in file.chunks
+        }
 
-            for h, chunk in curr_hashes.items():
-                if h not in prev_hashes:
-                    manifest_upserts.append((file.file_id, chunk))
-                    target_upserts.append(chunk)
+        for h, chunk in curr_hashes.items():
+            if h not in prev_hashes:
+                manifest_upserts.append((file.file_id, chunk))
+                target_upserts.append(chunk)
 
-            for h in prev_hashes:
-                if h not in curr_hashes:
-                    manifest_deletes.append((file.file_id, h))
-                    if not self._manifest.chunk_hash_referenced_elsewhere(conn, h, [file.file_id]):
-                        target_deletes.append(h)
+        for h in prev_hashes:
+            if h not in curr_hashes:
+                manifest_deletes.append((file.file_id, h))
+                if not self._manifest.chunk_hash_referenced_elsewhere(h, [file.file_id]):
+                    target_deletes.append(h)
 
-            self._manifest.ensure_file_row_exists(conn, file.file_id, file.source_ref)
+        self._manifest.ensure_file_row_exists(file.file_id, file.source_ref)
 
         await self._target.sync(target_upserts, target_deletes)
 
-        with self._manifest.connect() as conn:
-            self._manifest.upsert_chunks(conn, manifest_upserts)
-            self._manifest.delete_chunks(conn, manifest_deletes)
-            self._manifest.upsert_file_row(conn, file)
-            self._manifest.upsert_file_metadata(conn, file.file_id, file.source_metadata)
+        with self._manifest.transaction():
+            self._manifest.upsert_chunks(manifest_upserts)
+            self._manifest.delete_chunks(manifest_deletes)
+            self._manifest.upsert_file_row(file)
+            self._manifest.upsert_file_metadata(file.file_id, file.source_metadata)
 
         log.info(
             "Synced %s — %d upserted  %d deleted",
@@ -75,22 +71,18 @@ class SyncEngine:
         )
 
     async def move_file(self, old_ref: str, new_ref: str) -> None:
-        with self._manifest.connect() as conn:
-            file_id = self._manifest.get_file_id_by_ref(conn, old_ref)
-            self._manifest.update_file_ref(conn, file_id, new_ref)
+        file_id = self._manifest.get_file_id_by_ref(old_ref)
+        self._manifest.update_file_ref(file_id, new_ref)
         log.info("Moved manifest row: %s → %s", old_ref, new_ref)
 
     async def delete_file(self, source_ref: str) -> None:
-        with self._manifest.connect() as conn:
-            file_id = self._manifest.get_file_id_by_ref(conn, source_ref)
-            chunks = self._manifest.get_chunks_for_file(conn, file_id)
-            content_hashes = [
-                c["content_hash"] for c in chunks
-                if not self._manifest.chunk_hash_referenced_elsewhere(conn, c["content_hash"], [file_id])
-            ]
+        file_id = self._manifest.get_file_id_by_ref(source_ref)
+        chunks = self._manifest.get_chunks_for_file(file_id)
+        content_hashes = [
+            c["content_hash"] for c in chunks
+            if not self._manifest.chunk_hash_referenced_elsewhere(c["content_hash"], [file_id])
+        ]
 
         await self._target.sync([], content_hashes)
-
-        with self._manifest.connect() as conn:
-            self._manifest.delete_file_row(conn, file_id)
+        self._manifest.delete_file_row(file_id)
         log.info("Deleted %d chunk(s) for %s", len(content_hashes), source_ref)

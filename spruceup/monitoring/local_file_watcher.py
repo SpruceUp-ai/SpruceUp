@@ -30,10 +30,9 @@ class LocalFileWatcher(BaseWatcher):
         force_reindex: bool = False,
     ) -> None:
         log.info("Scanning %s …", self._root_path)
-        con = manifest.connect()
         n_upserts = n_moves = n_deletes = 0
         if not force_reindex:
-            file_records = manifest.get_files_with_metadata(con, self._data_source_id)
+            file_records = manifest.get_files_with_metadata(self._data_source_id)
             by_inode: dict[int, dict] = {
                 int(rec["metadata"]["inode"]): rec
                 for rec in file_records
@@ -98,7 +97,6 @@ class LocalFileWatcher(BaseWatcher):
 
     async def _watch(self, queue: asyncio.Queue, manifest: "Manifest", catchup_done: asyncio.Event) -> None:
         buffer: list[SyncTask] = []
-        con = manifest.connect()
         async for changes in awatch(self._root_path):
             deleted_paths  = {path for change_type, path in changes if change_type == Change.deleted}
             added_paths    = {path for change_type, path in changes if change_type == Change.added}
@@ -112,8 +110,8 @@ class LocalFileWatcher(BaseWatcher):
 
             moves = []
             for old_path in deleted_paths:
-                file_id = manifest.get_file_id_by_ref(con, old_path)
-                meta = manifest.get_file_metadata(con, file_id)
+                file_id = manifest.get_file_id_by_ref(old_path)
+                meta = manifest.get_file_metadata(file_id)
                 inode = int(meta["inode"]) if meta and "inode" in meta else None
                 if inode is not None and inode in added_by_inode:
                     moves.append((old_path, added_by_inode[inode]))

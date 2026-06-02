@@ -58,8 +58,7 @@ class Coordinator:
 
         spruce_file = await source.fetch(task)
 
-        with self._manifest.connect() as conn:
-            self._manifest.ensure_file_row_exists(conn, spruce_file.file_id, spruce_file.source_ref)
+        self._manifest.ensure_file_row_exists(spruce_file.file_id, spruce_file.source_ref)
 
         temp_keys: set[tuple[bytes, bytes]] = set()
         memo_stats = [0, 0]  # [hits, total]
