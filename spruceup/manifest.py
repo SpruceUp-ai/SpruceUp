@@ -7,6 +7,11 @@ from .models import ChunkWrapper, SpruceFile
 
 _MANIFEST_PATH = "spruceup_manifest.db"
 
+_CONFIG_KEYS: frozenset[str] = frozenset({
+    "file_cache_ready",
+    "embedding_model",
+})
+
 
 class Manifest:
     """Single access point for all SQLite manifest reads and writes."""
@@ -28,6 +33,7 @@ class Manifest:
             self._init_chunks_schema()
             self._init_transform_schema()
             self._init_memoize_schema()
+            self._init_config_state_schema()
 
     def _init_sources_schema(self) -> None:
         self._conn.execute(
@@ -105,6 +111,16 @@ class Manifest:
                 args_hash BLOB NOT NULL,
                 result    BLOB NOT NULL,
                 PRIMARY KEY (file_id, fn_hash, args_hash)
+            )
+            """
+        )
+
+    def _init_config_state_schema(self) -> None:
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS config_state (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
             )
             """
         )
@@ -350,3 +366,23 @@ class Manifest:
                 "INSERT INTO transform_hashes (transform_hash) VALUES (?)",
                 (transform_hash,),
             )
+
+    # ------------------------------------------------------------------
+    # Config state
+    # ------------------------------------------------------------------
+
+    def get_config_value(self, key: str) -> str | None:
+        if key not in _CONFIG_KEYS:
+            raise ValueError(f"Unknown config key: {key!r}")
+        row = self._conn.execute(
+            "SELECT value FROM config_state WHERE key = ?", (key,)
+        ).fetchone()
+        return row[0] if row else None
+
+    def set_config_value(self, key: str, value: str) -> None:
+        if key not in _CONFIG_KEYS:
+            raise ValueError(f"Unknown config key: {key!r}")
+        self._conn.execute(
+            "INSERT OR REPLACE INTO config_state (key, value) VALUES (?, ?)",
+            (key, value),
+        )
