@@ -30,8 +30,7 @@ class OpenAIEmbedder(EmbedderConnector):
             resolved_dimensions = _MODEL_DEFAULT_DIMENSIONS[model]
         else:
             resolved_dimensions = embedding_dimensions
-        super().__init__(api_key=api_key, embedding_dimensions=resolved_dimensions)
-        self._model = model
+        super().__init__(model=model, api_key=api_key, embedding_dimensions=resolved_dimensions)
         self.max_batch_size = max_batch_size
         self._dimensions_overridden = embedding_dimensions is not None
         self._client: openai.AsyncOpenAI | None = None
@@ -48,7 +47,7 @@ class OpenAIEmbedder(EmbedderConnector):
     )
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
         kwargs = {
-            "model": self._model,
+            "model": self.model,
             "input": batch,
             "encoding_format": "float",
         }

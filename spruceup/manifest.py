@@ -20,6 +20,8 @@ class Manifest:
         self._path = path
         self._conn = sqlite3.connect(self._path, autocommit=True)
         self._conn.execute("PRAGMA foreign_keys = ON")
+        self._conn.execute("PRAGMA journal_mode = WAL")
+        self._conn.execute("PRAGMA busy_timeout = 5000")
         self._init_db()
 
     # ------------------------------------------------------------------
@@ -33,6 +35,7 @@ class Manifest:
             self._init_chunks_schema()
             self._init_transform_schema()
             self._init_memoize_schema()
+            self._init_memoize_fn_hashes_schema()
             self._init_config_state_schema()
 
     def _init_sources_schema(self) -> None:
@@ -67,7 +70,8 @@ class Manifest:
                 content_hash   BLOB,
                 data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
                 file_type      TEXT,
-                raw_content    BLOB
+                raw_content    BLOB,
+                sync_state     TEXT NOT NULL DEFAULT 'in_flight'
             )
             """
         )
@@ -99,6 +103,15 @@ class Manifest:
             """
             CREATE TABLE IF NOT EXISTS transform_hashes (
                 transform_hash BLOB PRIMARY KEY
+            )
+            """
+        )
+
+    def _init_memoize_fn_hashes_schema(self) -> None:
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS memoize_fn_hashes (
+                fn_hash BLOB PRIMARY KEY
             )
             """
         )
@@ -178,7 +191,11 @@ class Manifest:
 
     def ensure_file_row_exists(self, file_id: bytes, source_ref: str) -> None:
         self._conn.execute(
-            "INSERT OR IGNORE INTO files (id, source_ref) VALUES (?, ?)",
+            """INSERT INTO files (id, source_ref, sync_state)
+               VALUES (?, ?, 'in_flight')
+               ON CONFLICT (id) DO UPDATE SET
+                   source_ref = excluded.source_ref,
+                   sync_state = 'in_flight'""",
             (file_id, source_ref),
         )
 
@@ -327,6 +344,34 @@ class Manifest:
         ).fetchone()
         return row is None
 
+    def any_memoize_fn_hash_missing(self, fn_hashes: set[bytes]) -> bool:
+        if not fn_hashes:
+            return False
+        placeholders = ",".join("?" * len(fn_hashes))
+        found = self._conn.execute(
+            f"SELECT COUNT(*) FROM memoize_fn_hashes WHERE fn_hash IN ({placeholders})",
+            list(fn_hashes),
+        ).fetchone()[0]
+        return found < len(fn_hashes)
+
+    def reset_in_flight_to_failed(self) -> None:
+        self._conn.execute(
+            "UPDATE files SET sync_state = 'failed' WHERE sync_state = 'in_flight'"
+        )
+
+    def set_sync_state(self, file_id: bytes, state: str) -> None:
+        self._conn.execute(
+            "UPDATE files SET sync_state = ? WHERE id = ?", (state, file_id)
+        )
+
+    def get_failed_files(self, data_source_id: int) -> list[tuple[str, int]]:
+        rows = self._conn.execute(
+            "SELECT source_ref, data_source_id FROM files "
+            "WHERE data_source_id = ? AND sync_state = 'failed'",
+            (data_source_id,),
+        ).fetchall()
+        return [(row[0], row[1]) for row in rows]
+
     def register_source(self, source_type: str, source_identifier: str) -> int:
         self._conn.execute(
             "INSERT OR IGNORE INTO data_sources (source_type, source_identifier) VALUES (?, ?)",
@@ -374,6 +419,14 @@ class Manifest:
             self._conn.execute(
                 "INSERT INTO transform_hashes (transform_hash) VALUES (?)",
                 (transform_hash,),
+            )
+
+    def update_memoize_fn_hashes(self, fn_hashes: set[bytes]) -> None:
+        with self.transaction():
+            self._conn.execute("DELETE FROM memoize_fn_hashes")
+            self._conn.executemany(
+                "INSERT INTO memoize_fn_hashes (fn_hash) VALUES (?)",
+                [(h,) for h in fn_hashes],
             )
 
     # ------------------------------------------------------------------

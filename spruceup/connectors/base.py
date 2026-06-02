@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 
 from ..models import ChunkWrapper, SpruceFile
 
+
+class EmbeddingError(Exception):
+    """Raised when the embedding API fails after all retries are exhausted."""
+
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({
     "txt", "md", "html", "json", "pdf", "doc", "docx",
 })
@@ -57,9 +61,11 @@ class TargetConnector(ABC):
 class EmbedderConnector(ABC):
     def __init__(
         self,
+        model: str,
         api_key: str | None = None,
         embedding_dimensions: int | None = None,
     ) -> None:
+        self.model = model
         self.api_key = api_key
         self.embedding_dimensions = embedding_dimensions
 

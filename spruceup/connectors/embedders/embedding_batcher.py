@@ -20,6 +20,11 @@ class EmbeddingBatcher(EmbedderConnector):
         max_concurrent_batches: int = 5,
         max_batch_size: int | None = None,
     ) -> None:
+        super().__init__(
+            model=inner.model,
+            api_key=inner.api_key,
+            embedding_dimensions=inner.embedding_dimensions,
+        )
         self._inner = inner
         self._max_wait = max_wait_ms / 1000
         self._max_batch_size = max_batch_size or getattr(inner, "max_batch_size", 50)
@@ -104,9 +109,12 @@ class EmbeddingBatcher(EmbedderConnector):
             try:
                 embeddings = await self._inner.embed_batch(batch_strs)
             except Exception as err:
+                from ..base import EmbeddingError
+                wrapped = EmbeddingError(str(err)) if not isinstance(err, EmbeddingError) else err
+                wrapped.__cause__ = err
                 for file_index in touched_files:
                     if not files_in_flight[file_index].future.done():
-                        files_in_flight[file_index].future.set_exception(err)
+                        files_in_flight[file_index].future.set_exception(wrapped)
                 return
 
         for (file_index, chunk_index, _), embedding in zip(batch, embeddings):

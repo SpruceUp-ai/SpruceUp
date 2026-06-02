@@ -30,57 +30,68 @@ class Coordinator:
         self._manifest = sync_engine._manifest
         self._source_registry = source_registry
         self._active_tasks = set()
-        self._failed_files: list[str] = []
         self._semaphore = asyncio.Semaphore(max_concurrency)
 
     async def process_task(self, task: SyncTask) -> None:
         source = self._source_registry[task.data_source_id]
         filename = source.display_name(task.identifier)
-        try:
-            if task.change_type == "delete":
+        if task.change_type == "delete":
+            try:
                 log.info("[delete] %s", filename)
                 await self._sync_engine.delete_file(task.identifier)
-            elif task.change_type == "move":
+            except Exception:
+                log.exception("[error] %s — delete failed", filename)
+        elif task.change_type == "move":
+            try:
                 old_name = source.display_name(task.old_identifier)
                 log.info("[move] %s → %s", old_name, filename)
                 await self._sync_engine.move_file(task.old_identifier, task.identifier)
-            elif task.change_type == "upsert":
-                log.info("[upsert] %s — transforming …", filename)
-                await self.upsert_file(task, filename, source)
-        except Exception:
-            log.exception("[error] %s — task failed", filename)
-            self._failed_files.append(filename)
+            except Exception:
+                log.exception("[error] %s — move failed", filename)
+        elif task.change_type == "upsert":
+            log.info("[upsert] %s — transforming …", filename)
+            await self.upsert_file(task, filename, source)
 
     async def upsert_file(self, task: SyncTask, filename: str, source) -> None:
         from .memoize.context import (
             _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var,
         )
+        from .connectors.base import EmbeddingError
+        from .models import FileProps
 
-        spruce_file = await source.fetch(task, self._manifest)
+        # Phase 1: fetch — source boundary; watcher handles retries on failure
+        try:
+            spruce_file = await source.fetch(task, self._manifest)
+        except Exception:
+            log.exception("[error] %s — fetch failed", filename)
+            return
 
         self._manifest.ensure_file_row_exists(spruce_file.file_id, spruce_file.source_ref)
 
         temp_keys: set[tuple[bytes, bytes]] = set()
-        memo_stats = [0, 0]  # [hits, total]
+        memo_stats = [0, 0]
         _memo_manifest_var.set(self._manifest)
         _memo_file_id_var.set(spruce_file.file_id)
         _memo_temp_keys_var.set(temp_keys)
         _memo_stats_var.set(memo_stats)
 
-        # No per-file memo connection / commit-before-yield wrapper: the manifest
-        # uses one shared connection and set_memoized commits synchronously, so no
-        # write transaction is ever held across the embed await.
-        from .models import FileProps
-        user_chunks = await self._transform(
-            file_props=FileProps(
-                raw_content=source.decode_content(spruce_file.raw_content),
-                source_ref=spruce_file.source_ref,
-                display_name=spruce_file.display_name,
-                modified_at=spruce_file.source_metadata.get("modified_at"),
-                file_type=spruce_file.file_type,
-            ),
-            embed=self._embedder.process_chunks,
-        )
+        # Phase 2: transform (includes embed) — EmbeddingError is caught and marked
+        # failed; all other exceptions propagate and crash the app (user code bugs)
+        try:
+            user_chunks = await self._transform(
+                file_props=FileProps(
+                    raw_content=source.decode_content(spruce_file.raw_content),
+                    source_ref=spruce_file.source_ref,
+                    display_name=spruce_file.display_name,
+                    modified_at=spruce_file.source_metadata.get("modified_at"),
+                    file_type=spruce_file.file_type,
+                ),
+                embed=self._embedder.process_chunks,
+            )
+        except EmbeddingError:
+            log.exception("[error] %s — embedding failed", filename)
+            self._manifest.set_sync_state(spruce_file.file_id, "failed")
+            return
 
         if memo_stats[1] > 0:
             log.info("[memoize] %s — %d/%d hits", filename, memo_stats[0], memo_stats[1])
@@ -97,10 +108,17 @@ class Coordinator:
             )
             for obj in user_chunks
         ]
-
         spruce_file.chunks = chunks
 
-        await self._sync_engine.reconcile(spruce_file)
+        # Phase 3: reconcile — target boundary; mark failed on error
+        try:
+            await self._sync_engine.reconcile(spruce_file)
+        except Exception:
+            log.exception("[error] %s — reconcile failed", filename)
+            self._manifest.set_sync_state(spruce_file.file_id, "failed")
+            return
+
+        self._manifest.set_sync_state(spruce_file.file_id, "synced")
 
     async def run(self) -> None:
         while True:

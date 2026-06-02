@@ -4,8 +4,10 @@ import logging
 from spruceup.connectors.embedders.embedding_batcher import EmbeddingBatcher
 from spruceup.coordinator import Coordinator
 from spruceup.manifest import Manifest
+from spruceup.memoize.decorator import _memoize_fn_hashes
 from spruceup.monitoring.monitor import Monitor
 from spruceup.sync_engine import SyncEngine
+from spruceup.sync_validator import SyncValidator
 from spruceup.utils.hashing import hash_transform
 
 log = logging.getLogger(__name__)
@@ -22,11 +24,21 @@ async def run(pipeline) -> None:
     )
 
     transform_hash = hash_transform(config.transform)
-    force_reindex = manifest.transform_hash_changed(transform_hash)
+    transform_changed = manifest.transform_hash_changed(transform_hash)
+    memoize_changed = manifest.any_memoize_fn_hash_missing(_memoize_fn_hashes)
+    model_changed = manifest.get_config_value("embedding_model") != config.embedder.model
+    force_reindex = transform_changed or memoize_changed or model_changed
     if force_reindex:
-        log.info("Transform function changed — full reindex scheduled")
+        reasons = []
+        if transform_changed:
+            reasons.append("transform function changed")
+        if memoize_changed:
+            reasons.append("memoized function changed")
+        if model_changed:
+            reasons.append("embedding model changed")
+        log.info("Full reindex scheduled — %s", ", ".join(reasons))
     else:
-        log.info("Transform function unchanged — incremental sync")
+        log.info("No changes detected — incremental sync")
 
     source_types: dict[type, list] = {}
     for source in config.sources:
@@ -39,6 +51,8 @@ async def run(pipeline) -> None:
     )
     try:
         sync_engine = SyncEngine(manifest=manifest, target=config.target)
+
+        manifest.reset_in_flight_to_failed()
 
         queue: asyncio.Queue = asyncio.Queue()
 
@@ -62,10 +76,17 @@ async def run(pipeline) -> None:
             source_registry=source_registry,
         )
 
+        sync_validator = SyncValidator(
+            queue=queue,
+            manifest=manifest,
+            source_registry=source_registry,
+        )
+
         startup_done = asyncio.Event()
 
         monitor_task = asyncio.create_task(monitor.run(force_reindex, startup_done))
         coordinator_task = asyncio.create_task(coordinator.run())
+        sync_validator_task = asyncio.create_task(sync_validator.run())
 
         await startup_done.wait()
         watched = ", ".join(repr(source) for source in config.sources)
@@ -75,25 +96,33 @@ async def run(pipeline) -> None:
             if force_reindex:
                 await queue.join()
                 manifest.set_config_value("file_cache_ready", "true")
-                if coordinator._failed_files:
+                manifest.update_transform_hash(transform_hash)
+                manifest.update_memoize_fn_hashes(_memoize_fn_hashes)
+                manifest.set_config_value("embedding_model", config.embedder.model)
+                n_failed = sum(
+                    len(manifest.get_failed_files(ds_id)) for ds_id in active_source_ids
+                )
+                if n_failed:
                     log.warning(
-                        "Reindex incomplete — %d file(s) failed; transform hash not "
-                        "recorded, will retry next run. Failed: %s",
-                        len(coordinator._failed_files),
-                        ", ".join(coordinator._failed_files[:10]),
+                        "Reindex complete with %d failed file(s) — "
+                        "sync validator will retry",
+                        n_failed,
                     )
                 else:
-                    manifest.update_transform_hash(transform_hash)
-                    log.info("Reindex complete — transform hash recorded")
+                    log.info("Reindex complete")
             elif manifest.get_config_value("file_cache_ready") is None:
                 await queue.join()
                 manifest.set_config_value("file_cache_ready", "true")
                 log.info("Initial sync complete — file cache ready")
-            await asyncio.gather(monitor_task, coordinator_task)
+            await asyncio.gather(monitor_task, coordinator_task, sync_validator_task)
         except asyncio.CancelledError:
             monitor_task.cancel()
             coordinator_task.cancel()
-            await asyncio.gather(monitor_task, coordinator_task, return_exceptions=True)
+            sync_validator_task.cancel()
+            await asyncio.gather(
+                monitor_task, coordinator_task, sync_validator_task,
+                return_exceptions=True,
+            )
             raise
     finally:
         config.target.close()
