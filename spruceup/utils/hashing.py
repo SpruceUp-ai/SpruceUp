@@ -45,6 +45,10 @@ def hash_file_content(p: pathlib.Path) -> bytes:
     return h.digest()
 
 
+def hash_text(text: str) -> bytes:
+    return hashlib.blake2b(text.encode(), digest_size=DIGEST_SIZE).digest()
+
+
 def hash_args(fn: Callable, args: tuple, kwargs: dict) -> bytes:
     sig = inspect.signature(fn)
     bound = sig.bind(*args, **kwargs)

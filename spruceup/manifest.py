@@ -1,11 +1,21 @@
 import dataclasses
 import json
 import sqlite3
+import struct
 from contextlib import contextmanager
 
 from .models import ChunkWrapper, SpruceFile
 
 _MANIFEST_PATH = "spruceup_manifest.db"
+
+
+def _pack_embedding(embedding: list[float]) -> bytes:
+    return struct.pack(f"{len(embedding)}d", *embedding)
+
+
+def _unpack_embedding(blob: bytes) -> list[float]:
+    n = len(blob) // 8
+    return list(struct.unpack(f"{n}d", blob))
 
 _CONFIG_KEYS: frozenset[str] = frozenset({
     "file_cache_ready",
@@ -37,6 +47,7 @@ class Manifest:
             self._init_memoize_schema()
             self._init_memoize_fn_hashes_schema()
             self._init_config_state_schema()
+            self._init_embedding_cache_schema()
 
     def _init_sources_schema(self) -> None:
         self._conn.execute(
@@ -125,6 +136,18 @@ class Manifest:
                 args_hash BLOB NOT NULL,
                 result    BLOB NOT NULL,
                 PRIMARY KEY (file_id, fn_hash, args_hash)
+            )
+            """
+        )
+
+    def _init_embedding_cache_schema(self) -> None:
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS embedding_cache (
+                file_id         BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+                chunk_text_hash BLOB NOT NULL,
+                embedding       BLOB NOT NULL,
+                PRIMARY KEY (file_id, chunk_text_hash)
             )
             """
         )
@@ -412,6 +435,46 @@ class Manifest:
                 "AND (fn_hash, args_hash) NOT IN (SELECT fn_hash, args_hash FROM _sweep_keys)",
                 (file_id,),
             )
+
+    def get_cached_embeddings(
+        self, file_id: bytes, chunk_text_hashes: list[bytes]
+    ) -> dict[bytes, list[float]]:
+        if not chunk_text_hashes:
+            return {}
+        placeholders = ",".join("?" * len(chunk_text_hashes))
+        rows = self._conn.execute(
+            f"SELECT chunk_text_hash, embedding FROM embedding_cache "
+            f"WHERE file_id = ? AND chunk_text_hash IN ({placeholders})",
+            [file_id, *chunk_text_hashes],
+        ).fetchall()
+        return {row[0]: _unpack_embedding(row[1]) for row in rows}
+
+    def set_cached_embeddings(
+        self, file_id: bytes, entries: list[tuple[bytes, list[float]]]
+    ) -> None:
+        if not entries:
+            return
+        self._conn.executemany(
+            "INSERT OR REPLACE INTO embedding_cache (file_id, chunk_text_hash, embedding) "
+            "VALUES (?, ?, ?)",
+            [(file_id, h, _pack_embedding(e)) for h, e in entries],
+        )
+
+    def sweep_embedding_cache(self, file_id: bytes, used_hashes: set[bytes]) -> None:
+        if not used_hashes:
+            self._conn.execute(
+                "DELETE FROM embedding_cache WHERE file_id = ?", (file_id,)
+            )
+            return
+        placeholders = ",".join("?" * len(used_hashes))
+        self._conn.execute(
+            f"DELETE FROM embedding_cache WHERE file_id = ? "
+            f"AND chunk_text_hash NOT IN ({placeholders})",
+            [file_id, *used_hashes],
+        )
+
+    def flush_embedding_cache(self) -> None:
+        self._conn.execute("DELETE FROM embedding_cache")
 
     def update_transform_hash(self, transform_hash: bytes) -> None:
         with self.transaction():

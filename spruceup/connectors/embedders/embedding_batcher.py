@@ -3,6 +3,13 @@ import time
 from dataclasses import dataclass, field
 
 from ..base import EmbedderConnector
+from ...utils.hashing import hash_text
+from .context import (
+    _embed_manifest_var,
+    _embed_file_id_var,
+    _embed_used_hashes_var,
+    _embed_stats_var,
+)
 
 
 @dataclass
@@ -37,14 +44,46 @@ class EmbeddingBatcher(EmbedderConnector):
         return await self._inner.embed_batch(batch)
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
-        """Called by user's pipeline file, receives all the chunks from one file
-        as input. Makes sure the batch-flusher exists, creates a future, then
-        adds this file's chunks to the list of _pending chunks. Then wakes up
-        the flusher to check whether it's time to create and dispatch a batch
-        of chunks to the embedding model. Returns the future, which will be
-        resolved when all of the embeddings for this file have been created."""
         if not chunks:
             return []
+
+        manifest = _embed_manifest_var.get()
+        file_id = _embed_file_id_var.get()
+
+        if manifest is None or file_id is None:
+            return await self._dispatch_to_batcher(chunks)
+
+        chunk_hashes = [hash_text(c) for c in chunks]
+        cached = manifest.get_cached_embeddings(file_id, chunk_hashes)
+
+        used_hashes = _embed_used_hashes_var.get()
+        if used_hashes is not None:
+            used_hashes.update(chunk_hashes)
+
+        stats = _embed_stats_var.get()
+        hits = {i: cached[h] for i, h in enumerate(chunk_hashes) if h in cached}
+        if stats is not None:
+            stats[0] += len(hits)
+            stats[1] += len(chunks)
+
+        miss_indices = [i for i, h in enumerate(chunk_hashes) if h not in cached]
+        if not miss_indices:
+            return [hits[i] for i in range(len(chunks))]
+
+        miss_chunks = [chunks[i] for i in miss_indices]
+        miss_hashes = [chunk_hashes[i] for i in miss_indices]
+        miss_embeddings = await self._dispatch_to_batcher(miss_chunks)
+
+        manifest.set_cached_embeddings(file_id, list(zip(miss_hashes, miss_embeddings)))
+
+        results = [None] * len(chunks)
+        for i, emb in hits.items():
+            results[i] = emb
+        for idx, emb in zip(miss_indices, miss_embeddings):
+            results[idx] = emb
+        return results
+
+    async def _dispatch_to_batcher(self, chunks: list[str]) -> list[list[float]]:
         self._ensure_flusher()
         loop = asyncio.get_running_loop()
         future = loop.create_future()
