@@ -74,6 +74,7 @@ async def run(pipeline) -> None:
         try:
             if force_reindex:
                 await queue.join()
+                manifest.set_config_value("file_cache_ready", "true")
                 if coordinator._failed_files:
                     log.warning(
                         "Reindex incomplete — %d file(s) failed; transform hash not "
@@ -84,6 +85,10 @@ async def run(pipeline) -> None:
                 else:
                     manifest.update_transform_hash(transform_hash)
                     log.info("Reindex complete — transform hash recorded")
+            elif manifest.get_config_value("file_cache_ready") is None:
+                await queue.join()
+                manifest.set_config_value("file_cache_ready", "true")
+                log.info("Initial sync complete — file cache ready")
             await asyncio.gather(monitor_task, coordinator_task)
         except asyncio.CancelledError:
             monitor_task.cancel()

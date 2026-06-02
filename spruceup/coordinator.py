@@ -56,7 +56,7 @@ class Coordinator:
             _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var,
         )
 
-        spruce_file = await source.fetch(task)
+        spruce_file = await source.fetch(task, self._manifest)
 
         self._manifest.ensure_file_row_exists(spruce_file.file_id, spruce_file.source_ref)
 

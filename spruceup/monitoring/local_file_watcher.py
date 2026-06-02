@@ -31,6 +31,9 @@ class LocalFileWatcher(BaseWatcher):
     ) -> None:
         log.info("Scanning %s …", self._root_path)
         n_upserts = n_moves = n_deletes = 0
+        use_manifest_cache = (
+            force_reindex and manifest.get_config_value("file_cache_ready") == "true"
+        )
         if not force_reindex:
             file_records = manifest.get_files_with_metadata(self._data_source_id)
             by_inode: dict[int, dict] = {
@@ -56,7 +59,7 @@ class LocalFileWatcher(BaseWatcher):
             seen_inodes.add(inode)
 
             if force_reindex:
-                await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
+                await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id, use_manifest_cache=use_manifest_cache))
                 n_upserts += 1
             else:
                 db_record = by_inode.get(inode)

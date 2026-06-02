@@ -66,7 +66,8 @@ class Manifest:
                 source_ref     TEXT NOT NULL,
                 content_hash   BLOB,
                 data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
-                file_type      TEXT
+                file_type      TEXT,
+                raw_content    BLOB
             )
             """
         )
@@ -184,21 +185,29 @@ class Manifest:
     def upsert_file_row(self, file: SpruceFile) -> None:
         self._conn.execute(
             """INSERT INTO files
-                   (id, source_ref, content_hash, data_source_id, file_type)
-               VALUES (?, ?, ?, ?, ?)
+                   (id, source_ref, content_hash, data_source_id, file_type, raw_content)
+               VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT (id) DO UPDATE SET
                    source_ref     = excluded.source_ref,
                    content_hash   = excluded.content_hash,
                    data_source_id = excluded.data_source_id,
-                   file_type      = excluded.file_type""",
+                   file_type      = excluded.file_type,
+                   raw_content    = excluded.raw_content""",
             (
                 file.file_id,
                 file.source_ref,
                 file.content_hash,
                 file.data_source_id,
                 file.file_type,
+                file.raw_content if isinstance(file.raw_content, bytes) else file.raw_content.encode(),
             ),
         )
+
+    def get_raw_content(self, file_id: bytes) -> bytes | None:
+        row = self._conn.execute(
+            "SELECT raw_content FROM files WHERE id = ?", (file_id,)
+        ).fetchone()
+        return row[0] if row else None
 
     def upsert_file_metadata(self, file_id: bytes, metadata: dict) -> None:
         if not metadata:
