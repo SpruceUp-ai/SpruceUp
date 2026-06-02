@@ -1,3 +1,4 @@
+import asyncio
 import typing
 from typing import Any
 
@@ -80,7 +81,7 @@ class PineconeTarget(TargetConnector):
                 }
                 for chunk in upserts
             ]
-            index.upsert(vectors=vectors, namespace=self.namespace)
+            await asyncio.to_thread(index.upsert, vectors=vectors, namespace=self.namespace)
 
         if deletes:
-            index.delete(ids=[h.hex() for h in deletes], namespace=self.namespace)
+            await asyncio.to_thread(index.delete, ids=[h.hex() for h in deletes], namespace=self.namespace)

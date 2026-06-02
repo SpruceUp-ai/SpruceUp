@@ -125,5 +125,5 @@ async def run(pipeline) -> None:
             )
             raise
     finally:
-        config.target.close()
+        await config.target.aclose()
         manifest._conn.close()
