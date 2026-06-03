@@ -55,16 +55,14 @@ def memo_ctx(manifest):
 
 
 def seed_file_row(manifest, file_id=FILE_ID, file_path=FILE_PATH):
-    con = manifest.connect()
-    with con:
-        con.execute(
-            "INSERT OR IGNORE INTO files (id, source_ref) VALUES (?, ?)",
-            (file_id, file_path),
-        )
+    manifest._conn.execute(
+        "INSERT OR IGNORE INTO files (id, source_ref) VALUES (?, ?)",
+        (file_id, file_path),
+    )
 
 
 def cache_row_count(manifest, file_id=FILE_ID) -> int:
-    return manifest.connect().execute(
+    return manifest._conn.execute(
         "SELECT COUNT(*) FROM memoize_cache WHERE file_id=?", (file_id,)
     ).fetchone()[0]
 
@@ -192,20 +190,20 @@ def test_sweep_does_not_leak_keys_across_files(manifest):
 # ---------------------------------------------------------------------------
 
 
-def test_move_reassigns_cache_to_new_file_id(manifest):
+def test_move_preserves_cache_under_same_file_id(manifest):
+    # file_id is stable across renames (inode-based for local, Drive ID for Drive).
+    # move_file only updates source_ref; the memoize_cache FK is on file_id so the
+    # cache survives the rename without any special migration.
     old_path = "corpus/old.txt"
     new_path = "corpus/new.txt"
-    old_file_id = hash_source_ref(old_path)
-    new_file_id = hash_source_ref(new_path)
+    file_id = hash_source_ref(old_path)
 
-    seed_file_row(manifest, file_id=old_file_id, file_path=old_path)
-    manifest.set_memoized(old_file_id, FN_HASH, ARGS_HASH_A, b'"cached"')
+    seed_file_row(manifest, file_id=file_id, file_path=old_path)
+    manifest.set_memoized(file_id, FN_HASH, ARGS_HASH_A, b'"cached"')
 
-    with manifest.connect() as conn:
-        manifest.move_file_row(conn, old_file_id, new_file_id, new_path)
+    manifest.update_file_ref(file_id, new_path)
 
-    assert manifest.get_memoized(old_file_id, FN_HASH, ARGS_HASH_A) is None
-    assert manifest.get_memoized(new_file_id, FN_HASH, ARGS_HASH_A) is not None
+    assert manifest.get_memoized(file_id, FN_HASH, ARGS_HASH_A) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -218,8 +216,7 @@ def test_delete_file_row_cascades_to_memoize_cache(manifest):
     manifest.set_memoized(FILE_ID, FN_HASH, ARGS_HASH_A, b'"value"')
     assert cache_row_count(manifest) == 1
 
-    with manifest.connect() as conn:
-        manifest.delete_file_row(conn, FILE_ID)
+    manifest.delete_file_row(FILE_ID)
 
     assert cache_row_count(manifest) == 0
 

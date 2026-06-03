@@ -59,14 +59,14 @@ def seed_file(
         "inode": inode if inode is not None else stat.st_ino,
         "mtime": mtime if mtime is not None else stat.st_mtime,
     }
-    with manifest.connect() as conn:
-        conn.execute(
+    with manifest.transaction():
+        manifest._conn.execute(
             "INSERT OR REPLACE INTO files "
             "(id, source_ref, content_hash, data_source_id, file_type) "
             "VALUES (?, ?, ?, ?, ?)",
             (file_id, str(path), blake2b(content), ds_id, path.suffix.lstrip(".")),
         )
-        manifest.upsert_file_metadata(conn, file_id, metadata)
+        manifest.upsert_file_metadata(file_id, metadata)
     return file_id
 
 
@@ -81,14 +81,14 @@ def seed_file_no_mtime(
     before mtime tracking was added."""
     stat = path.stat()
     file_id = hash_source_ref(str(path))
-    with manifest.connect() as conn:
-        conn.execute(
+    with manifest.transaction():
+        manifest._conn.execute(
             "INSERT OR REPLACE INTO files "
             "(id, source_ref, content_hash, data_source_id, file_type) "
             "VALUES (?, ?, ?, ?, ?)",
             (file_id, str(path), blake2b(content), ds_id, path.suffix.lstrip(".")),
         )
-        manifest.upsert_file_metadata(conn, file_id, {"inode": stat.st_ino})
+        manifest.upsert_file_metadata(file_id, {"inode": stat.st_ino})
     return file_id
 
 
@@ -165,14 +165,14 @@ async def test_catch_up_renamed_file_emits_move(watcher, manifest, corpus, ds_id
     # Seed manifest with the old path but use the real file's inode and mtime so the
     # mtime fast-path fires and only the path difference triggers a move.
     file_id = hash_source_ref(old_path_str)
-    with manifest.connect() as conn:
-        conn.execute(
+    with manifest.transaction():
+        manifest._conn.execute(
             "INSERT OR REPLACE INTO files "
             "(id, source_ref, content_hash, data_source_id, file_type) "
             "VALUES (?, ?, ?, ?, ?)",
             (file_id, old_path_str, blake2b(b"content"), ds_id, "txt"),
         )
-        manifest.upsert_file_metadata(conn, file_id, {
+        manifest.upsert_file_metadata(file_id, {
             "inode": stat.st_ino,
             "mtime": stat.st_mtime,
         })
@@ -235,15 +235,15 @@ async def test_catch_up_mtime_absent_falls_back_to_hash_and_emits_upsert(watcher
 async def test_catch_up_deleted_file_emits_delete(watcher, manifest, corpus, ds_id):
     ghost_path = str(corpus / "ghost.txt")
     file_id = hash_source_ref(ghost_path)
-    with manifest.connect() as conn:
-        conn.execute(
+    with manifest.transaction():
+        manifest._conn.execute(
             "INSERT OR REPLACE INTO files "
             "(id, source_ref, content_hash, data_source_id, file_type) "
             "VALUES (?, ?, ?, ?, ?)",
             (file_id, ghost_path, blake2b(b"old"), ds_id, "txt"),
         )
         # Inode chosen to be unreachable by any real file in the temp corpus.
-        manifest.upsert_file_metadata(conn, file_id, {"inode": 999_999_999, "mtime": 1000.0})
+        manifest.upsert_file_metadata(file_id, {"inode": 999_999_999, "mtime": 1000.0})
 
     queue = asyncio.Queue()
     await watcher._catch_up(queue, manifest)
@@ -344,14 +344,14 @@ async def test_watch_move_detected_by_inode_emits_move(watcher, manifest, corpus
     # Seed the manifest with the old path, giving it the real file's inode so
     # the watcher can correlate the delete + add pair as a move.
     file_id = hash_source_ref(old_path_str)
-    with manifest.connect() as conn:
-        conn.execute(
+    with manifest.transaction():
+        manifest._conn.execute(
             "INSERT OR REPLACE INTO files "
             "(id, source_ref, content_hash, data_source_id, file_type) "
             "VALUES (?, ?, ?, ?, ?)",
             (file_id, old_path_str, blake2b(b"content"), ds_id, "txt"),
         )
-        manifest.upsert_file_metadata(conn, file_id, {"inode": new_path.stat().st_ino})
+        manifest.upsert_file_metadata(file_id, {"inode": new_path.stat().st_ino})
 
     catchup_done = asyncio.Event()
     catchup_done.set()
