@@ -43,7 +43,7 @@ class SyncEngine:
         }
 
         for h, chunk in curr_hashes.items():
-            if h not in prev_hashes:
+            if file.force_upsert or h not in prev_hashes:
                 manifest_upserts.append((file.file_id, chunk))
                 target_upserts.append(chunk)
 

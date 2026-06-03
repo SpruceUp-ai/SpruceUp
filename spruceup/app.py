@@ -77,6 +77,7 @@ async def run(pipeline) -> None:
             embedder=embedder,
             sync_engine=sync_engine,
             source_registry=source_registry,
+            model_changed=model_changed,
         )
 
         sync_validator = SyncValidator(

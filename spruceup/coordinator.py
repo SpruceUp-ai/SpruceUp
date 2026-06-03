@@ -21,6 +21,7 @@ class Coordinator:
         sync_engine: SyncEngine,
         source_registry: dict,
         max_concurrency: int = 32,
+        model_changed: bool = False,
     ):
         self._queue = queue
         self._transform = transform
@@ -29,6 +30,7 @@ class Coordinator:
         self._target = sync_engine._target
         self._manifest = sync_engine._manifest
         self._source_registry = source_registry
+        self._model_changed = model_changed
         self._active_tasks = set()
         self._semaphore = asyncio.Semaphore(max_concurrency)
 
@@ -72,6 +74,7 @@ class Coordinator:
                 self._manifest.set_sync_state(file_id, "failed")
             return
 
+        spruce_file.force_upsert = self._model_changed
         self._manifest.ensure_file_row_exists(spruce_file.file_id, spruce_file.source_ref)
 
         temp_keys: set[tuple[bytes, bytes]] = set()

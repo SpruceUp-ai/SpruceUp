@@ -28,6 +28,7 @@ class SpruceFile:
     raw_content: str | bytes
     chunks: list[ChunkWrapper]
     source_metadata: dict = field(default_factory=dict)
+    force_upsert: bool = False
 
 @dataclass
 class SyncTask:
