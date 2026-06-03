@@ -7,7 +7,7 @@ from spruceup.manifest import Manifest
 from spruceup.memoize.decorator import _memoize_fn_hashes
 from spruceup.monitoring.monitor import Monitor
 from spruceup.sync_engine import SyncEngine
-from spruceup.sync_validator import SyncValidator
+from spruceup.sync_sweeper import SyncSweeper
 from spruceup.utils.hashing import hash_transform
 
 log = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ async def run(pipeline) -> None:
             model_changed=model_changed,
         )
 
-        sync_validator = SyncValidator(
+        sync_sweeper = SyncSweeper(
             queue=queue,
             manifest=manifest,
             source_registry=source_registry,
@@ -90,7 +90,7 @@ async def run(pipeline) -> None:
 
         monitor_task = asyncio.create_task(monitor.run(force_reindex, startup_done))
         coordinator_task = asyncio.create_task(coordinator.run())
-        sync_validator_task = asyncio.create_task(sync_validator.run())
+        sync_sweeper_task = asyncio.create_task(sync_sweeper.run())
 
         await startup_done.wait()
         watched = ", ".join(repr(source) for source in config.sources)
@@ -109,7 +109,7 @@ async def run(pipeline) -> None:
                 if n_failed:
                     log.warning(
                         "Reindex complete with %d failed file(s) — "
-                        "sync validator will retry",
+                        "sync sweeper will retry",
                         n_failed,
                     )
                 else:
@@ -118,13 +118,13 @@ async def run(pipeline) -> None:
                 await queue.join()
                 manifest.set_config_value("file_cache_ready", "true")
                 log.info("Initial sync complete — file cache ready")
-            await asyncio.gather(monitor_task, coordinator_task, sync_validator_task)
+            await asyncio.gather(monitor_task, coordinator_task, sync_sweeper_task)
         except asyncio.CancelledError:
             monitor_task.cancel()
             coordinator_task.cancel()
-            sync_validator_task.cancel()
+            sync_sweeper_task.cancel()
             await asyncio.gather(
-                monitor_task, coordinator_task, sync_validator_task,
+                monitor_task, coordinator_task, sync_sweeper_task,
                 return_exceptions=True,
             )
             raise

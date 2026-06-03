@@ -1,14 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
 class FileProps:
     raw_content: str
-    source_ref: str
     display_name: str
     file_type: str
-    modified_at: Optional[float]
+    modified_at: float
 
 
 @dataclass
@@ -19,22 +18,22 @@ class ChunkWrapper:
 
 @dataclass
 class SpruceFile:
-    file_id: bytes
-    source_ref: str
+    file_id: str
     display_name: str
     content_hash: bytes
     file_type: str
     data_source_id: int
     raw_content: str | bytes
     chunks: list[ChunkWrapper]
-    source_metadata: dict = field(default_factory=dict)
+    modified_at: float
     force_upsert: bool = False
 
 @dataclass
 class SyncTask:
     source_type: str          # "local", "google_drive", etc.
-    identifier: str           # file path, Drive file ID, etc. (new path for moves)
+    identifier: str           # file path or Drive file ID; used for fetch and display
     change_type: str          # "upsert" | "delete" | "move"
-    old_identifier: str | None = field(default=None)  # previous path; only set for "move"
+    current_file_id: str | None = field(default=None)  # file_id before this action (delete: file to remove; move: old id; upsert: id when known)
+    new_file_id: str | None = field(default=None)       # for move: file_id after rename
     data_source_id: int = field(default=0)
     use_manifest_cache: bool = field(default=False)

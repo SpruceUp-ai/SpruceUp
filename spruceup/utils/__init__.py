@@ -1,8 +1,6 @@
 from .hashing import (
     DIGEST_SIZE,
     hash_file_content,
-    hash_inode,
-    hash_source_ref,
     hash_object,
     hash_transform,
 )
@@ -10,8 +8,6 @@ from .hashing import (
 __all__ = [
     "DIGEST_SIZE",
     "hash_file_content",
-    "hash_inode",
-    "hash_source_ref",
     "hash_object",
     "hash_transform",
 ]

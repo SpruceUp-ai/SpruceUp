@@ -8,15 +8,6 @@ from typing import Callable
 DIGEST_SIZE = 16  # 16 bytes matches BINARY(16) in schema
 
 
-def hash_source_ref(source_ref: str) -> bytes:
-    return hashlib.blake2b(source_ref.encode(), digest_size=DIGEST_SIZE).digest()
-
-
-def hash_inode(inode: int) -> bytes:
-    return hashlib.blake2b(inode.to_bytes(8, "little"), digest_size=DIGEST_SIZE).digest()
-
-
-
 def hash_object(obj) -> bytes:
     data = dataclasses.asdict(obj) if dataclasses.is_dataclass(obj) else obj.__dict__
     serialized = json.dumps(data, sort_keys=True, default=str).encode()

@@ -92,39 +92,42 @@ source_state    (data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CA
                  PRIMARY KEY (data_source_id, key))
                  -- connector-specific cursor state (e.g. Google Drive page tokens)
 
-files           (id BLOB PK,                  -- hash_source_ref(source_ref)
-                 source_ref TEXT NOT NULL,     -- connector-agnostic file identifier
+files           (id TEXT PRIMARY KEY,         -- local: "{inode}:{path}"; Drive: Drive file ID
                  content_hash BLOB,
                  data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
-                 file_type TEXT)
+                 file_type TEXT,
+                 raw_content BLOB,
+                 modified_at REAL,            -- Unix epoch float; set by every source connector
+                 sync_state TEXT NOT NULL DEFAULT 'in_flight')
 
-file_metadata   (file_id BLOB REFERENCES files(id) ON DELETE CASCADE,
-                 key TEXT NOT NULL,
-                 value TEXT NOT NULL,
-                 PRIMARY KEY (file_id, key))
-                 -- connector-specific metadata (e.g. inode, mtime, modified_at)
+chunks          (file_id TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                 user_chunk_object_hash BLOB NOT NULL,
+                 PRIMARY KEY (file_id, user_chunk_object_hash))
 
-chunks          (id BLOB PK,                  -- hash_chunk_id(source_ref, ordinal)
-                 file_id BLOB REFERENCES files(id) ON DELETE CASCADE,
-                 user_chunk_object_hash BLOB, -- change detection
-                 user_chunk_object BLOB)      -- JSON-serialized user dataclass
+transform_hashes (transform_hash BLOB PRIMARY KEY)  -- hash is PK, not func_name
 
-transform_hashes (transform_hash BLOB PK)     -- hash is PK, not func_name
+memoize_fn_hashes (fn_hash BLOB PRIMARY KEY)
 
-memoize_cache   (file_id BLOB REFERENCES files(id) ON DELETE CASCADE,
-                 fn_hash BLOB,
-                 args_hash BLOB,
-                 result BLOB,
+memoize_cache   (file_id TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                 fn_hash BLOB NOT NULL,
+                 args_hash BLOB NOT NULL,
+                 result BLOB NOT NULL,
                  PRIMARY KEY (file_id, fn_hash, args_hash))
+
+embedding_cache (file_id TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                 chunk_text_hash BLOB NOT NULL,
+                 embedding BLOB NOT NULL,
+                 PRIMARY KEY (file_id, chunk_text_hash))
+
+config_state    (key TEXT PRIMARY KEY,
+                 value TEXT NOT NULL)
 ```
 
 `transform_hashes` stores the BLAKE2B hash of the transform function's source. Using the hash (not the function name) as PK means renaming a function doesn't trigger a false full-reindex.
 
-`file_metadata` stores connector-specific key/value pairs per file (e.g. `inode`, `mtime`, `modified_at` for local files). `LocalFileWatcher` uses the `inode` key for move detection during catch-up and watch phases.
-
 `source_state` stores per-source connector cursors that persist across restarts (e.g. Google Drive Changes API page tokens, webhook channel expiry times).
 
-`memoize_cache` rows live and die with their owning file via `ON DELETE CASCADE`. They are also re-pointed by `move_file_row` so caches survive a rename.
+`memoize_cache` and `embedding_cache` rows live and die with their owning file via `ON DELETE CASCADE`. `ON UPDATE CASCADE` propagates a `file_id` rename (from `update_file_id`) without breaking child rows, so caches survive a rename.
 
 ## Customising the pipeline
 
@@ -144,9 +147,9 @@ class MyChunk:
 
 **Transform function** — async; receives `file_props` and an `embed` callable, returns a list of your schema objects. It is passed directly to `defineConfig` — there is no decorator:
 ```python
-async def my_transform(*, file_props: dict, embed) -> list[MyChunk]:
-    # file_props keys: raw_content, source_ref, modified_at, file_type
-    chunks = split_into_chunks(file_props["raw_content"])
+async def my_transform(*, file_props: FileProps, embed) -> list[MyChunk]:
+    # file_props fields: raw_content, display_name, file_type, modified_at
+    chunks = split_into_chunks(file_props.raw_content)
     embeddings = await embed(chunks)  # returns list[list[float]]
     return [MyChunk(id=..., chunk_text=c, chunk_embedding=e) for c, e in zip(chunks, embeddings)]
 ```
@@ -190,14 +193,13 @@ Supported `returns` types: `str, int, float, bool, list, dict`. The cache key is
 
 ## Key invariants
 
-- **All IDs are BLAKE2B 16-byte digests** — file IDs, chunk IDs, content hashes, object hashes, transform hashes, memoize fn/args hashes all use `utils/hashing.py` with `digest_size=16`.
+- **File IDs are opaque strings, not hashes** — local: `f"{inode}:{path}"`; Drive: the Drive file ID string. Content hashes, chunk object hashes, transform hashes, and memoize fn/args hashes are all BLAKE2B 16-byte digests from `utils/hashing.py`.
 - **Transform is passed in, not decorated** — there is no `@transform` decorator. `defineConfig(transform=fn)` is the only registration path.
 - **`Manifest` is the sole SQLite access point** — all reads/writes to `spruceup_manifest.db` go through the `Manifest` class. Methods that need to be atomic share a connection via `manifest.connect()` used as a context manager; standalone helpers manage their own connections internally.
 - **Manifest auto-initializes its schema** — constructing `Manifest()` calls `_init_db()`, so no separate `init_db` step exists.
 - **`_BufferedQueue`** — captures `_watch` events that arrive while `_catch_up` is still running, then replays them in order once catch-up is complete. This prevents double-processing a file that changed between startup scan and watch start.
 - **`_watch` filters directories** — `pathlib.Path(path).is_file()` guard is required because `watchfiles` can emit events for the watched directory itself when files are added to it.
-- **`source_ref` is the connector-agnostic file identifier** — local paths, Drive file IDs, etc. `file_props["source_ref"]` is what the transform receives; `file_props["modified_at"]` is the normalized cross-connector timestamp (from `source_metadata`).
-- **`source_metadata` carries connector-specific fields** — `LocalFilesSource.fetch()` populates `{"inode": ..., "mtime": ..., "modified_at": ...}`; written to `file_metadata` by `SyncEngine.reconcile` after each `upsert_file_row`.
+- **`file_id` encodes connector identity** — for local files, `f"{inode}:{path}"` makes the inode the stable key so renames are detected without re-hashing. For Drive, the Drive file ID is used directly. `SyncTask.identifier` carries the human-readable path or Drive ID used for fetch and display; `SyncTask.current_file_id` carries the stable `file_id` before the action.
 - **Postgres vectors survive moves** — `SyncEngine.move_file()` updates only the SQLite manifest; no Postgres writes happen. Chunk PKs are content-derived (user-defined), not path-based.
 - **`ensure_file_row_exists` before chunk writes** — the `files` FK on `chunks` requires the file row to exist before any chunk for that file is inserted; `SyncEngine.reconcile` calls it explicitly before chunk upserts.
 - **`upsert_file_row` uses `ON CONFLICT DO UPDATE`** — in-place update, not DELETE+INSERT, so it does not trigger the `ON DELETE CASCADE` on `chunks.file_id` or `memoize_cache.file_id`.
