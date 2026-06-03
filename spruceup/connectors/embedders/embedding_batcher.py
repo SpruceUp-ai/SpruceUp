@@ -155,8 +155,11 @@ class EmbeddingBatcher(EmbedderConnector):
                 embeddings = await self._inner.embed_batch(batch_strs)
             except Exception as err:
                 from ..base import EmbeddingError
-                wrapped = EmbeddingError(str(err)) if not isinstance(err, EmbeddingError) else err
-                wrapped.__cause__ = err
+                if isinstance(err, EmbeddingError):
+                    wrapped = err
+                else:
+                    wrapped = EmbeddingError(str(err))
+                    wrapped.__cause__ = err
                 for file_index in touched_files:
                     if not files_in_flight[file_index].future.done():
                         files_in_flight[file_index].future.set_exception(wrapped)

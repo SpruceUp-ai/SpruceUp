@@ -62,11 +62,14 @@ class Coordinator:
         from .connectors.base import EmbeddingError
         from .models import FileProps
 
-        # Phase 1: fetch — source boundary; watcher handles retries on failure
+        # Phase 1: fetch — source boundary; mark failed so SyncValidator retries
         try:
             spruce_file = await source.fetch(task, self._manifest)
         except Exception:
             log.exception("[error] %s — fetch failed", filename)
+            file_id = self._manifest.get_file_id_by_ref(task.identifier)
+            if file_id is not None:
+                self._manifest.set_sync_state(file_id, "failed")
             return
 
         self._manifest.ensure_file_row_exists(spruce_file.file_id, spruce_file.source_ref)

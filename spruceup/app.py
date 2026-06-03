@@ -26,7 +26,8 @@ async def run(pipeline) -> None:
     transform_hash = hash_transform(config.transform)
     transform_changed = manifest.transform_hash_changed(transform_hash)
     memoize_changed = manifest.any_memoize_fn_hash_missing(_memoize_fn_hashes)
-    model_changed = manifest.get_config_value("embedding_model") != config.embedder.model
+    stored_model = manifest.get_config_value("embedding_model")
+    model_changed = stored_model is not None and stored_model != config.embedder.model
     force_reindex = transform_changed or memoize_changed or model_changed
     if force_reindex:
         reasons = []

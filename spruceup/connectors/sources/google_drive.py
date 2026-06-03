@@ -165,7 +165,9 @@ class GoogleDriveSource(SourceConnector):
 
         raw_content = None
         if task.use_manifest_cache:
-            raw_content = manifest.get_raw_content(file_id)
+            stored_meta = manifest.get_file_metadata(file_id)
+            if stored_meta.get("modified_at") == str(modified_at):
+                raw_content = manifest.get_raw_content(file_id)
 
         if raw_content is None:
             if export_mime:
