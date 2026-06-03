@@ -56,6 +56,9 @@ class Coordinator:
         from .memoize.context import (
             _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var,
         )
+        from .connectors.embedders.context import (
+            _embed_manifest_var, _embed_file_id_var, _embed_used_hashes_var, _embed_stats_var,
+        )
         from .connectors.base import EmbeddingError
         from .models import FileProps
 
@@ -74,6 +77,13 @@ class Coordinator:
         _memo_file_id_var.set(spruce_file.file_id)
         _memo_temp_keys_var.set(temp_keys)
         _memo_stats_var.set(memo_stats)
+
+        embed_used_hashes: set[bytes] = set()
+        embed_stats = [0, 0]
+        _embed_manifest_var.set(self._manifest)
+        _embed_file_id_var.set(spruce_file.file_id)
+        _embed_used_hashes_var.set(embed_used_hashes)
+        _embed_stats_var.set(embed_stats)
 
         # Phase 2: transform (includes embed) — EmbeddingError is caught and marked
         # failed; all other exceptions propagate and crash the app (user code bugs)
@@ -95,8 +105,11 @@ class Coordinator:
 
         if memo_stats[1] > 0:
             log.info("[memoize] %s — %d/%d hits", filename, memo_stats[0], memo_stats[1])
+        if embed_stats[1] > 0:
+            log.info("[embed_cache] %s — %d/%d hits", filename, embed_stats[0], embed_stats[1])
 
         self._manifest.sweep_memoized(spruce_file.file_id, temp_keys)
+        self._manifest.sweep_embedding_cache(spruce_file.file_id, embed_used_hashes)
 
         validate_schema_objects(user_chunks, self._target.schema)
         log.info("[upsert] %s — %d chunk(s)", filename, len(user_chunks))

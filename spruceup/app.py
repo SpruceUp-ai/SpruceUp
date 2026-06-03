@@ -36,6 +36,7 @@ async def run(pipeline) -> None:
             reasons.append("memoized function changed")
         if model_changed:
             reasons.append("embedding model changed")
+            manifest.flush_embedding_cache()
         log.info("Full reindex scheduled — %s", ", ".join(reasons))
     else:
         log.info("No changes detected — incremental sync")
