@@ -1,8 +1,10 @@
 import asyncio
 import functools
+import hashlib
 import inspect
+import json
 
-from ..utils.hashing import hash_transform, hash_args
+from ..utils.hashing import hash_transform, _normalize, DIGEST_SIZE
 from .context import _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var
 from .serialization import validate_return_type, serialize, deserialize
 
@@ -23,6 +25,7 @@ def memoize(*, returns):
 
     def decorator(fn):
         fn_hash = hash_transform(fn)
+        _sig = inspect.signature(fn)
         _memoize_fn_hashes.add(fn_hash)
 
         def _lookup(args, kwargs):
@@ -35,7 +38,12 @@ def memoize(*, returns):
                     "context. @memoize subfunctions may only be called from within the "
                     "transform function passed to defineConfig()."
                 )
-            args_h = hash_args(fn, args, kwargs)
+            bound = _sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            payload = json.dumps(
+                _normalize(dict(bound.arguments)), sort_keys=True
+            ).encode()
+            args_h = hashlib.blake2b(payload, digest_size=DIGEST_SIZE).digest()
             temp_keys.add((fn_hash, args_h))
             cached = manifest.get_memoized(file_id, fn_hash, args_h)
             return manifest, file_id, args_h, cached
