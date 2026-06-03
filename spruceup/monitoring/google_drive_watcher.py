@@ -53,7 +53,7 @@ class GoogleDriveWatcher(BaseWatcher):
         return build("drive", "v3", credentials=Credentials(token=token))
 
     async def _full_scan(
-        self, service, queue: asyncio.Queue, manifest: "Manifest"
+        self, service, queue: asyncio.Queue, manifest: "Manifest", use_manifest_cache: bool = False
     ) -> int:
         """BFS the folder tree, enqueue upserts, anchor the Changes cursor. Returns upsert count."""
         # Anchor the cursor before the BFS so any changes that race with the
@@ -91,6 +91,7 @@ class GoogleDriveWatcher(BaseWatcher):
                         await queue.put(SyncTask(
                             self._source_type, f["id"], "upsert",
                             data_source_id=self._data_source_id,
+                            use_manifest_cache=use_manifest_cache,
                         ))
                         n_upserts += 1
 
@@ -221,8 +222,11 @@ class GoogleDriveWatcher(BaseWatcher):
         service = await asyncio.to_thread(self._build_service)
         stored_token = manifest.get_source_state(self._data_source_id, _STATE_PAGE_TOKEN)
 
+        use_manifest_cache = (
+            force_reindex and manifest.get_config_value("file_cache_ready") == "true"
+        )
         if force_reindex or stored_token is None:
-            n_upserts = await self._full_scan(service, queue, manifest)
+            n_upserts = await self._full_scan(service, queue, manifest, use_manifest_cache=use_manifest_cache)
             n_deletes = 0
         else:
             n_upserts, n_deletes = await self._incremental_scan(

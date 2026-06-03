@@ -36,3 +36,4 @@ class SyncTask:
     change_type: str          # "upsert" | "delete" | "move"
     old_identifier: str | None = field(default=None)  # previous path; only set for "move"
     data_source_id: int = field(default=0)
+    use_manifest_cache: bool = field(default=False)

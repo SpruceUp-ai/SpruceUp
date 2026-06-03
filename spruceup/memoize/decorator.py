@@ -6,6 +6,8 @@ from ..utils.hashing import hash_transform, hash_args
 from .context import _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var
 from .serialization import validate_return_type, serialize, deserialize
 
+_memoize_fn_hashes: set[bytes] = set()
+
 
 def memoize(*, returns):
     """Cache subfunction results in SQLite, scoped per file.
@@ -21,6 +23,7 @@ def memoize(*, returns):
 
     def decorator(fn):
         fn_hash = hash_transform(fn)
+        _memoize_fn_hashes.add(fn_hash)
 
         def _lookup(args, kwargs):
             manifest  = _memo_manifest_var.get()

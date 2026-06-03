@@ -46,16 +46,28 @@ class LocalFilesSource(SourceConnector):
     def decode_content(self, raw_content: bytes) -> str:
         return raw_content.decode("utf-8", errors="replace")
 
-    async def fetch(self, task):
+    async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
         path = task.identifier
-        with open(path, "rb") as file:
-            raw_content = file.read()
         file_stats = os.stat(path)
-        content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
+        file_id = hash_inode(file_stats.st_ino)
         file_type = pathlib.Path(path).suffix.lstrip(".")
+        source_metadata = {
+            "inode": file_stats.st_ino,
+            "mtime": file_stats.st_mtime,
+            "modified_at": file_stats.st_mtime,
+        }
+
+        raw_content = None
+        if task.use_manifest_cache:
+            raw_content = manifest.get_raw_content(file_id)
+        if raw_content is None:
+            with open(path, "rb") as f:
+                raw_content = f.read()
+
+        content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
         return SpruceFile(
-            file_id=hash_inode(file_stats.st_ino),
+            file_id=file_id,
             source_ref=path,
             display_name=pathlib.Path(path).name,
             content_hash=content_hash,
@@ -63,9 +75,5 @@ class LocalFilesSource(SourceConnector):
             data_source_id=task.data_source_id,
             raw_content=raw_content,
             chunks=[],
-            source_metadata={
-                "inode": file_stats.st_ino,
-                "mtime": file_stats.st_mtime,
-                "modified_at": file_stats.st_mtime,
-            },
+            source_metadata=source_metadata,
         )
