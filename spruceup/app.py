@@ -49,6 +49,7 @@ async def run(pipeline) -> None:
     config.target.ensure_table_exists(
         embedding_dimensions=config.embedder.embedding_dimensions
     )
+    embedder: EmbeddingBatcher | None = None
     try:
         sync_engine = SyncEngine(manifest=manifest, target=config.target)
 
@@ -125,5 +126,7 @@ async def run(pipeline) -> None:
             )
             raise
     finally:
-        config.target.close()
+        await config.target.aclose()
+        if embedder is not None:
+            await embedder.aclose()
         manifest._conn.close()

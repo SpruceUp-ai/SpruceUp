@@ -55,7 +55,7 @@ class TargetConnector(ABC):
     @abstractmethod
     async def sync(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None: ...
 
-    def close(self) -> None: ...
+    async def aclose(self) -> None: ...
 
 
 class EmbedderConnector(ABC):
@@ -74,3 +74,5 @@ class EmbedderConnector(ABC):
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         return await self.embed_batch(chunks)
+
+    async def aclose(self) -> None: ...

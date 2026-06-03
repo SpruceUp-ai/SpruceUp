@@ -129,7 +129,7 @@ class WeaviateTarget(TargetConnector):
     async def sync(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         await asyncio.to_thread(self._sync_blocking, upserts, deletes)
 
-    def close(self) -> None:
+    async def aclose(self) -> None:
         if self._client is not None:
             self._client.close()
             self._client = None

@@ -98,6 +98,12 @@ class EmbeddingBatcher(EmbedderConnector):
             batch = chunk_text_indexed_by_file_and_chunk[i : i + self._max_batch_size]
             asyncio.create_task(self._run_batch(batch, pending_files))
 
+    async def aclose(self) -> None:
+        if self._flusher_task is not None and not self._flusher_task.done():
+            self._flusher_task.cancel()
+            await asyncio.gather(self._flusher_task, return_exceptions=True)
+        await self._inner.aclose()
+
     async def _run_batch(
         self,
         batch: list[tuple[int, int, str]],

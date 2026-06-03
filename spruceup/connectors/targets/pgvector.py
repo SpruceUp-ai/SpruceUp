@@ -1,6 +1,8 @@
+import asyncio
 import typing
 
 import psycopg
+import psycopg_pool
 
 from ..base import TargetConnector
 from ...models import ChunkWrapper
@@ -13,6 +15,8 @@ _PY_TO_PG: dict[type, str] = {
     bytes: "BYTEA",
     bool:  "BOOLEAN",
 }
+
+_POOL_MAX_SIZE = 5
 
 
 def _py_to_pg_type(tp, embedding_dimensions: int) -> str:
@@ -31,6 +35,8 @@ class PgVectorTarget(TargetConnector):
         self.connstr = connstr
         self.table = table
         self._schema = schema
+        self._pool: psycopg_pool.AsyncConnectionPool | None = None
+        self._pool_lock = asyncio.Lock()
 
     @property
     def display_name(self) -> str:
@@ -53,8 +59,24 @@ class PgVectorTarget(TargetConnector):
                 f"CREATE TABLE IF NOT EXISTS {self.table} ({', '.join(col_defs)})"
             )
 
+    async def _get_pool(self) -> psycopg_pool.AsyncConnectionPool:
+        if self._pool is not None:
+            return self._pool
+        async with self._pool_lock:
+            if self._pool is None:
+                pool = psycopg_pool.AsyncConnectionPool(
+                    self.connstr,
+                    min_size=1,
+                    max_size=_POOL_MAX_SIZE,
+                    open=False,
+                )
+                await pool.open()
+                self._pool = pool
+        return self._pool
+
     async def sync(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
-        async with await psycopg.AsyncConnection.connect(self.connstr) as conn:
+        pool = await self._get_pool()
+        async with pool.connection() as conn:
             if upserts:
                 hints = typing.get_type_hints(self._schema)
                 col_names = list(hints.keys())
@@ -78,3 +100,8 @@ class PgVectorTarget(TargetConnector):
                     f"DELETE FROM {self.table} WHERE id IN ({placeholders})",
                     [h.hex() for h in deletes],
                 )
+
+    async def aclose(self) -> None:
+        if self._pool is not None:
+            await self._pool.close()
+            self._pool = None
