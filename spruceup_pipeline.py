@@ -61,10 +61,10 @@ def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
 # --- memoized helpers -------------------------------------------------
 
 
-@memoize(returns=str)
-async def prepare_chunk(chunk_text: str) -> str:
-    # await asyncio.sleep(0.05)  # simulate async preprocessing
-    return chunk_text
+# @memoize(returns=str)
+# async def prepare_chunk(chunk_text: str) -> str:
+#     # await asyncio.sleep(0.05)  # simulate async preprocessing
+#     return chunk_text
 
 
 _openai_client: openai.AsyncOpenAI | None = None
@@ -92,8 +92,8 @@ def _get_openai_client() -> openai.AsyncOpenAI:
 
 async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureChunk]:
     ext = "." + file_props.file_type if file_props.file_type else ""
-    raw_chunks = split_chunks(file_props.raw_content, file_props.display_name, ext)
-    chunk_strs = [await prepare_chunk(s) for s in raw_chunks]
+    chunk_strs = split_chunks(file_props.raw_content, file_props.display_name, ext)
+    # chunk_strs = [await prepare_chunk(s) for s in raw_chunks]
 
     title, _, _ = file_props.display_name.rpartition(".")
     embeddings = await embed(chunk_strs)

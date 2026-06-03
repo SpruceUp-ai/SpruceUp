@@ -74,3 +74,5 @@ class EmbedderConnector(ABC):
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         return await self.embed_batch(chunks)
+
+    async def aclose(self) -> None: ...

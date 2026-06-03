@@ -40,6 +40,11 @@ class OpenAIEmbedder(EmbedderConnector):
             self._client = openai.AsyncOpenAI(api_key=self.api_key)
         return self._client
 
+    async def aclose(self) -> None:
+        if self._client is not None:
+            await self._client.close()
+            self._client = None
+
     @tenacity.retry(
         wait=tenacity.wait_exponential_jitter(initial=1, max=30),
         stop=tenacity.stop_after_attempt(5),
