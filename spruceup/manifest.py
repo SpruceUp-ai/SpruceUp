@@ -1,5 +1,3 @@
-import dataclasses
-import json
 import sqlite3
 import struct
 from contextlib import contextmanager
@@ -103,7 +101,6 @@ class Manifest:
             CREATE TABLE IF NOT EXISTS chunks (
                 file_id                BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
                 user_chunk_object_hash BLOB NOT NULL,
-                user_chunk_object      BLOB NOT NULL,
                 PRIMARY KEY (file_id, user_chunk_object_hash)
             )
             """
@@ -197,19 +194,9 @@ class Manifest:
     def upsert_chunks(self, chunks: list[tuple[bytes, ChunkWrapper]]) -> None:
         if not chunks:
             return
-        rows = [
-            (
-                file_id,
-                chunk.user_chunk_object_hash,
-                json.dumps(dataclasses.asdict(chunk.user_chunk), default=str).encode(),
-            )
-            for file_id, chunk in chunks
-        ]
         self._conn.executemany(
-            """INSERT OR IGNORE INTO chunks
-                   (file_id, user_chunk_object_hash, user_chunk_object)
-               VALUES (?, ?, ?)""",
-            rows,
+            "INSERT OR IGNORE INTO chunks (file_id, user_chunk_object_hash) VALUES (?, ?)",
+            [(file_id, chunk.user_chunk_object_hash) for file_id, chunk in chunks],
         )
 
     def ensure_file_row_exists(self, file_id: bytes, source_ref: str) -> None:
