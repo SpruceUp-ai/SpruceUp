@@ -31,7 +31,17 @@ class SourceConnector(ABC):
     def is_supported(self, file_identifier: str) -> bool: ...
 
     @abstractmethod
-    async def fetch(self, task, manifest) -> "SpruceFile": ...
+    async def fetch(self, task, manifest) -> "SpruceFile":
+        """Fetch a file and return a SpruceFile.
+
+        Implementations must populate SpruceFile.modified_at with a Unix
+        timestamp (seconds since epoch, float). Convert from whatever format
+        the source provides natively (ISO 8601, datetime, etc.) at this boundary.
+        """
+        ...
+
+    @abstractmethod
+    def identifier_from_file_id(self, file_id: str) -> str: ...
 
     @abstractmethod
     def display_name(self, identifier: str) -> str: ...

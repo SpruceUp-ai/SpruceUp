@@ -74,23 +74,13 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS files (
-                id             BLOB PRIMARY KEY,
-                source_ref     TEXT NOT NULL,
+                id             TEXT PRIMARY KEY,
                 content_hash   BLOB,
                 data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
                 file_type      TEXT,
                 raw_content    BLOB,
+                modified_at    REAL,
                 sync_state     TEXT NOT NULL DEFAULT 'in_flight'
-            )
-            """
-        )
-        self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS file_metadata (
-                file_id BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-                key     TEXT NOT NULL,
-                value   TEXT NOT NULL,
-                PRIMARY KEY (file_id, key)
             )
             """
         )
@@ -99,7 +89,7 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
-                file_id                BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+                file_id                TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
                 user_chunk_object_hash BLOB NOT NULL,
                 PRIMARY KEY (file_id, user_chunk_object_hash)
             )
@@ -128,7 +118,7 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS memoize_cache (
-                file_id   BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+                file_id   TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
                 fn_hash   BLOB NOT NULL,
                 args_hash BLOB NOT NULL,
                 result    BLOB NOT NULL,
@@ -141,7 +131,7 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS embedding_cache (
-                file_id         BLOB NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+                file_id         TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
                 chunk_text_hash BLOB NOT NULL,
                 embedding       BLOB NOT NULL,
                 PRIMARY KEY (file_id, chunk_text_hash)
@@ -184,14 +174,14 @@ class Manifest:
     # Chunk and file operations
     # ------------------------------------------------------------------
 
-    def get_chunks_for_file(self, file_id: bytes) -> list[dict]:
+    def get_chunks_for_file(self, file_id: str) -> list[dict]:
         cursor = self._conn.execute(
             "SELECT user_chunk_object_hash FROM chunks WHERE file_id = ?",
             (file_id,),
         )
         return [{"content_hash": row[0]} for row in cursor]
 
-    def upsert_chunks(self, chunks: list[tuple[bytes, ChunkWrapper]]) -> None:
+    def upsert_chunks(self, chunks: list[tuple[str, ChunkWrapper]]) -> None:
         if not chunks:
             return
         self._conn.executemany(
@@ -199,100 +189,71 @@ class Manifest:
             [(file_id, chunk.user_chunk_object_hash) for file_id, chunk in chunks],
         )
 
-    def ensure_file_row_exists(self, file_id: bytes, source_ref: str) -> None:
+    def ensure_file_row_exists(self, file_id: str) -> None:
         self._conn.execute(
-            """INSERT INTO files (id, source_ref, sync_state)
-               VALUES (?, ?, 'in_flight')
+            """INSERT INTO files (id, sync_state)
+               VALUES (?, 'in_flight')
                ON CONFLICT (id) DO UPDATE SET
-                   source_ref = excluded.source_ref,
                    sync_state = 'in_flight'""",
-            (file_id, source_ref),
+            (file_id,),
         )
 
     def upsert_file_row(self, file: SpruceFile) -> None:
         self._conn.execute(
             """INSERT INTO files
-                   (id, source_ref, content_hash, data_source_id, file_type, raw_content)
+                   (id, content_hash, data_source_id, file_type, raw_content, modified_at)
                VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT (id) DO UPDATE SET
-                   source_ref     = excluded.source_ref,
                    content_hash   = excluded.content_hash,
                    data_source_id = excluded.data_source_id,
                    file_type      = excluded.file_type,
-                   raw_content    = excluded.raw_content""",
+                   raw_content    = excluded.raw_content,
+                   modified_at    = excluded.modified_at""",
             (
                 file.file_id,
-                file.source_ref,
                 file.content_hash,
                 file.data_source_id,
                 file.file_type,
                 file.raw_content if isinstance(file.raw_content, bytes) else file.raw_content.encode(),
+                file.modified_at,
             ),
         )
 
-    def get_raw_content(self, file_id: bytes) -> bytes | None:
+    def get_raw_content(self, file_id: str) -> bytes | None:
         row = self._conn.execute(
             "SELECT raw_content FROM files WHERE id = ?", (file_id,)
         ).fetchone()
         return row[0] if row else None
 
-    def upsert_file_metadata(self, file_id: bytes, metadata: dict) -> None:
-        if not metadata:
-            return
-        self._conn.executemany(
-            "INSERT OR REPLACE INTO file_metadata (file_id, key, value) VALUES (?, ?, ?)",
-            [(file_id, k, str(v)) for k, v in metadata.items()],
-        )
-
-    def get_file_metadata(self, file_id: bytes) -> dict:
-        rows = self._conn.execute(
-            "SELECT key, value FROM file_metadata WHERE file_id = ?",
-            (file_id,),
-        ).fetchall()
-        return {key: value for key, value in rows}
-
-    def get_source_refs(self, data_source_id: int) -> set[str]:
-        rows = self._conn.execute(
-            "SELECT source_ref FROM files WHERE data_source_id = ?",
-            (data_source_id,),
-        ).fetchall()
-        return {row[0] for row in rows}
-
-    def get_files_with_metadata(self, data_source_id: int) -> list[dict]:
-        rows = self._conn.execute(
-            "SELECT f.id, f.source_ref, f.content_hash, m.key, m.value "
-            "FROM files f "
-            "LEFT JOIN file_metadata m ON m.file_id = f.id "
-            "WHERE f.data_source_id = ?",
-            (data_source_id,),
-        ).fetchall()
-        files: dict[bytes, dict] = {}
-        for file_id, source_ref, content_hash, key, value in rows:
-            if file_id not in files:
-                files[file_id] = {
-                    "source_ref": source_ref,
-                    "content_hash": content_hash,
-                    "metadata": {},
-                }
-            if key is not None:
-                files[file_id]["metadata"][key] = value
-        return list(files.values())
-
-    def get_file_id_by_ref(self, source_ref: str) -> bytes | None:
+    def get_file_modified_at(self, file_id: str) -> float | None:
         row = self._conn.execute(
-            "SELECT id FROM files WHERE source_ref = ?", (source_ref,)
+            "SELECT modified_at FROM files WHERE id = ?", (file_id,)
         ).fetchone()
         return row[0] if row else None
 
-    def update_file_ref(self, file_id: bytes, new_ref: str) -> None:
-        self._conn.execute(
-            "UPDATE files SET source_ref = ? WHERE id = ?", (new_ref, file_id)
-        )
+    def get_files_for_source(self, data_source_id: int) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT id, content_hash, modified_at FROM files WHERE data_source_id = ?",
+            (data_source_id,),
+        ).fetchall()
+        return [
+            {"file_id": row[0], "content_hash": row[1], "modified_at": row[2]}
+            for row in rows
+        ]
+
+    def update_file_id(self, old_id: str, new_id: str) -> None:
+        # UPDATE OR IGNORE is a no-op if new_id already exists (upsert ran first).
+        # The DELETE then removes the stale old_id row (and cascades its child rows).
+        with self.transaction():
+            self._conn.execute(
+                "UPDATE OR IGNORE files SET id = ? WHERE id = ?", (new_id, old_id)
+            )
+            self._conn.execute("DELETE FROM files WHERE id = ?", (old_id,))
 
     def chunk_hash_referenced_elsewhere(
         self,
         content_hash: bytes,
-        exclude_file_ids: list[bytes],
+        exclude_file_ids: list[str],
     ) -> bool:
         placeholders = ",".join("?" * len(exclude_file_ids))
         return self._conn.execute(
@@ -308,10 +269,10 @@ class Manifest:
             chunk_keys,
         )
 
-    def delete_file_row(self, file_id: bytes) -> None:
+    def delete_file_row(self, file_id: str) -> None:
         self._conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
 
-    def get_orphaned_file_ids(self, active_source_ids: list[int]) -> list[bytes]:
+    def get_orphaned_file_ids(self, active_source_ids: list[int]) -> list[str]:
         placeholders = ",".join("?" * len(active_source_ids))
         cursor = self._conn.execute(
             f"SELECT id FROM files WHERE data_source_id NOT IN ({placeholders})",
@@ -369,14 +330,14 @@ class Manifest:
             "UPDATE files SET sync_state = 'failed' WHERE sync_state = 'in_flight'"
         )
 
-    def set_sync_state(self, file_id: bytes, state: str) -> None:
+    def set_sync_state(self, file_id: str, state: str) -> None:
         self._conn.execute(
             "UPDATE files SET sync_state = ? WHERE id = ?", (state, file_id)
         )
 
     def get_failed_files(self, data_source_id: int) -> list[tuple[str, int]]:
         rows = self._conn.execute(
-            "SELECT source_ref, data_source_id FROM files "
+            "SELECT id, data_source_id FROM files "
             "WHERE data_source_id = ? AND sync_state = 'failed'",
             (data_source_id,),
         ).fetchall()
@@ -393,14 +354,14 @@ class Manifest:
         ).fetchone()
         return row[0]
 
-    def get_memoized(self, file_id: bytes, fn_hash: bytes, args_hash: bytes) -> bytes | None:
+    def get_memoized(self, file_id: str, fn_hash: bytes, args_hash: bytes) -> bytes | None:
         row = self._conn.execute(
             "SELECT result FROM memoize_cache WHERE file_id=? AND fn_hash=? AND args_hash=?",
             (file_id, fn_hash, args_hash),
         ).fetchone()
         return row[0] if row else None
 
-    def set_memoized(self, file_id: bytes, fn_hash: bytes, args_hash: bytes, result: bytes) -> None:
+    def set_memoized(self, file_id: str, fn_hash: bytes, args_hash: bytes, result: bytes) -> None:
         self._conn.execute(
             "INSERT OR REPLACE INTO memoize_cache (file_id, fn_hash, args_hash, result) "
             "VALUES (?, ?, ?, ?)",
@@ -408,7 +369,7 @@ class Manifest:
         )
 
     def sweep_memoized(
-        self, file_id: bytes, temp_keys: set[tuple[bytes, bytes]]
+        self, file_id: str, temp_keys: set[tuple[bytes, bytes]]
     ) -> None:
         self._conn.execute(
             "CREATE TEMP TABLE IF NOT EXISTS _sweep_keys (fn_hash BLOB, args_hash BLOB)"
@@ -424,7 +385,7 @@ class Manifest:
             )
 
     def get_cached_embeddings(
-        self, file_id: bytes, chunk_text_hashes: list[bytes]
+        self, file_id: str, chunk_text_hashes: list[bytes]
     ) -> dict[bytes, list[float]]:
         if not chunk_text_hashes:
             return {}
@@ -437,7 +398,7 @@ class Manifest:
         return {row[0]: _unpack_embedding(row[1]) for row in rows}
 
     def set_cached_embeddings(
-        self, file_id: bytes, entries: list[tuple[bytes, list[float]]]
+        self, file_id: str, entries: list[tuple[bytes, list[float]]]
     ) -> None:
         if not entries:
             return
@@ -447,7 +408,7 @@ class Manifest:
             [(file_id, h, _pack_embedding(e)) for h, e in entries],
         )
 
-    def sweep_embedding_cache(self, file_id: bytes, used_hashes: set[bytes]) -> None:
+    def sweep_embedding_cache(self, file_id: str, used_hashes: set[bytes]) -> None:
         if not used_hashes:
             self._conn.execute(
                 "DELETE FROM embedding_cache WHERE file_id = ?", (file_id,)

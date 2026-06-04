@@ -40,14 +40,14 @@ class Coordinator:
         if task.change_type == "delete":
             try:
                 log.info("[delete] %s", filename)
-                await self._sync_engine.delete_file(task.identifier)
+                await self._sync_engine.delete_file(task.current_file_id)
             except Exception:
                 log.exception("[error] %s — delete failed", filename)
         elif task.change_type == "move":
             try:
-                old_name = source.display_name(task.old_identifier)
+                old_name = source.display_name(source.identifier_from_file_id(task.current_file_id))
                 log.info("[move] %s → %s", old_name, filename)
-                await self._sync_engine.move_file(task.old_identifier, task.identifier)
+                await self._sync_engine.move_file(task.current_file_id, task.new_file_id)
             except Exception:
                 log.exception("[error] %s — move failed", filename)
         elif task.change_type == "upsert":
@@ -64,18 +64,17 @@ class Coordinator:
         from .connectors.base import EmbeddingError
         from .models import FileProps
 
-        # Phase 1: fetch — source boundary; mark failed so SyncValidator retries
+        # Phase 1: fetch — source boundary; mark failed so SyncSweeper retries
         try:
             spruce_file = await source.fetch(task, self._manifest)
         except Exception:
             log.exception("[error] %s — fetch failed", filename)
-            file_id = self._manifest.get_file_id_by_ref(task.identifier)
-            if file_id is not None:
-                self._manifest.set_sync_state(file_id, "failed")
+            if task.current_file_id is not None:
+                self._manifest.set_sync_state(task.current_file_id, "failed")
             return
 
         spruce_file.force_upsert = self._model_changed
-        self._manifest.ensure_file_row_exists(spruce_file.file_id, spruce_file.source_ref)
+        self._manifest.ensure_file_row_exists(spruce_file.file_id)
 
         temp_keys: set[tuple[bytes, bytes]] = set()
         memo_stats = [0, 0]
@@ -97,9 +96,8 @@ class Coordinator:
             user_chunks = await self._transform(
                 file_props=FileProps(
                     raw_content=source.decode_content(spruce_file.raw_content),
-                    source_ref=spruce_file.source_ref,
                     display_name=spruce_file.display_name,
-                    modified_at=spruce_file.source_metadata.get("modified_at"),
+                    modified_at=spruce_file.modified_at,
                     file_type=spruce_file.file_type,
                 ),
                 embed=self._embedder.process_chunks,

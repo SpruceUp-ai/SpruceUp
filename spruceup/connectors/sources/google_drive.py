@@ -5,7 +5,6 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from ..base import SourceConnector, SUPPORTED_EXTENSIONS
-from ...utils.hashing import hash_source_ref
 
 # Google Docs are exported as plain text; other Workspace types are not supported.
 _WORKSPACE_EXPORT_MIME: dict[str, str] = {
@@ -125,6 +124,9 @@ class GoogleDriveSource(SourceConnector):
     def is_supported(self, file_identifier: str) -> bool:
         return file_identifier in _WORKSPACE_EXPORT_MIME or file_identifier in _SUPPORTED_MIME_TYPES
 
+    def identifier_from_file_id(self, file_id: str) -> str:
+        return file_id
+
     def create_watcher(self, data_source_id: int):
         from spruceup.monitoring.google_drive_watcher import GoogleDriveWatcher
 
@@ -145,13 +147,12 @@ class GoogleDriveSource(SourceConnector):
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
 
-        drive_file_id = task.identifier
-        file_id = hash_source_ref(drive_file_id)
+        file_id = task.identifier  # Drive file ID is the file_id directly
         service = await asyncio.to_thread(_build_drive_service, self._on_token_expired)
 
         meta = await asyncio.to_thread(
             service.files().get(
-                fileId=drive_file_id,
+                fileId=file_id,
                 fields="name,mimeType,modifiedTime",
             ).execute
         )
@@ -165,20 +166,19 @@ class GoogleDriveSource(SourceConnector):
 
         raw_content = None
         if task.use_manifest_cache:
-            stored_meta = manifest.get_file_metadata(file_id)
-            if stored_meta.get("modified_at") == str(modified_at):
+            if manifest.get_file_modified_at(file_id) == modified_at:
                 raw_content = manifest.get_raw_content(file_id)
 
         if raw_content is None:
             if export_mime:
                 raw_content = await asyncio.to_thread(
                     service.files().export(
-                        fileId=drive_file_id, mimeType=export_mime
+                        fileId=file_id, mimeType=export_mime
                     ).execute
                 )
             elif mime_type in _SUPPORTED_MIME_TYPES:
                 raw_content = await asyncio.to_thread(
-                    service.files().get_media(fileId=drive_file_id).execute
+                    service.files().get_media(fileId=file_id).execute
                 )
             else:
                 raise ValueError(
@@ -190,12 +190,11 @@ class GoogleDriveSource(SourceConnector):
 
         return SpruceFile(
             file_id=file_id,
-            source_ref=drive_file_id,
             display_name=meta["name"],
             content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,
             raw_content=raw_content,
             chunks=[],
-            source_metadata={"modified_at": modified_at},
+            modified_at=modified_at,
         )

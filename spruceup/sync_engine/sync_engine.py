@@ -31,9 +31,9 @@ class SyncEngine:
         log.info("Deleted %d stale chunk(s) from target db", len(target_deletes))
 
     async def reconcile(self, file: SpruceFile) -> None:
-        manifest_upserts: list[tuple[bytes, ChunkWrapper]] = []
+        manifest_upserts: list[tuple[str, ChunkWrapper]] = []
         target_upserts: list[ChunkWrapper] = []
-        manifest_deletes: list[tuple[bytes, bytes]] = []
+        manifest_deletes: list[tuple[str, bytes]] = []
         target_deletes: list[bytes] = []
 
         prev_chunks = self._manifest.get_chunks_for_file(file.file_id)
@@ -53,7 +53,7 @@ class SyncEngine:
                 if not self._manifest.chunk_hash_referenced_elsewhere(h, [file.file_id]):
                     target_deletes.append(h)
 
-        self._manifest.ensure_file_row_exists(file.file_id, file.source_ref)
+        self._manifest.ensure_file_row_exists(file.file_id)
 
         await self._target.sync(target_upserts, target_deletes)
 
@@ -61,22 +61,19 @@ class SyncEngine:
             self._manifest.upsert_chunks(manifest_upserts)
             self._manifest.delete_chunks(manifest_deletes)
             self._manifest.upsert_file_row(file)
-            self._manifest.upsert_file_metadata(file.file_id, file.source_metadata)
 
         log.info(
             "Synced %s — %d upserted  %d deleted",
-            file.source_ref,
+            file.display_name,
             len(target_upserts),
             len(target_deletes),
         )
 
-    async def move_file(self, old_ref: str, new_ref: str) -> None:
-        file_id = self._manifest.get_file_id_by_ref(old_ref)
-        self._manifest.update_file_ref(file_id, new_ref)
-        log.info("Moved manifest row: %s → %s", old_ref, new_ref)
+    async def move_file(self, old_file_id: str, new_file_id: str) -> None:
+        self._manifest.update_file_id(old_file_id, new_file_id)
+        log.info("Moved manifest row: %s → %s", old_file_id, new_file_id)
 
-    async def delete_file(self, source_ref: str) -> None:
-        file_id = self._manifest.get_file_id_by_ref(source_ref)
+    async def delete_file(self, file_id: str) -> None:
         chunks = self._manifest.get_chunks_for_file(file_id)
         content_hashes = [
             c["content_hash"] for c in chunks
@@ -85,4 +82,4 @@ class SyncEngine:
 
         await self._target.sync([], content_hashes)
         self._manifest.delete_file_row(file_id)
-        log.info("Deleted %d chunk(s) for %s", len(content_hashes), source_ref)
+        log.info("Deleted %d chunk(s) for file_id=%s", len(content_hashes), file_id)

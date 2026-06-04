@@ -4,7 +4,6 @@ import pathlib
 
 from watchfiles import awatch, Change
 
-from ..utils.hashing import hash_file_content
 from ..models import SyncTask
 from ..manifest import Manifest
 from .monitor import BaseWatcher
@@ -18,6 +17,8 @@ class LocalFileWatcher(BaseWatcher):
         self._data_source_id = data_source_id
         self._source_type = source_type
         self._is_supported = is_supported
+        # Set of file_ids currently tracked; each encodes inode + path as f"{inode}:{path}"
+        self._known_file_ids: set[str] = set()
 
     @property
     def source_type(self) -> str:
@@ -34,15 +35,16 @@ class LocalFileWatcher(BaseWatcher):
         use_manifest_cache = (
             force_reindex and manifest.get_config_value("file_cache_ready") == "true"
         )
+
+        # inode → (file_id, modified_at) for O(1) per-file lookup during scan
+        by_inode: dict[int, tuple[str, float | None]] = {}
         if not force_reindex:
-            file_records = manifest.get_files_with_metadata(self._data_source_id)
-            by_inode: dict[int, dict] = {
-                int(rec["metadata"]["inode"]): rec
-                for rec in file_records
-                if "inode" in rec["metadata"]
-            }
-        else:
-            by_inode = {}
+            for rec in manifest.get_files_for_source(self._data_source_id):
+                fid = rec["file_id"]
+                try:
+                    by_inode[int(fid.split(":", 1)[0])] = (fid, rec["modified_at"])
+                except (ValueError, IndexError):
+                    pass
 
         seen_inodes: set[int] = set()
         n_skipped = 0
@@ -55,36 +57,67 @@ class LocalFileWatcher(BaseWatcher):
                 continue
             stat = path.stat()
             inode = stat.st_ino
-            current_path_str = str(path)
+            path_str = str(path)
+            new_file_id = f"{inode}:{path_str}"
             seen_inodes.add(inode)
+            self._known_file_ids.add(new_file_id)
 
             if force_reindex:
-                await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id, use_manifest_cache=use_manifest_cache))
+                await queue.put(SyncTask(
+                    self._source_type, path_str, "upsert",
+                    current_file_id=new_file_id,
+                    data_source_id=self._data_source_id,
+                    use_manifest_cache=use_manifest_cache,
+                ))
+                n_upserts += 1
+                continue
+
+            stored = by_inode.get(inode)
+            if stored is None:
+                await queue.put(SyncTask(
+                    self._source_type, path_str, "upsert",
+                    current_file_id=new_file_id,
+                    data_source_id=self._data_source_id,
+                ))
                 n_upserts += 1
             else:
-                db_record = by_inode.get(inode)
-                if db_record is None:
-                    await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
-                    n_upserts += 1
+                stored_file_id, stored_mtime = stored
+                renamed = stored_file_id != new_file_id
+                if stored_mtime is not None and stored_mtime == stat.st_mtime:
+                    if renamed:
+                        # Same inode, same mtime, path changed → rename only, no re-embed
+                        await queue.put(SyncTask(
+                            self._source_type, path_str, "move",
+                            current_file_id=stored_file_id,
+                            new_file_id=new_file_id,
+                            data_source_id=self._data_source_id,
+                        ))
+                        n_moves += 1
                 else:
-                    db_path_val = db_record["source_ref"]
-                    db_hash = db_record["content_hash"]
-                    db_mtime = db_record["metadata"].get("mtime")
-                    if db_mtime is not None and db_mtime == str(stat.st_mtime):
-                        if db_path_val != current_path_str:
-                            await queue.put(SyncTask(self._source_type, current_path_str, "move", old_identifier=db_path_val, data_source_id=self._data_source_id))
-                            n_moves += 1
-                    else:
-                        if db_hash != hash_file_content(path):
-                            await queue.put(SyncTask(self._source_type, current_path_str, "upsert", data_source_id=self._data_source_id))
-                            n_upserts += 1
-                        elif db_path_val != current_path_str:
-                            await queue.put(SyncTask(self._source_type, current_path_str, "move", old_identifier=db_path_val, data_source_id=self._data_source_id))
-                            n_moves += 1
+                    # mtime changed or unknown → content may have changed
+                    if renamed:
+                        await queue.put(SyncTask(
+                            self._source_type, path_str, "move",
+                            current_file_id=stored_file_id,
+                            new_file_id=new_file_id,
+                            data_source_id=self._data_source_id,
+                        ))
+                        n_moves += 1
+                    await queue.put(SyncTask(
+                        self._source_type, path_str, "upsert",
+                        current_file_id=new_file_id,
+                        data_source_id=self._data_source_id,
+                    ))
+                    n_upserts += 1
 
-        for inode, rec in by_inode.items():
+        for inode, (fid, _) in by_inode.items():
             if inode not in seen_inodes:
-                await queue.put(SyncTask(self._source_type, rec["source_ref"], "delete", data_source_id=self._data_source_id))
+                old_path = fid.split(":", 1)[1] if ":" in fid else fid
+                await queue.put(SyncTask(
+                    self._source_type, old_path, "delete",
+                    current_file_id=fid,
+                    data_source_id=self._data_source_id,
+                ))
                 n_deletes += 1
 
         log.info(
@@ -105,30 +138,68 @@ class LocalFileWatcher(BaseWatcher):
             added_paths    = {path for change_type, path in changes if change_type == Change.added}
             modified_paths = {path for change_type, path in changes if change_type == Change.modified}
 
+            # Build path→file_id index from the set for this batch
+            path_to_fid = {fid.split(":", 1)[1]: fid for fid in self._known_file_ids}
+
             added_by_inode: dict[int, str] = {
-                pathlib.Path(path).stat().st_ino: path
-                for path in added_paths
-                if pathlib.Path(path).exists()
+                pathlib.Path(p).stat().st_ino: p
+                for p in added_paths
+                if pathlib.Path(p).exists()
             }
 
-            moves = []
+            # Detect renames: a deleted path whose inode reappears under a new path
+            moves: set[tuple[str, str]] = set()  # {(old_path, new_path)}
             for old_path in deleted_paths:
-                file_id = manifest.get_file_id_by_ref(old_path)
-                meta = manifest.get_file_metadata(file_id)
-                inode = int(meta["inode"]) if meta and "inode" in meta else None
-                if inode is not None and inode in added_by_inode:
-                    moves.append((old_path, added_by_inode[inode]))
+                current_fid = path_to_fid.get(old_path)
+                if current_fid is None:
+                    continue
+                try:
+                    inode = int(current_fid.split(":", 1)[0])
+                except (ValueError, IndexError):
+                    continue
+                new_path = added_by_inode.get(inode)
+                if new_path is not None:
+                    moves.add((old_path, new_path))
 
             moved_old = {old for old, _ in moves}
             moved_new = {new for _, new in moves}
 
             for old_path, new_path in moves:
-                buffer.append(SyncTask(self._source_type, new_path, "move", old_identifier=old_path, data_source_id=self._data_source_id))
+                current_fid = path_to_fid[old_path]
+                new_file_id = f"{current_fid.split(':', 1)[0]}:{new_path}"
+                self._known_file_ids.discard(current_fid)
+                self._known_file_ids.add(new_file_id)
+                buffer.append(SyncTask(
+                    self._source_type, new_path, "move",
+                    current_file_id=current_fid,
+                    new_file_id=new_file_id,
+                    data_source_id=self._data_source_id,
+                ))
+
             for path in deleted_paths - moved_old:
-                buffer.append(SyncTask(self._source_type, path, "delete", data_source_id=self._data_source_id))
+                current_fid = path_to_fid.get(path)
+                if current_fid is not None:
+                    self._known_file_ids.discard(current_fid)
+                    buffer.append(SyncTask(
+                        self._source_type, path, "delete",
+                        current_file_id=current_fid,
+                        data_source_id=self._data_source_id,
+                    ))
+
             for path in (added_paths - moved_new) | modified_paths:
-                if pathlib.Path(path).is_file() and self._is_supported(path):
-                    buffer.append(SyncTask(self._source_type, path, "upsert", data_source_id=self._data_source_id))
+                p = pathlib.Path(path)
+                if p.is_file() and self._is_supported(path):
+                    stat = p.stat()
+                    new_file_id = f"{stat.st_ino}:{path}"
+                    old_fid = path_to_fid.get(path)
+                    if old_fid:
+                        self._known_file_ids.discard(old_fid)
+                    self._known_file_ids.add(new_file_id)
+                    buffer.append(SyncTask(
+                        self._source_type, path, "upsert",
+                        current_file_id=new_file_id,
+                        data_source_id=self._data_source_id,
+                    ))
 
             if catchup_done.is_set():
                 for task in buffer:

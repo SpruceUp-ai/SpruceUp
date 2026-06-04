@@ -4,7 +4,6 @@ import pathlib
 from dataclasses import dataclass
 
 from ..base import SourceConnector, SUPPORTED_EXTENSIONS
-from ...utils.hashing import hash_inode
 
 
 @dataclass
@@ -40,6 +39,9 @@ class LocalFilesSource(SourceConnector):
         from spruceup.monitoring.local_file_watcher import LocalFileWatcher
         return LocalFileWatcher(self.watched_dir, data_source_id, self.source_type, self.is_supported)
 
+    def identifier_from_file_id(self, file_id: str) -> str:
+        return file_id.split(":", 1)[1]
+
     def display_name(self, identifier: str) -> str:
         return pathlib.Path(identifier).name
 
@@ -50,18 +52,12 @@ class LocalFilesSource(SourceConnector):
         from spruceup.models import SpruceFile
         path = task.identifier
         file_stats = os.stat(path)
-        file_id = hash_inode(file_stats.st_ino)
+        file_id = f"{file_stats.st_ino}:{path}"
         file_type = pathlib.Path(path).suffix.lstrip(".")
-        source_metadata = {
-            "inode": file_stats.st_ino,
-            "mtime": file_stats.st_mtime,
-            "modified_at": file_stats.st_mtime,
-        }
 
         raw_content = None
         if task.use_manifest_cache:
-            stored_meta = manifest.get_file_metadata(file_id)
-            if stored_meta.get("mtime") == str(file_stats.st_mtime):
+            if manifest.get_file_modified_at(file_id) == file_stats.st_mtime:
                 raw_content = manifest.get_raw_content(file_id)
         if raw_content is None:
             with open(path, "rb") as f:
@@ -70,12 +66,11 @@ class LocalFilesSource(SourceConnector):
         content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
         return SpruceFile(
             file_id=file_id,
-            source_ref=path,
             display_name=pathlib.Path(path).name,
             content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,
             raw_content=raw_content,
             chunks=[],
-            source_metadata=source_metadata,
+            modified_at=file_stats.st_mtime,
         )
