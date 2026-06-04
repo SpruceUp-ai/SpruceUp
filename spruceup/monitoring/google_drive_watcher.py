@@ -1,7 +1,9 @@
 import asyncio
 import json
 import logging
+import time
 from collections.abc import Callable
+from datetime import datetime
 
 from ..manifest import Manifest
 from ..models import SyncTask
@@ -12,6 +14,12 @@ log = logging.getLogger(__name__)
 _FOLDER_MIME = "application/vnd.google-apps.folder"
 _STATE_PAGE_TOKEN = "page_token"
 _STATE_FOLDER_IDS = "watched_folder_ids"
+
+
+def _parse_drive_time(s: str | None) -> float:
+    if not s:
+        return time.time()
+    return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
 
 
 class GoogleDriveWatcher(BaseWatcher):
@@ -55,9 +63,6 @@ class GoogleDriveWatcher(BaseWatcher):
     async def _full_scan(
         self, service, queue: asyncio.Queue, manifest: "Manifest", use_manifest_cache: bool = False
     ) -> int:
-        """BFS the folder tree, enqueue upserts, anchor the Changes cursor. Returns upsert count."""
-        # Anchor the cursor before the BFS so any changes that race with the
-        # scan are picked up by the first _incremental_scan in _watch.
         token_resp = await asyncio.to_thread(
             service.changes().getStartPageToken().execute
         )
@@ -74,7 +79,7 @@ class GoogleDriveWatcher(BaseWatcher):
             while True:
                 list_kwargs = dict(
                     q=f"'{folder_id}' in parents and trashed = false",
-                    fields="nextPageToken, files(id, mimeType)",
+                    fields="nextPageToken, files(id, mimeType, modifiedTime)",
                     pageSize=100,
                 )
                 if page_token:
@@ -89,7 +94,8 @@ class GoogleDriveWatcher(BaseWatcher):
                         folders_to_scan.append(f["id"])
                     elif self._is_supported(f["mimeType"]):
                         await queue.put(SyncTask(
-                            self._source_type, f["id"], "upsert",
+                            self._source_type, "upsert",
+                            _parse_drive_time(f.get("modifiedTime")),
                             current_file_id=f["id"],
                             data_source_id=self._data_source_id,
                             use_manifest_cache=use_manifest_cache,
@@ -100,13 +106,10 @@ class GoogleDriveWatcher(BaseWatcher):
                 if not page_token:
                     break
 
-        # Persist the full folder ID set so the incremental path can filter
-        # Changes API results (which are Drive-wide) to our subtree.
         manifest.set_source_state(
             self._data_source_id, _STATE_FOLDER_IDS,
             json.dumps(sorted(all_folder_ids)),
         )
-
         manifest.set_source_state(
             self._data_source_id, _STATE_PAGE_TOKEN, start_page_token
         )
@@ -120,7 +123,6 @@ class GoogleDriveWatcher(BaseWatcher):
         manifest: "Manifest",
         stored_token: str,
     ) -> tuple[int, int]:
-        """Drain Changes API since stored_token. Returns (n_upserts, n_deletes)."""
         known_refs = {rec["file_id"] for rec in manifest.get_files_for_source(self._data_source_id)}
 
         folder_ids_str = manifest.get_source_state(self._data_source_id, _STATE_FOLDER_IDS)
@@ -138,7 +140,7 @@ class GoogleDriveWatcher(BaseWatcher):
                     spaces="drive",
                     fields=(
                         "nextPageToken,newStartPageToken,"
-                        "changes(fileId,removed,file(id,parents,trashed,mimeType))"
+                        "changes(fileId,removed,file(id,parents,trashed,mimeType,modifiedTime))"
                     ),
                     pageSize=100,
                 ).execute
@@ -148,21 +150,17 @@ class GoogleDriveWatcher(BaseWatcher):
             for change in response.get("changes", []):
                 file_id = change["fileId"]
                 file_info = change.get("file") or {}
-                # When removed=true the file object is often absent, so mimeType
-                # is unavailable. Use set membership to distinguish files from folders.
                 removed = change.get("removed") or file_info.get("trashed", False)
 
                 if removed:
                     if file_id in known_refs:
                         await queue.put(SyncTask(
-                            self._source_type, file_id, "delete",
+                            self._source_type, "delete", time.time(),
                             current_file_id=file_id,
                             data_source_id=self._data_source_id,
                         ))
                         n_deletes += 1
                     if file_id in watched_folder_ids:
-                        # Drive sends individual removal events for each item
-                        # inside a deleted folder, so just clean up the folder set.
                         watched_folder_ids.discard(file_id)
                         folder_ids_updated = True
                 else:
@@ -171,32 +169,29 @@ class GoogleDriveWatcher(BaseWatcher):
                     in_tree = bool(parents & watched_folder_ids)
 
                     if mime == _FOLDER_MIME:
-                        # New subfolder appeared in our tree — register it immediately
-                        # so files added to it later on this same page pass in_tree.
                         if in_tree and file_id not in watched_folder_ids:
                             watched_folder_ids.add(file_id)
                             folder_ids_updated = True
                     else:
+                        modified_at = _parse_drive_time(file_info.get("modifiedTime"))
                         if file_id in known_refs:
                             if in_tree and self._is_supported(mime):
                                 await queue.put(SyncTask(
-                                    self._source_type, file_id, "upsert",
+                                    self._source_type, "upsert", modified_at,
                                     current_file_id=file_id,
                                     data_source_id=self._data_source_id,
                                 ))
                                 n_upserts += 1
                             else:
-                                # File moved out of the watched tree, or its MIME
-                                # type changed to something unsupported.
                                 await queue.put(SyncTask(
-                                    self._source_type, file_id, "delete",
+                                    self._source_type, "delete", time.time(),
                                     current_file_id=file_id,
                                     data_source_id=self._data_source_id,
                                 ))
                                 n_deletes += 1
                         elif in_tree and self._is_supported(mime):
                             await queue.put(SyncTask(
-                                self._source_type, file_id, "upsert",
+                                self._source_type, "upsert", modified_at,
                                 current_file_id=file_id,
                                 data_source_id=self._data_source_id,
                             ))

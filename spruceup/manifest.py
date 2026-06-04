@@ -74,13 +74,15 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS files (
-                id             TEXT PRIMARY KEY,
-                content_hash   BLOB,
-                data_source_id INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
-                file_type      TEXT,
-                raw_content    BLOB,
-                modified_at    REAL,
-                sync_state     TEXT NOT NULL DEFAULT 'in_flight'
+                id                  TEXT PRIMARY KEY,
+                content_hash        BLOB,
+                data_source_id      INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
+                file_type           TEXT,
+                raw_content         BLOB,
+                modified_at         REAL,
+                sync_state          TEXT NOT NULL DEFAULT 'in_flight',
+                last_change_type    TEXT,
+                pending_new_file_id TEXT
             )
             """
         )
@@ -335,13 +337,35 @@ class Manifest:
             "UPDATE files SET sync_state = ? WHERE id = ?", (state, file_id)
         )
 
-    def get_failed_files(self, data_source_id: int) -> list[tuple[str, int]]:
+    def mark_failed(
+        self,
+        file_id: str,
+        change_type: str,
+        pending_new_file_id: str | None = None,
+    ) -> None:
+        self._conn.execute(
+            """UPDATE files
+               SET sync_state = 'failed',
+                   last_change_type = ?,
+                   pending_new_file_id = ?
+               WHERE id = ?""",
+            (change_type, pending_new_file_id, file_id),
+        )
+
+    def get_failed_files(self) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT id, data_source_id FROM files "
-            "WHERE data_source_id = ? AND sync_state = 'failed'",
-            (data_source_id,),
+            "SELECT id, data_source_id, last_change_type, pending_new_file_id "
+            "FROM files WHERE sync_state = 'failed'",
         ).fetchall()
-        return [(row[0], row[1]) for row in rows]
+        return [
+            {
+                "file_id": row[0],
+                "data_source_id": row[1],
+                "change_type": row[2],
+                "pending_new_file_id": row[3],
+            }
+            for row in rows
+        ]
 
     def register_source(self, source_type: str, source_identifier: str) -> int:
         self._conn.execute(

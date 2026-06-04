@@ -1,18 +1,15 @@
+import asyncio
 import logging
 
-from .models import ChunkWrapper
-from .models import SyncTask
-from .utils.hashing import hash_chunk_content
+from .connectors.base import EmbedderConnector
+from .models import ChunkWrapper, SyncTask
 from .sync_engine import SyncEngine
+from .utils.hashing import hash_chunk_content
 from .utils.validation import validate_schema_objects
-from .connectors.base import EmbedderConnector 
-import asyncio
 
 log = logging.getLogger(__name__)
 
 class Coordinator:
-    """Long-lived service that pulls SyncTasks from the queue and drives the pipeline."""
-
     def __init__(
         self,
         queue: object,
@@ -36,21 +33,25 @@ class Coordinator:
 
     async def process_task(self, task: SyncTask) -> None:
         source = self._source_registry[task.data_source_id]
-        filename = source.display_name(task.identifier)
         if task.change_type == "delete":
+            filename = source.display_name(source.identifier_from_file_id(task.current_file_id))
             try:
                 log.info("[delete] %s", filename)
                 await self._sync_engine.delete_file(task.current_file_id)
             except Exception:
                 log.exception("[error] %s — delete failed", filename)
+                self._manifest.mark_failed(task.current_file_id, task.change_type)
         elif task.change_type == "move":
+            old_name = source.display_name(source.identifier_from_file_id(task.current_file_id))
+            new_name = source.display_name(source.identifier_from_file_id(task.new_file_id))
             try:
-                old_name = source.display_name(source.identifier_from_file_id(task.current_file_id))
-                log.info("[move] %s → %s", old_name, filename)
+                log.info("[move] %s → %s", old_name, new_name)
                 await self._sync_engine.move_file(task.current_file_id, task.new_file_id)
             except Exception:
-                log.exception("[error] %s — move failed", filename)
+                log.exception("[error] %s — move failed", new_name)
+                self._manifest.mark_failed(task.current_file_id, task.change_type, task.new_file_id)
         elif task.change_type == "upsert":
+            filename = source.display_name(source.identifier_from_file_id(task.current_file_id))
             log.info("[upsert] %s — transforming …", filename)
             await self.upsert_file(task, filename, source)
 
@@ -64,13 +65,12 @@ class Coordinator:
         from .connectors.base import EmbeddingError
         from .models import FileProps
 
-        # Phase 1: fetch — source boundary; mark failed so SyncSweeper retries
+        # Phase 1: fetch
         try:
             spruce_file = await source.fetch(task, self._manifest)
         except Exception:
             log.exception("[error] %s — fetch failed", filename)
-            if task.current_file_id is not None:
-                self._manifest.set_sync_state(task.current_file_id, "failed")
+            self._manifest.mark_failed(task.current_file_id, task.change_type)
             return
 
         spruce_file.force_upsert = self._model_changed
@@ -90,8 +90,7 @@ class Coordinator:
         _embed_used_hashes_var.set(embed_used_hashes)
         _embed_stats_var.set(embed_stats)
 
-        # Phase 2: transform (includes embed) — EmbeddingError is caught and marked
-        # failed; all other exceptions propagate and crash the app (user code bugs)
+        # Phase 2: transform (includes embed)
         try:
             user_chunks = await self._transform(
                 file_props=FileProps(
@@ -104,7 +103,11 @@ class Coordinator:
             )
         except EmbeddingError:
             log.exception("[error] %s — embedding failed", filename)
-            self._manifest.set_sync_state(spruce_file.file_id, "failed")
+            self._manifest.mark_failed(spruce_file.file_id, task.change_type)
+            return
+        except Exception:
+            log.exception("[error] %s — transform failed", filename)
+            self._manifest.mark_failed(spruce_file.file_id, task.change_type)
             return
 
         if memo_stats[1] > 0:
@@ -127,12 +130,12 @@ class Coordinator:
         ]
         spruce_file.chunks = chunks
 
-        # Phase 3: reconcile — target boundary; mark failed on error
+        # Phase 3: reconcile
         try:
             await self._sync_engine.reconcile(spruce_file)
         except Exception:
             log.exception("[error] %s — reconcile failed", filename)
-            self._manifest.set_sync_state(spruce_file.file_id, "failed")
+            self._manifest.mark_failed(spruce_file.file_id, task.change_type)
             return
 
         self._manifest.set_sync_state(spruce_file.file_id, "synced")
@@ -140,16 +143,10 @@ class Coordinator:
     async def run(self) -> None:
         while True:
             next_task: SyncTask = await self._queue.get()
-            # Bound concurrent in-flight file tasks so peak memory (file bytes +
-            # frames + embeddings) does not grow with corpus size.
             await self._semaphore.acquire()
             asyncio_task = asyncio.create_task(self._process_and_release(next_task))
             self._active_tasks.add(asyncio_task)
             asyncio_task.add_done_callback(self._active_tasks.discard)
-            # Queue.get() only suspends when the queue is empty, so during catch-up
-            # all N tasks are created before any run.  Yielding here lets each task
-            # start (and the embedding batcher's flusher fire) before the next task
-            # is created, so batches roll rather than all files piling up at once.
             await asyncio.sleep(0)
 
     async def _process_and_release(self, task: SyncTask) -> None:
