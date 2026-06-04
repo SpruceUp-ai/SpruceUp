@@ -50,7 +50,7 @@ class LocalFilesSource(SourceConnector):
 
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
-        path = task.identifier
+        path = self.identifier_from_file_id(task.current_file_id)
         file_stats = os.stat(path)
         file_id = f"{file_stats.st_ino}:{path}"
         file_type = pathlib.Path(path).suffix.lstrip(".")

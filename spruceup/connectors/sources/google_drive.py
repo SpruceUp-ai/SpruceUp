@@ -147,7 +147,7 @@ class GoogleDriveSource(SourceConnector):
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
 
-        file_id = task.identifier  # Drive file ID is the file_id directly
+        file_id = task.current_file_id
         service = await asyncio.to_thread(_build_drive_service, self._on_token_expired)
 
         meta = await asyncio.to_thread(

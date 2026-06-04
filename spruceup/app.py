@@ -3,6 +3,7 @@ import logging
 
 from spruceup.connectors.embedders.embedding_batcher import EmbeddingBatcher
 from spruceup.coordinator import Coordinator
+from spruceup.debounce_queue import DebounceQueue
 from spruceup.manifest import Manifest
 from spruceup.memoize.decorator import _memoize_fn_hashes
 from spruceup.monitoring.monitor import Monitor
@@ -57,7 +58,7 @@ async def run(pipeline) -> None:
 
         manifest.reset_in_flight_to_failed()
 
-        queue: asyncio.Queue = asyncio.Queue()
+        queue: DebounceQueue = DebounceQueue()
 
         monitor = Monitor(queue, manifest)
         active_source_ids = []
@@ -103,9 +104,7 @@ async def run(pipeline) -> None:
                 manifest.update_transform_hash(transform_hash)
                 manifest.update_memoize_fn_hashes(_memoize_fn_hashes)
                 manifest.set_config_value("embedding_model", config.embedder.model)
-                n_failed = sum(
-                    len(manifest.get_failed_files(ds_id)) for ds_id in active_source_ids
-                )
+                n_failed = len(manifest.get_failed_files())
                 if n_failed:
                     log.warning(
                         "Reindex complete with %d failed file(s) — "
