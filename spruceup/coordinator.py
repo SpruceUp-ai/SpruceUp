@@ -21,7 +21,7 @@ class Coordinator:
         target: TargetConnector,
         source_registry: dict,
         max_concurrency: int = 32,
-        model_changed: bool = False,
+        force_upsert: bool = False,
     ):
         self._queue = queue
         self._transform = transform
@@ -30,7 +30,7 @@ class Coordinator:
         self._manifest = manifest
         self._target = target
         self._source_registry = source_registry
-        self._model_changed = model_changed
+        self._force_upsert = force_upsert
         self._active_tasks = set()
         self._semaphore = asyncio.Semaphore(max_concurrency)
 
@@ -67,7 +67,7 @@ class Coordinator:
             self._manifest.mark_failed(task.current_file_id, task.change_type)
             return
 
-        spruce_file.force_upsert = self._model_changed
+        spruce_file.force_upsert = self._force_upsert
         self._manifest.ensure_file_row_exists(spruce_file.file_id)
 
         temp_keys: set[tuple[bytes, bytes]] = set()

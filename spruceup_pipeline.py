@@ -121,6 +121,7 @@ config = defineConfig(
         connstr=_PG_CONNSTR,
         table="data_chunks",
         schema=LectureChunk,
+        vector_column="chunk_embedding",
     ),
     embedder=OpenAIEmbedder(
         api_key=_OPENAI_API_KEY,

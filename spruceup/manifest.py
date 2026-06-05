@@ -18,6 +18,9 @@ def _unpack_embedding(blob: bytes) -> list[float]:
 _CONFIG_KEYS: frozenset[str] = frozenset({
     "file_cache_ready",
     "embedding_model",
+    "embedding_dimensions",
+    "target_identity",
+    "schema_fingerprint",
 })
 
 
