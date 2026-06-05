@@ -100,7 +100,11 @@ class WeaviateTarget(TargetConnector):
             )
         self._collection = client.collections.get(self.collection_name)
 
-    def _sync_blocking(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
+    @staticmethod
+    def _row_uuid(file_id: str, chunk_hash: bytes) -> str:
+        return str(uuid.uuid5(uuid.NAMESPACE_OID, f"{file_id}:{chunk_hash.hex()}"))
+
+    def _sync_blocking(self, file_id: str, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         collection = self._collection
         hints = typing.get_type_hints(self._schema)
         vec_col = _vector_field(hints)
@@ -108,7 +112,7 @@ class WeaviateTarget(TargetConnector):
         if deletes:
             collection.data.delete_many(
                 where=wvc.query.Filter.by_id().contains_any(
-                    [str(uuid.UUID(bytes=h)) for h in deletes]
+                    [self._row_uuid(file_id, h) for h in deletes]
                 )
             )
 
@@ -117,7 +121,7 @@ class WeaviateTarget(TargetConnector):
                 for chunk in upserts:
                     batch.add_object(
                         collection=self.collection_name,
-                        uuid=str(uuid.UUID(bytes=chunk.user_chunk_object_hash)),
+                        uuid=self._row_uuid(file_id, chunk.user_chunk_object_hash),
                         properties={
                             col: getattr(chunk.user_chunk, col)
                             for col in hints
@@ -126,8 +130,8 @@ class WeaviateTarget(TargetConnector):
                         vector=getattr(chunk.user_chunk, vec_col),
                     )
 
-    async def sync(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
-        await asyncio.to_thread(self._sync_blocking, upserts, deletes)
+    async def sync(self, file_id: str, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
+        await asyncio.to_thread(self._sync_blocking, file_id, upserts, deletes)
 
     async def aclose(self) -> None:
         if self._client is not None:

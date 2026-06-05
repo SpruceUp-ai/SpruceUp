@@ -41,15 +41,6 @@ class Coordinator:
             except Exception:
                 log.exception("[error] %s — delete failed", filename)
                 self._manifest.mark_failed(task.current_file_id, task.change_type)
-        elif task.change_type == "move":
-            old_name = source.display_name(source.identifier_from_file_id(task.current_file_id))
-            new_name = source.display_name(source.identifier_from_file_id(task.new_file_id))
-            try:
-                log.info("[move] %s → %s", old_name, new_name)
-                await self._sync_engine.move_file(task.current_file_id, task.new_file_id)
-            except Exception:
-                log.exception("[error] %s — move failed", new_name)
-                self._manifest.mark_failed(task.current_file_id, task.change_type, task.new_file_id)
         elif task.change_type == "upsert":
             filename = source.display_name(source.identifier_from_file_id(task.current_file_id))
             log.info("[upsert] %s — transforming …", filename)

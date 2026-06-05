@@ -31,9 +31,8 @@ class SpruceFile:
 @dataclass
 class SyncTask:
     source_type: str          # "local", "google_drive", etc.
-    change_type: str          # "upsert" | "delete" | "move"
+    change_type: str          # "upsert" | "delete"
     modified_at: float        # Unix epoch of the file change; used for stale-task detection
-    current_file_id: str | None = field(default=None)  # file_id before this action (delete: file to remove; move: old id; upsert: current id)
-    new_file_id: str | None = field(default=None)       # for move: file_id after rename
+    current_file_id: str | None = field(default=None)
     data_source_id: int = field(default=0)
     use_manifest_cache: bool = field(default=False)

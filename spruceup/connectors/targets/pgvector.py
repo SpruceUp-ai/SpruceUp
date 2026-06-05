@@ -74,7 +74,7 @@ class PgVectorTarget(TargetConnector):
                 self._pool = pool
         return self._pool
 
-    async def sync(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
+    async def sync(self, file_id: str, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         pool = await self._get_pool()
         async with pool.connection() as conn:
             if upserts:
@@ -88,7 +88,7 @@ class PgVectorTarget(TargetConnector):
                     f"ON CONFLICT (id) DO NOTHING"
                 )
                 rows = [
-                    [chunk.user_chunk_object_hash.hex()] + [getattr(chunk.user_chunk, col) for col in col_names]
+                    [f"{file_id}:{chunk.user_chunk_object_hash.hex()}"] + [getattr(chunk.user_chunk, col) for col in col_names]
                     for chunk in upserts
                 ]
                 async with conn.cursor() as cur:
@@ -98,7 +98,7 @@ class PgVectorTarget(TargetConnector):
                 placeholders = ", ".join(["%s"] * len(deletes))
                 await conn.execute(
                     f"DELETE FROM {self.table} WHERE id IN ({placeholders})",
-                    [h.hex() for h in deletes],
+                    [f"{file_id}:{h.hex()}" for h in deletes],
                 )
 
     async def aclose(self) -> None:
