@@ -1,11 +1,13 @@
 import asyncio
 import logging
+import time
 
 from spruceup.connectors.embedders.embedding_batcher import EmbeddingBatcher
 from spruceup.coordinator import Coordinator
 from spruceup.debounce_queue import DebounceQueue
 from spruceup.manifest import Manifest
 from spruceup.memoize.decorator import _memoize_fn_hashes
+from spruceup.models import SyncTask
 from spruceup.monitoring.monitor import Monitor
 from spruceup.sync_engine import SyncEngine
 from spruceup.sync_sweeper import SyncSweeper
@@ -107,7 +109,6 @@ async def run(pipeline) -> None:
             active_source_ids.append(data_source_id)
             source_registry[data_source_id] = source
             monitor.add_watcher(source.create_watcher(data_source_id))
-        await sync_engine.delete_stale_sources(active_source_ids)
 
         embedder = EmbeddingBatcher(config.embedder)
 
@@ -133,6 +134,19 @@ async def run(pipeline) -> None:
         monitor_task = asyncio.create_task(monitor.run(force_reindex, startup_done))
         coordinator_task = asyncio.create_task(coordinator.run())
         sync_sweeper_task = asyncio.create_task(sync_sweeper.run())
+
+        # Files whose source was removed from the config are deleted as ordinary
+        # delete tasks — same path as any delete, so the sweeper retries
+        # failures. Enqueued after the coordinator starts so a large backlog
+        # drains instead of filling the bounded queue. Empty source rows left by
+        # prior completed removals are purged lazily here.
+        manifest.purge_empty_inactive_sources(active_source_ids)
+        for rec in manifest.get_orphaned_files(active_source_ids):
+            await queue.put(SyncTask(
+                "", "delete", time.time(),
+                current_file_id=rec["file_id"],
+                data_source_id=rec["data_source_id"],
+            ))
 
         await startup_done.wait()
         watched = ", ".join(repr(source) for source in config.sources)

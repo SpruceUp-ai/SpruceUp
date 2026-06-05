@@ -268,18 +268,25 @@ class Manifest:
     def delete_file_row(self, file_id: str) -> None:
         self._conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
 
-    def get_orphaned_file_ids(self, active_source_ids: list[int]) -> list[str]:
+    def get_orphaned_files(self, active_source_ids: list[int]) -> list[dict]:
         placeholders = ",".join("?" * len(active_source_ids))
         cursor = self._conn.execute(
-            f"SELECT id FROM files WHERE data_source_id NOT IN ({placeholders})",
+            f"SELECT id, data_source_id FROM files WHERE data_source_id NOT IN ({placeholders})",
             active_source_ids,
         )
-        return [row[0] for row in cursor]
+        return [{"file_id": row[0], "data_source_id": row[1]} for row in cursor]
 
-    def purge_inactive_sources(self, active_source_ids: list[int]) -> None:
+    def purge_empty_inactive_sources(self, active_source_ids: list[int]) -> None:
+        # Drop inactive sources that no longer have any files. A source whose
+        # delete is still pending keeps its files (and so its row) until the
+        # sweeper drains them, then it's purged on a later startup.
         placeholders = ",".join("?" * len(active_source_ids))
         self._conn.execute(
-            f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
+            f"DELETE FROM data_sources "
+            f"WHERE id NOT IN ({placeholders}) "
+            f"AND id NOT IN ("
+            f"SELECT data_source_id FROM files WHERE data_source_id IS NOT NULL"
+            f")",
             active_source_ids,
         )
 

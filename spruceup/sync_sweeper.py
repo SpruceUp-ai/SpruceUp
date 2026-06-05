@@ -32,25 +32,27 @@ class SyncSweeper:
     async def _requeue_failed(self) -> None:
         use_manifest_cache = self._manifest.get_config_value("file_cache_ready") == "true"
         records = self._manifest.get_failed_files()
+        requeued = 0
         for rec in records:
             file_id = rec["file_id"]
             ds_id = rec["data_source_id"]
             change_type = rec["change_type"] or "upsert"
             source = self._source_registry.get(ds_id)
-            if source is None:
-                continue
             if change_type == "delete":
+                # A delete needs no source — its source may have been removed.
                 await self._queue.put(SyncTask(
-                    source.source_type, "delete", time.time(),
+                    "", "delete", time.time(),
                     current_file_id=file_id,
                     data_source_id=ds_id,
                 ))
-            else:
+                requeued += 1
+            elif source is not None:
                 await self._queue.put(SyncTask(
                     source.source_type, "upsert", time.time(),
                     current_file_id=file_id,
                     data_source_id=ds_id,
                     use_manifest_cache=use_manifest_cache,
                 ))
-        if records:
-            log.info("Sync sweeper — re-enqueuing %d failed file(s)", len(records))
+                requeued += 1
+        if requeued:
+            log.info("Sync sweeper — re-enqueuing %d failed file(s)", requeued)
