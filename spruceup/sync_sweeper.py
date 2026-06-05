@@ -24,7 +24,10 @@ class SyncSweeper:
         while True:
             await self._queue.join()
             await asyncio.sleep(self._interval)
-            await self._requeue_failed()
+            try:
+                await self._requeue_failed()
+            except Exception:
+                log.exception("Sync sweeper error — will retry next interval")
 
     async def _requeue_failed(self) -> None:
         use_manifest_cache = self._manifest.get_config_value("file_cache_ready") == "true"

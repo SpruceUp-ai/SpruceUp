@@ -1,7 +1,8 @@
 import asyncio
 import logging
 
-from .connectors.base import EmbedderConnector
+from .connectors.base import EmbedderConnector, TargetConnector
+from .manifest import Manifest
 from .models import ChunkWrapper, SyncTask
 from .sync_engine import SyncEngine
 from .utils.hashing import hash_chunk_content
@@ -16,6 +17,8 @@ class Coordinator:
         transform,
         embedder: EmbedderConnector,
         sync_engine: SyncEngine,
+        manifest: Manifest,
+        target: TargetConnector,
         source_registry: dict,
         max_concurrency: int = 32,
         model_changed: bool = False,
@@ -24,8 +27,8 @@ class Coordinator:
         self._transform = transform
         self._embedder = embedder
         self._sync_engine = sync_engine
-        self._target = sync_engine._target
-        self._manifest = sync_engine._manifest
+        self._manifest = manifest
+        self._target = target
         self._source_registry = source_registry
         self._model_changed = model_changed
         self._active_tasks = set()

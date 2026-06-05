@@ -25,12 +25,15 @@ class Manifest:
     """Single access point for all SQLite manifest reads and writes."""
 
     def __init__(self, path: str = _MANIFEST_PATH):
-        self._path = path
-        self._conn = sqlite3.connect(self._path, autocommit=True)
+        self.path = path
+        self._conn = sqlite3.connect(self.path, autocommit=True)
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.execute("PRAGMA journal_mode = WAL")
         self._conn.execute("PRAGMA busy_timeout = 5000")
         self._init_db()
+
+    def close(self) -> None:
+        self._conn.close()
 
     # ------------------------------------------------------------------
     # Schema init

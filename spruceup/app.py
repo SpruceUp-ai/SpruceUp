@@ -21,7 +21,7 @@ async def run(pipeline) -> None:
 
     log.info(
         "SpruceUp starting — manifest=%s  target=%s",
-        manifest._path, config.target.display_name,
+        manifest.path, config.target.display_name,
     )
 
     transform_hash = hash_transform(config.transform)
@@ -77,6 +77,8 @@ async def run(pipeline) -> None:
             transform=config.transform,
             embedder=embedder,
             sync_engine=sync_engine,
+            manifest=manifest,
+            target=config.target,
             source_registry=source_registry,
             model_changed=model_changed,
         )
@@ -131,4 +133,4 @@ async def run(pipeline) -> None:
         await config.target.aclose()
         if embedder is not None:
             await embedder.aclose()
-        manifest._conn.close()
+        manifest.close()

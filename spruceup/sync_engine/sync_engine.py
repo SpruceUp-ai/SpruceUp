@@ -50,13 +50,14 @@ class SyncEngine:
 
         self._manifest.ensure_file_row_exists(file.file_id)
 
+        stored = self._manifest.get_file_modified_at(file.file_id)
+        if stored is not None and file.modified_at < stored:
+            log.debug("[stale] %s — reconcile aborted", file.display_name)
+            return
+
         await self._target.sync(file.file_id, target_upserts, target_deletes)
 
         with self._manifest.transaction():
-            stored = self._manifest.get_file_modified_at(file.file_id)
-            if stored is not None and file.modified_at < stored:
-                log.debug("[stale] %s — reconcile aborted", file.display_name)
-                return
             self._manifest.upsert_chunks(manifest_upserts)
             self._manifest.delete_chunks(manifest_deletes)
             self._manifest.upsert_file_row(file)
