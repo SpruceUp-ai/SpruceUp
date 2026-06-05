@@ -42,13 +42,6 @@ class SyncSweeper:
                     current_file_id=file_id,
                     data_source_id=ds_id,
                 ))
-            elif change_type == "move":
-                await self._queue.put(SyncTask(
-                    source.source_type, "move", time.time(),
-                    current_file_id=file_id,
-                    new_file_id=rec["pending_new_file_id"],
-                    data_source_id=ds_id,
-                ))
             else:
                 await self._queue.put(SyncTask(
                     source.source_type, "upsert", time.time(),

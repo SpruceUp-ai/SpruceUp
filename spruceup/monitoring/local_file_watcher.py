@@ -31,7 +31,7 @@ class LocalFileWatcher(BaseWatcher):
         force_reindex: bool = False,
     ) -> None:
         log.info("Scanning %s …", self._root_path)
-        n_upserts = n_moves = n_deletes = 0
+        n_upserts = n_deletes = 0
         use_manifest_cache = (
             force_reindex and manifest.get_config_value("file_cache_ready") == "true"
         )
@@ -82,24 +82,21 @@ class LocalFileWatcher(BaseWatcher):
             else:
                 stored_file_id, stored_mtime = stored
                 renamed = stored_file_id != new_file_id
-                if stored_mtime is not None and stored_mtime == stat.st_mtime:
-                    if renamed:
-                        await queue.put(SyncTask(
-                            self._source_type, "move", stat.st_mtime,
-                            current_file_id=stored_file_id,
-                            new_file_id=new_file_id,
-                            data_source_id=self._data_source_id,
-                        ))
-                        n_moves += 1
-                else:
-                    if renamed:
-                        await queue.put(SyncTask(
-                            self._source_type, "move", stat.st_mtime,
-                            current_file_id=stored_file_id,
-                            new_file_id=new_file_id,
-                            data_source_id=self._data_source_id,
-                        ))
-                        n_moves += 1
+                if renamed:
+                    await queue.put(SyncTask(
+                        self._source_type, "delete",
+                        stored_mtime if stored_mtime is not None else time.time(),
+                        current_file_id=stored_file_id,
+                        data_source_id=self._data_source_id,
+                    ))
+                    n_deletes += 1
+                    await queue.put(SyncTask(
+                        self._source_type, "upsert", stat.st_mtime,
+                        current_file_id=new_file_id,
+                        data_source_id=self._data_source_id,
+                    ))
+                    n_upserts += 1
+                elif stored_mtime is None or stored_mtime != stat.st_mtime:
                     await queue.put(SyncTask(
                         self._source_type, "upsert", stat.st_mtime,
                         current_file_id=new_file_id,
@@ -118,8 +115,8 @@ class LocalFileWatcher(BaseWatcher):
                 n_deletes += 1
 
         log.info(
-            "Catch-up complete — %d upsert(s)  %d move(s)  %d delete(s)  %d skipped",
-            n_upserts, n_moves, n_deletes, n_skipped,
+            "Catch-up complete — %d upsert(s)  %d delete(s)  %d skipped",
+            n_upserts, n_deletes, n_skipped,
         )
         if n_skipped:
             log.info(
@@ -174,9 +171,13 @@ class LocalFileWatcher(BaseWatcher):
                 self._known_file_ids.discard(current_fid)
                 self._known_file_ids.add(new_file_id)
                 buffer.append(SyncTask(
-                    self._source_type, "move", mtime,
+                    self._source_type, "delete", mtime,
                     current_file_id=current_fid,
-                    new_file_id=new_file_id,
+                    data_source_id=self._data_source_id,
+                ))
+                buffer.append(SyncTask(
+                    self._source_type, "upsert", mtime,
+                    current_file_id=new_file_id,
                     data_source_id=self._data_source_id,
                 ))
 
@@ -214,10 +215,9 @@ class LocalFileWatcher(BaseWatcher):
                 for task in buffer:
                     await queue.put(task)
                 n_upserts = sum(1 for t in buffer if t.change_type == "upsert")
-                n_moves   = sum(1 for t in buffer if t.change_type == "move")
                 n_deletes = sum(1 for t in buffer if t.change_type == "delete")
                 buffer.clear()
                 log.info(
-                    "Change detected — %d upsert(s)  %d move(s)  %d delete(s)",
-                    n_upserts, n_moves, n_deletes,
+                    "Change detected — %d upsert(s)  %d delete(s)",
+                    n_upserts, n_deletes,
                 )

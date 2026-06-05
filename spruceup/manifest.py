@@ -81,8 +81,7 @@ class Manifest:
                 raw_content         BLOB,
                 modified_at         REAL,
                 sync_state          TEXT NOT NULL DEFAULT 'in_flight',
-                last_change_type    TEXT,
-                pending_new_file_id TEXT
+                last_change_type    TEXT
             )
             """
         )
@@ -181,7 +180,7 @@ class Manifest:
             "SELECT user_chunk_object_hash FROM chunks WHERE file_id = ?",
             (file_id,),
         )
-        return [{"content_hash": row[0]} for row in cursor]
+        return [{"user_chunk_object_hash": row[0]} for row in cursor]
 
     def upsert_chunks(self, chunks: list[tuple[str, ChunkWrapper]]) -> None:
         if not chunks:
@@ -252,18 +251,7 @@ class Manifest:
             )
             self._conn.execute("DELETE FROM files WHERE id = ?", (old_id,))
 
-    def chunk_hash_referenced_elsewhere(
-        self,
-        content_hash: bytes,
-        exclude_file_ids: list[str],
-    ) -> bool:
-        placeholders = ",".join("?" * len(exclude_file_ids))
-        return self._conn.execute(
-            f"SELECT 1 FROM chunks WHERE user_chunk_object_hash = ? AND file_id NOT IN ({placeholders})",
-            [content_hash, *exclude_file_ids],
-        ).fetchone() is not None
-
-    def delete_chunks(self, chunk_keys: list[tuple[bytes, bytes]]) -> None:
+    def delete_chunks(self, chunk_keys: list[tuple[str, bytes]]) -> None:
         if not chunk_keys:
             return
         self._conn.executemany(
@@ -337,24 +325,18 @@ class Manifest:
             "UPDATE files SET sync_state = ? WHERE id = ?", (state, file_id)
         )
 
-    def mark_failed(
-        self,
-        file_id: str,
-        change_type: str,
-        pending_new_file_id: str | None = None,
-    ) -> None:
+    def mark_failed(self, file_id: str, change_type: str) -> None:
         self._conn.execute(
             """UPDATE files
                SET sync_state = 'failed',
-                   last_change_type = ?,
-                   pending_new_file_id = ?
+                   last_change_type = ?
                WHERE id = ?""",
-            (change_type, pending_new_file_id, file_id),
+            (change_type, file_id),
         )
 
     def get_failed_files(self) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT id, data_source_id, last_change_type, pending_new_file_id "
+            "SELECT id, data_source_id, last_change_type "
             "FROM files WHERE sync_state = 'failed'",
         ).fetchall()
         return [
@@ -362,7 +344,6 @@ class Manifest:
                 "file_id": row[0],
                 "data_source_id": row[1],
                 "change_type": row[2],
-                "pending_new_file_id": row[3],
             }
             for row in rows
         ]

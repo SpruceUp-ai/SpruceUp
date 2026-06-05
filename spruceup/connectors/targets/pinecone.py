@@ -63,7 +63,7 @@ class PineconeTarget(TargetConnector):
             )
         self._index = pc.Index(self.index_name)
 
-    async def sync(self, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
+    async def sync(self, file_id: str, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         index = self._index
         hints = typing.get_type_hints(self._schema)
         vector_col = _vector_field(hints)
@@ -71,7 +71,7 @@ class PineconeTarget(TargetConnector):
         if upserts:
             vectors = [
                 {
-                    "id": chunk.user_chunk_object_hash.hex(),
+                    "id": f"{file_id}:{chunk.user_chunk_object_hash.hex()}",
                     "values": getattr(chunk.user_chunk, vector_col),
                     "metadata": {
                         col: getattr(chunk.user_chunk, col)
@@ -84,4 +84,4 @@ class PineconeTarget(TargetConnector):
             await asyncio.to_thread(index.upsert, vectors=vectors, namespace=self.namespace)
 
         if deletes:
-            await asyncio.to_thread(index.delete, ids=[h.hex() for h in deletes], namespace=self.namespace)
+            await asyncio.to_thread(index.delete, ids=[f"{file_id}:{h.hex()}" for h in deletes], namespace=self.namespace)
