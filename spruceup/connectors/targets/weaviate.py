@@ -9,6 +9,7 @@ import weaviate.classes as wvc
 
 from ..base import TargetConnector
 from ...models import ChunkWrapper
+from ...utils.schema import schema_hints, validate_vector_column
 
 
 _PY_TO_WV: dict[type, Any] = {
@@ -29,24 +30,20 @@ def _py_to_wv_type(tp) -> Any | None:
     return _PY_TO_WV.get(tp, wvc.config.DataType.TEXT)
 
 
-def _vector_field(hints: dict) -> str:
-    for col, tp in hints.items():
-        if typing.get_origin(tp) is list and typing.get_args(tp) == (float,):
-            return col
-    raise ValueError("Schema has no list[float] field for the embedding vector")
-
-
 class WeaviateTarget(TargetConnector):
     def __init__(
         self,
         collection_name: str,
         schema: type,
+        vector_column: str,
         url: str = "http://localhost:8080",
         cluster_url: str | None = None,
         api_key: str | None = None,
     ) -> None:
+        validate_vector_column(schema, vector_column)
         self.collection_name = collection_name
         self._schema = schema
+        self._vector_column = vector_column
         self.url = url
         self.cluster_url = cluster_url
         self.api_key = api_key
@@ -60,6 +57,13 @@ class WeaviateTarget(TargetConnector):
     @property
     def schema(self) -> type:
         return self._schema
+
+    @property
+    def vector_column(self) -> str:
+        return self._vector_column
+
+    def identity(self) -> str:
+        return f"weaviate:{self.cluster_url or self.url}:{self.collection_name}"
 
     def _get_client(self) -> Any:
         if self._client is not None:
@@ -78,16 +82,18 @@ class WeaviateTarget(TargetConnector):
             )
         return self._client
 
-    def ensure_table_exists(self, embedding_dimensions: int) -> None: # Weaviate doesn't have a dimensions config. It infers it from the first vector inserted.
+    def ensure_table_exists(self, embedding_dimensions: int, recreate: bool = False) -> None: # Weaviate doesn't have a dimensions config. It infers it from the first vector inserted.
         client = self._get_client()
-        hints = typing.get_type_hints(self._schema)
-        _vector_field(hints)  # validate a vector field exists before creating the collection
+        hints = schema_hints(self._schema)
+
+        if recreate and client.collections.exists(self.collection_name):
+            client.collections.delete(self.collection_name)
 
         if not client.collections.exists(self.collection_name):
             properties = [
                 wvc.config.Property(name=col, data_type=_py_to_wv_type(tp))
                 for col, tp in hints.items()
-                if _py_to_wv_type(tp) is not None
+                if col != self._vector_column and _py_to_wv_type(tp) is not None
             ]
             client.collections.create(
                 name=self.collection_name,
@@ -106,8 +112,8 @@ class WeaviateTarget(TargetConnector):
 
     def _sync_blocking(self, file_id: str, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         collection = self._collection
-        hints = typing.get_type_hints(self._schema)
-        vec_col = _vector_field(hints)
+        hints = schema_hints(self._schema)
+        vec_col = self._vector_column
 
         if deletes:
             collection.data.delete_many(

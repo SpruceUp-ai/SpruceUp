@@ -3,6 +3,7 @@ import hashlib
 import inspect
 import json
 import pathlib
+import typing
 from typing import Callable
 
 DIGEST_SIZE = 16  # 16 bytes matches BINARY(16) in schema
@@ -26,6 +27,18 @@ def hash_chunk_content(obj) -> bytes:
 
 def hash_transform(func: Callable) -> bytes:
     return hashlib.blake2b(inspect.getsource(func).encode(), digest_size=DIGEST_SIZE).digest()
+
+
+def hash_schema(schema: type, vector_column: str) -> str:
+    """Stable fingerprint of a schema's columns + designated vector column.
+
+    Changes to field names, field types, or the vector column flip this hash,
+    which drives a drop+recreate of the target table.
+    """
+    hints = typing.get_type_hints(schema)
+    parts = [f"{name}={tp!s}" for name, tp in sorted(hints.items())]
+    parts.append(f"__vector_column__={vector_column}")
+    return hashlib.blake2b("|".join(parts).encode(), digest_size=DIGEST_SIZE).hexdigest()
 
 
 def hash_file_content(p: pathlib.Path) -> bytes:

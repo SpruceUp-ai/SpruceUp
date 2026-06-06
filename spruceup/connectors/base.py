@@ -59,8 +59,26 @@ class TargetConnector(ABC):
     @abstractmethod
     def schema(self) -> type: ...
 
+    @property
     @abstractmethod
-    def ensure_table_exists(self, embedding_dimensions: int) -> None: ...
+    def vector_column(self) -> str:
+        """Name of the schema field holding the embedding vector."""
+        ...
+
+    @abstractmethod
+    def identity(self) -> str:
+        """Stable identity of this target for change detection.
+
+        Must exclude credentials (so rotating a password does not trigger a
+        reindex) but capture anything whose change means a different physical
+        destination (host, database, table/index/collection).
+        """
+        ...
+
+    @abstractmethod
+    def ensure_table_exists(self, embedding_dimensions: int, recreate: bool = False) -> None:
+        """Create the target table/index. If recreate, drop it first."""
+        ...
 
     @abstractmethod
     async def sync(self, file_id: str, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None: ...

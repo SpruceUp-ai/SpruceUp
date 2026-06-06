@@ -1,21 +1,11 @@
 import asyncio
-import typing
 from typing import Any
 
 from pinecone import Pinecone, ServerlessSpec
 
 from ..base import TargetConnector
 from ...models import ChunkWrapper
-
-
-def _vector_field(hints: dict) -> str:
-    for col, tp in hints.items():
-        origin = typing.get_origin(tp)
-        if origin is list:
-            args = typing.get_args(tp)
-            if args == (float,):
-                return col
-    raise ValueError("Schema has no list[float] field for vector values")
+from ...utils.schema import schema_hints, validate_vector_column
 
 
 class PineconeTarget(TargetConnector):
@@ -24,14 +14,17 @@ class PineconeTarget(TargetConnector):
         api_key: str | None,
         index_name: str,
         schema: type,
+        vector_column: str,
         namespace: str = "",
         metric: str = "cosine",
         cloud: str = "aws",
         region: str = "us-east-1",
     ) -> None:
+        validate_vector_column(schema, vector_column)
         self.api_key = api_key
         self.index_name = index_name
         self._schema = schema
+        self._vector_column = vector_column
         self.namespace = namespace
         self.metric = metric
         self.cloud = cloud
@@ -47,14 +40,25 @@ class PineconeTarget(TargetConnector):
     def schema(self) -> type:
         return self._schema
 
+    @property
+    def vector_column(self) -> str:
+        return self._vector_column
+
+    def identity(self) -> str:
+        return f"pinecone:{self.index_name}:{self.namespace}"
+
     def _client(self) -> Any:
         if self._pc is None:
             self._pc = Pinecone(api_key=self.api_key)
         return self._pc
 
-    def ensure_table_exists(self, embedding_dimensions: int) -> None:
+    def ensure_table_exists(self, embedding_dimensions: int, recreate: bool = False) -> None:
         pc = self._client()
-        if self.index_name not in pc.list_indexes().names():
+        exists = self.index_name in pc.list_indexes().names()
+        if recreate and exists:
+            pc.delete_index(self.index_name)
+            exists = False
+        if not exists:
             pc.create_index(
                 name=self.index_name,
                 dimension=embedding_dimensions,
@@ -65,8 +69,8 @@ class PineconeTarget(TargetConnector):
 
     async def sync(self, file_id: str, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         index = self._index
-        hints = typing.get_type_hints(self._schema)
-        vector_col = _vector_field(hints)
+        hints = schema_hints(self._schema)
+        vector_col = self._vector_column
 
         if upserts:
             vectors = [

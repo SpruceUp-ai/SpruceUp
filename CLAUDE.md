@@ -34,7 +34,7 @@ The user-authored entry point. The CLI (`spruceup start`) imports it dynamically
 ```python
 config = defineConfig(
     sources=[LocalFilesSource(watched_dir="example/data_corpus")],
-    target=PgVectorTarget(connstr=..., table="data_chunks", schema=LectureChunk),
+    target=PgVectorTarget(connstr=..., table="data_chunks", schema=LectureChunk, vector_column="chunk_embedding"),
     embedder=OpenAIEmbedder(api_key=..., model="text-embedding-3-small"),
     transform=build_lecture_chunks,  # async fn(*, file_props: FileProps, embed) -> list[schema]
 )
@@ -44,10 +44,15 @@ config = defineConfig(
 
 ### Runtime flow (`app.py`)
 
-On startup, `app.run(pipeline)` checks the Manifest for three change signals that trigger a **full reindex** instead of incremental sync:
-1. Transform function body changed (bytecode hash)
+On startup, `app.run(pipeline)` compares persisted fingerprints in the Manifest against the current config. Any mismatch triggers a **full reindex** (all files re-fetched, re-transformed, re-upserted) instead of incremental sync:
+1. Transform function body changed (source hash)
 2. Any `@memoize`-decorated function changed
-3. Embedding model changed (flushes the embedding cache)
+3. Embedding model changed
+4. Embedding dimensions changed
+5. Target identity changed — `target.identity()`, a credential-free string (host/db/table or index/collection)
+6. Schema changed — `hash_schema()` over field names+types and the designated `vector_column`
+
+Signals 3–4 additionally **flush the embedding cache** (`embeddings_invalidated`). Signals 4–6 are **structural** and additionally **drop + recreate** the target table/index before reingest (`ensure_table_exists(recreate=True)`) — chosen over in-place migration because reingest must re-embed everything anyway. Persisted fingerprints are written only *after* a reindex completes, so a crash mid-reindex re-triggers it.
 
 Then it launches three concurrent asyncio tasks:
 
@@ -90,7 +95,7 @@ Opened with `autocommit=True`; use `manifest.transaction()` only when multiple w
 All connectors implement one of three ABCs:
 
 - **`SourceConnector`** — `source_type`, `source_identifier`, `create_watcher()`, `fetch()`, `validate()`, `is_supported()`, `decode_content()`
-- **`TargetConnector`** — `ensure_table_exists()`, `sync(upserts, deletes)`, `aclose()`
+- **`TargetConnector`** — `vector_column`, `identity()`, `ensure_table_exists(recreate=False)`, `sync(upserts, deletes)`, `aclose()`
 - **`EmbedderConnector`** — `embed_batch(batch)`, `process_chunks(chunks)`, `aclose()`
 
 Available implementations:
@@ -120,7 +125,7 @@ Supported return types: `str`, `int`, `float`, `bool`, `list`, `dict`.
 
 ### PgVectorTarget schema mapping
 
-`ensure_table_exists()` inspects the user dataclass with `typing.get_type_hints()` and maps Python types to Postgres types. `list[float]` → `vector(N)` (requires `pgvector` extension). The `id` column is always `TEXT PRIMARY KEY` and is set to `chunk.user_chunk_object_hash.hex()`.
+`ensure_table_exists()` inspects the user dataclass with `typing.get_type_hints()` and maps Python types to Postgres types. The embedding column is named **explicitly** via the target's `vector_column=` (validated at construction to be a `list[float]` field) and becomes `vector(N)` (requires `pgvector` extension), where `N` is the embedder's `embedding_dimensions`. Any *other* `list[float]` field maps to a plain `DOUBLE PRECISION[]` array, not a vector. The `id` column is always `TEXT PRIMARY KEY`, set to `f"{file_id}:{chunk.user_chunk_object_hash.hex()}"` (keyed per file). Upserts use `ON CONFLICT (id) DO UPDATE` so re-embeds (e.g. after a model change) overwrite existing rows.
 
 ### Google Drive source
 
