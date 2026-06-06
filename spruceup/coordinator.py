@@ -73,6 +73,16 @@ class Coordinator:
             return
 
         label = spruce_file.display_name
+
+        # Stale-task guard: a newer version of this file already synced. Abort
+        # before touching the row or running transform/embed, leaving the newer
+        # task's 'synced' state intact rather than marking this stale pass synced.
+        # (reconcile re-checks to cover the concurrency window after this point.)
+        stored_modified_at = self._manifest.get_file_modified_at(spruce_file.file_id)
+        if stored_modified_at is not None and spruce_file.modified_at < stored_modified_at:
+            log.debug("[stale] %s — skipped", label)
+            return
+
         spruce_file.force_upsert = self._force_upsert
         self._manifest.ensure_file_row_exists(spruce_file.file_id)
 
