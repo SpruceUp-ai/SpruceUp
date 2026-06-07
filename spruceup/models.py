@@ -24,7 +24,6 @@ class SpruceFile:
     raw_content: str | bytes
     chunks: list[ChunkWrapper]
     modified_at: float
-    force_upsert: bool = False
 
 @dataclass
 class SyncTask:

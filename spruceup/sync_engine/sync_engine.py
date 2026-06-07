@@ -10,9 +10,16 @@ log = logging.getLogger(__name__)
 
 @final
 class SyncEngine:
-    def __init__(self, manifest: Manifest, target: TargetConnector) -> None:
+    def __init__(
+        self, manifest: Manifest, target: TargetConnector, force_upsert: bool = False
+    ) -> None:
         self._manifest = manifest
         self._target = target
+        # Run-level flag (from force_reindex): write every chunk to the target,
+        # bypassing the content diff. Needed because hash_chunk_content excludes
+        # the embedding, so a re-embed leaves chunk hashes unchanged and would
+        # otherwise be diffed out — the new vectors would never reach the target.
+        self._force_upsert = force_upsert
 
     async def reconcile(self, file: SpruceFile) -> None:
         manifest_upserts: list[tuple[str, ChunkWrapper]] = []
@@ -27,7 +34,7 @@ class SyncEngine:
         }
 
         for h, chunk in curr_hashes.items():
-            if file.force_upsert or h not in prev_hashes:
+            if self._force_upsert or h not in prev_hashes:
                 manifest_upserts.append((file.file_id, chunk))
                 target_upserts.append(chunk)
 

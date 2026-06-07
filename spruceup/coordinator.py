@@ -1,10 +1,11 @@
 import asyncio
 import logging
 
-from .connectors.base import EmbedderConnector, TargetConnector
+from .connectors.base import EmbedderConnector, EmbeddingError, TargetConnector
 from .manifest import Manifest
-from .models import ChunkWrapper, SyncTask
+from .models import ChunkWrapper, FileProps, SyncTask
 from .sync_engine import SyncEngine
+from .transform_context import TransformContext, _transform_context
 from .utils.hashing import hash_chunk_content
 from .utils.validation import validate_schema_objects
 
@@ -21,7 +22,6 @@ class Coordinator:
         target: TargetConnector,
         source_registry: dict,
         max_concurrency: int = 32,
-        force_upsert: bool = False,
     ):
         self._queue = queue
         self._transform = transform
@@ -30,7 +30,6 @@ class Coordinator:
         self._manifest = manifest
         self._target = target
         self._source_registry = source_registry
-        self._force_upsert = force_upsert
         self._active_tasks = set()
         self._semaphore = asyncio.Semaphore(max_concurrency)
 
@@ -51,15 +50,6 @@ class Coordinator:
             await self.upsert_file(task, source)
 
     async def upsert_file(self, task: SyncTask, source) -> None:
-        from .memoize.context import (
-            _memo_manifest_var, _memo_file_id_var, _memo_temp_keys_var, _memo_stats_var,
-        )
-        from .connectors.embedders.context import (
-            _embed_manifest_var, _embed_file_id_var, _embed_used_hashes_var, _embed_stats_var,
-        )
-        from .connectors.base import EmbeddingError
-        from .models import FileProps
-
         # file_id is the only label available until the fetch yields the real
         # display name.
         label = task.current_file_id
@@ -83,25 +73,15 @@ class Coordinator:
             log.debug("[stale] %s — skipped", label)
             return
 
-        spruce_file.force_upsert = self._force_upsert
         # Write the row now (in_flight) so it exists for the per-file cache and
         # chunk foreign keys; reconcile flips it to 'synced' once the target write
         # lands.
         self._manifest.upsert_file_row(spruce_file)
 
-        temp_keys: set[tuple[bytes, bytes]] = set()
-        memo_stats = [0, 0]
-        _memo_manifest_var.set(self._manifest)
-        _memo_file_id_var.set(spruce_file.file_id)
-        _memo_temp_keys_var.set(temp_keys)
-        _memo_stats_var.set(memo_stats)
-
-        embed_used_hashes: set[bytes] = set()
-        embed_stats = [0, 0]
-        _embed_manifest_var.set(self._manifest)
-        _embed_file_id_var.set(spruce_file.file_id)
-        _embed_used_hashes_var.set(embed_used_hashes)
-        _embed_stats_var.set(embed_stats)
+        # Per-file context the @memoize decorator and EmbeddingBatcher read while
+        # the transform runs; they mutate its counters/used-key sets in place.
+        ctx = TransformContext(manifest=self._manifest, file_id=spruce_file.file_id)
+        _transform_context.set(ctx)
 
         # Phase 2: transform (includes embed)
         try:
@@ -124,13 +104,13 @@ class Coordinator:
             self._manifest.mark_failed(spruce_file.file_id, task.change_type)
             return
 
-        if memo_stats[1] > 0:
-            log.info("[memoize] %s — %d/%d hits", label, memo_stats[0], memo_stats[1])
-        if embed_stats[1] > 0:
-            log.info("[embed_cache] %s — %d/%d hits", label, embed_stats[0], embed_stats[1])
+        if ctx.memo_total > 0:
+            log.info("[memoize] %s — %d/%d hits", label, ctx.memo_hits, ctx.memo_total)
+        if ctx.embed_total > 0:
+            log.info("[embed_cache] %s — %d/%d hits", label, ctx.embed_hits, ctx.embed_total)
 
-        self._manifest.sweep_memoized(spruce_file.file_id, temp_keys)
-        self._manifest.sweep_embedding_cache(spruce_file.file_id, embed_used_hashes)
+        self._manifest.sweep_memoized(spruce_file.file_id, ctx.memo_temp_keys)
+        self._manifest.sweep_embedding_cache(spruce_file.file_id, ctx.embed_used_hashes)
 
         validate_schema_objects(user_chunks, self._target.schema)
         log.info("[upsert] %s — %d chunk(s)", label, len(user_chunks))

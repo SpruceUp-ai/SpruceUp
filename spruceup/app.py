@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from dataclasses import dataclass
 
 from spruceup.connectors.embedders.embedding_batcher import EmbeddingBatcher
 from spruceup.coordinator import Coordinator
@@ -15,16 +16,23 @@ from spruceup.utils.hashing import hash_schema, hash_transform
 log = logging.getLogger(__name__)
 
 
-async def run(pipeline) -> None:
-    manifest = Manifest()
+@dataclass
+class ReindexPlan:
+    force_reindex: bool
+    structure_changed: bool       # target table/index must be dropped + recreated
+    embeddings_invalidated: bool  # cached vectors must be flushed and recomputed
+    reasons: list[str]
+    transform_hash: bytes
+    fingerprints: dict[str, str]  # config_state values to persist once the run lands
 
-    config = pipeline.config
 
-    log.info(
-        "SpruceUp starting — manifest=%s  target=%s",
-        manifest.path, config.target.display_name,
-    )
+def _plan_reindex(manifest: Manifest, config) -> ReindexPlan:
+    """Compare persisted fingerprints against the current config to decide
+    whether a full reindex is needed, why, what to rebuild, and what to persist.
 
+    Pure decision-making: the caller performs the side effects (cache flush,
+    table rebuild, fingerprint persistence) based on the returned plan.
+    """
     transform_hash = hash_transform(config.transform)
     model = config.embedder.model
     dimensions = str(config.embedder.embedding_dimensions)
@@ -33,7 +41,7 @@ async def run(pipeline) -> None:
 
     def _changed(key: str, current: str) -> bool:
         # First run (stored is None) is not a "change" — the value is just
-        # recorded for next time. force_reindex is driven by the transform hash.
+        # recorded for next time.
         stored = manifest.get_config_value(key)
         return stored is not None and stored != current
 
@@ -44,41 +52,58 @@ async def run(pipeline) -> None:
     target_changed = _changed("target_identity", target_identity)
     schema_changed = _changed("schema_fingerprint", schema_fingerprint)
 
-    # Re-embedding is only required when the vectors themselves are invalidated.
-    embeddings_invalidated = model_changed or dimensions_changed
-    # The table/index must be dropped and rebuilt when its shape or destination
-    # changes; a transform/memoize change reuses the existing structure.
-    structure_changed = dimensions_changed or target_changed or schema_changed
+    reasons = [
+        msg
+        for changed, msg in (
+            (transform_changed, "transform function changed"),
+            (memoize_changed, "memoized function changed"),
+            (model_changed, "embedding model changed"),
+            (dimensions_changed, "embedding dimensions changed"),
+            (target_changed, "target changed"),
+            (schema_changed, "schema changed"),
+        )
+        if changed
+    ]
 
-    force_reindex = (
-        transform_changed or memoize_changed or model_changed
-        or dimensions_changed or target_changed or schema_changed
+    return ReindexPlan(
+        force_reindex=bool(reasons),
+        # Drop + recreate only when the table's shape or destination changes; a
+        # transform/memoize change reuses the existing structure.
+        structure_changed=dimensions_changed or target_changed or schema_changed,
+        # Re-embedding is only required when the vectors themselves are invalidated.
+        embeddings_invalidated=model_changed or dimensions_changed,
+        reasons=reasons,
+        transform_hash=transform_hash,
+        fingerprints={
+            "embedding_model": model,
+            "embedding_dimensions": dimensions,
+            "target_identity": target_identity,
+            "schema_fingerprint": schema_fingerprint,
+        },
     )
-    if force_reindex:
-        reasons = []
-        if transform_changed:
-            reasons.append("transform function changed")
-        if memoize_changed:
-            reasons.append("memoized function changed")
-        if model_changed:
-            reasons.append("embedding model changed")
-        if dimensions_changed:
-            reasons.append("embedding dimensions changed")
-        if target_changed:
-            reasons.append("target changed")
-        if schema_changed:
-            reasons.append("schema changed")
-        if embeddings_invalidated:
+
+
+async def run(pipeline) -> None:
+    manifest = Manifest()
+
+    config = pipeline.config
+
+    log.info(
+        "SpruceUp starting — manifest=%s  target=%s",
+        manifest.path, config.target.display_name,
+    )
+
+    plan = _plan_reindex(manifest, config)
+    if plan.force_reindex:
+        if plan.embeddings_invalidated:
             manifest.flush_embedding_cache()
-        log.info("Full reindex scheduled — %s", ", ".join(reasons))
+        log.info("Full reindex scheduled — %s", ", ".join(plan.reasons))
     else:
         log.info("No changes detected — incremental sync")
 
     def persist_config_state() -> None:
-        manifest.set_config_value("embedding_model", model)
-        manifest.set_config_value("embedding_dimensions", dimensions)
-        manifest.set_config_value("target_identity", target_identity)
-        manifest.set_config_value("schema_fingerprint", schema_fingerprint)
+        for key, value in plan.fingerprints.items():
+            manifest.set_config_value(key, value)
 
     source_types: dict[type, list] = {}
     for source in config.sources:
@@ -88,13 +113,15 @@ async def run(pipeline) -> None:
 
     config.target.ensure_table_exists(
         embedding_dimensions=config.embedder.embedding_dimensions,
-        recreate=structure_changed,
+        recreate=plan.structure_changed,
     )
-    if structure_changed:
+    if plan.structure_changed:
         log.info("Target %s rebuilt (drop + recreate)", config.target.display_name)
     embedder: EmbeddingBatcher | None = None
     try:
-        sync_engine = SyncEngine(manifest=manifest, target=config.target)
+        sync_engine = SyncEngine(
+            manifest=manifest, target=config.target, force_upsert=plan.force_reindex
+        )
 
         manifest.reset_in_flight_to_failed()
 
@@ -119,7 +146,6 @@ async def run(pipeline) -> None:
             manifest=manifest,
             target=config.target,
             source_registry=source_registry,
-            force_upsert=force_reindex,
         )
 
         sync_sweeper = SyncSweeper(
@@ -130,7 +156,7 @@ async def run(pipeline) -> None:
 
         startup_done = asyncio.Event()
 
-        monitor_task = asyncio.create_task(monitor.run(force_reindex, startup_done))
+        monitor_task = asyncio.create_task(monitor.run(plan.force_reindex, startup_done))
         coordinator_task = asyncio.create_task(coordinator.run())
         sync_sweeper_task = asyncio.create_task(sync_sweeper.run())
 
@@ -152,10 +178,10 @@ async def run(pipeline) -> None:
         log.info("Startup complete — watching %s for changes", watched)
 
         try:
-            if force_reindex:
+            if plan.force_reindex:
                 await queue.join()
                 manifest.set_config_value("file_cache_ready", "true")
-                manifest.update_transform_hash(transform_hash)
+                manifest.update_transform_hash(plan.transform_hash)
                 manifest.update_memoize_fn_hashes(_memoize_fn_hashes)
                 n_failed = len(manifest.get_failed_files())
                 if n_failed:

@@ -4,12 +4,7 @@ from dataclasses import dataclass, field
 
 from ..base import EmbedderConnector
 from ...utils.hashing import hash_text
-from .context import (
-    _embed_manifest_var,
-    _embed_file_id_var,
-    _embed_used_hashes_var,
-    _embed_stats_var,
-)
+from ...transform_context import _transform_context
 
 
 @dataclass
@@ -47,24 +42,21 @@ class EmbeddingBatcher(EmbedderConnector):
         if not chunks:
             return []
 
-        manifest = _embed_manifest_var.get()
-        file_id = _embed_file_id_var.get()
-
-        if manifest is None or file_id is None:
+        ctx = _transform_context.get()
+        if ctx is None:
             return await self._dispatch_to_batcher(chunks)
+
+        manifest = ctx.manifest
+        file_id = ctx.file_id
 
         chunk_hashes = [hash_text(c) for c in chunks]
         cached = manifest.get_cached_embeddings(file_id, chunk_hashes)
 
-        used_hashes = _embed_used_hashes_var.get()
-        if used_hashes is not None:
-            used_hashes.update(chunk_hashes)
+        ctx.embed_used_hashes.update(chunk_hashes)
 
-        stats = _embed_stats_var.get()
         hits = {i: cached[h] for i, h in enumerate(chunk_hashes) if h in cached}
-        if stats is not None:
-            stats[0] += len(hits)
-            stats[1] += len(chunks)
+        ctx.embed_hits += len(hits)
+        ctx.embed_total += len(chunks)
 
         miss_indices = [i for i, h in enumerate(chunk_hashes) if h not in cached]
         if not miss_indices:
