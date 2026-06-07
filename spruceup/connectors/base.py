@@ -98,10 +98,12 @@ class EmbedderConnector(ABC):
         model: str,
         api_key: str | None = None,
         embedding_dimensions: int | None = None,
+        max_batch_size: int = 100,
     ) -> None:
         self.model = model
         self.api_key = api_key
         self.embedding_dimensions = embedding_dimensions
+        self.max_batch_size = max_batch_size
 
     @abstractmethod
     async def embed_batch(self, batch: list[str]) -> list[list[float]]: ...

@@ -31,10 +31,10 @@ class EmbeddingBatcher(EmbedderConnector):
             model=inner.model,
             api_key=inner.api_key,
             embedding_dimensions=inner.embedding_dimensions,
+            max_batch_size=max_batch_size or inner.max_batch_size,
         )
         self._inner = inner
         self._max_wait = max_wait_ms / 1000
-        self._max_batch_size = max_batch_size or getattr(inner, "max_batch_size", 50)
         self._semaphore = asyncio.Semaphore(max_concurrent_batches)
         self._all_pending_files: list[_PendingChunksForFile] = []
         self._wake = asyncio.Event()
@@ -122,7 +122,7 @@ class EmbeddingBatcher(EmbedderConnector):
         if not self._all_pending_files:
             return False
         num_pending_chunks = sum(len(pending_file.chunks) for pending_file in self._all_pending_files)
-        return num_pending_chunks >= self._max_batch_size
+        return num_pending_chunks >= self.max_batch_size
 
     def _dispatch_pending_chunks(self) -> None:
         if not self._all_pending_files:
@@ -133,8 +133,8 @@ class EmbeddingBatcher(EmbedderConnector):
             for file_index, pending_file in enumerate(pending_files)
             for chunk_index, chunk_text in enumerate(pending_file.chunks)
         ]
-        for i in range(0, len(chunk_text_indexed_by_file_and_chunk), self._max_batch_size):
-            batch = chunk_text_indexed_by_file_and_chunk[i : i + self._max_batch_size]
+        for i in range(0, len(chunk_text_indexed_by_file_and_chunk), self.max_batch_size):
+            batch = chunk_text_indexed_by_file_and_chunk[i : i + self.max_batch_size]
             asyncio.create_task(self._run_batch(batch, pending_files))
 
     async def aclose(self) -> None:

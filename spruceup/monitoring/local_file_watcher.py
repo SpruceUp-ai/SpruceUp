@@ -6,6 +6,7 @@ from watchfiles import awatch, Change
 
 from ..models import SyncTask
 from ..manifest import Manifest
+from ..connectors.sources.local import make_file_id, file_id_to_inode, file_id_to_path
 from .monitor import BaseWatcher
 
 log = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class LocalFileWatcher(BaseWatcher):
             for rec in manifest.get_files_for_source(self._data_source_id):
                 fid = rec["file_id"]
                 try:
-                    by_inode[int(fid.split(":", 1)[0])] = (fid, rec["modified_at"])
+                    by_inode[file_id_to_inode(fid)] = (fid, rec["modified_at"])
                 except (ValueError, IndexError):
                     pass
 
@@ -51,7 +52,7 @@ class LocalFileWatcher(BaseWatcher):
             stat = path.stat()
             inode = stat.st_ino
             path_str = str(path)
-            new_file_id = f"{inode}:{path_str}"
+            new_file_id = make_file_id(inode, path_str)
             seen_inodes.add(inode)
             self._known_file_ids.add(new_file_id)
 
@@ -124,7 +125,7 @@ class LocalFileWatcher(BaseWatcher):
             added_paths    = {path for change_type, path in changes if change_type == Change.added}
             modified_paths = {path for change_type, path in changes if change_type == Change.modified}
 
-            path_to_fid = {fid.split(":", 1)[1]: fid for fid in self._known_file_ids}
+            path_to_fid = {file_id_to_path(fid): fid for fid in self._known_file_ids}
 
             # Stat each added path once to capture its inode (avoids double-stat).
             # mtime isn't needed here — _watch detects changes from awatch events;
@@ -144,7 +145,7 @@ class LocalFileWatcher(BaseWatcher):
                 if current_fid is None:
                     continue
                 try:
-                    inode = int(current_fid.split(":", 1)[0])
+                    inode = file_id_to_inode(current_fid)
                 except (ValueError, IndexError):
                     continue
                 new_path = path_by_inode.get(inode)
@@ -156,8 +157,7 @@ class LocalFileWatcher(BaseWatcher):
 
             for old_path, new_path in moves:
                 current_fid = path_to_fid[old_path]
-                inode_str = current_fid.split(":", 1)[0]
-                new_file_id = f"{inode_str}:{new_path}"
+                new_file_id = make_file_id(file_id_to_inode(current_fid), new_path)
                 self._known_file_ids.discard(current_fid)
                 self._known_file_ids.add(new_file_id)
                 buffer.append(SyncTask(
@@ -187,7 +187,7 @@ class LocalFileWatcher(BaseWatcher):
                     inode = inode_by_path.get(path)
                     if inode is None:
                         inode = p.stat().st_ino
-                    new_file_id = f"{inode}:{path}"
+                    new_file_id = make_file_id(inode, path)
                     old_fid = path_to_fid.get(path)
                     if old_fid:
                         self._known_file_ids.discard(old_fid)

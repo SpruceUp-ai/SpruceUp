@@ -43,8 +43,12 @@ class VoyageAIEmbedder(EmbedderConnector):
                     f"got {embedding_dimensions}"
                 )
             resolved_dimensions = embedding_dimensions
-        super().__init__(model=model, api_key=api_key, embedding_dimensions=resolved_dimensions)
-        self.max_batch_size = max_batch_size
+        super().__init__(
+            model=model,
+            api_key=api_key,
+            embedding_dimensions=resolved_dimensions,
+            max_batch_size=max_batch_size,
+        )
         self._client: voyageai.AsyncClient | None = None
 
     def _get_client(self) -> voyageai.AsyncClient:

@@ -5,6 +5,20 @@ from dataclasses import dataclass
 from ..base import SourceConnector, SUPPORTED_EXTENSIONS
 
 
+# A local file's id is "inode:path". This source owns that format; the helpers
+# below are the only place it is constructed or parsed (the watcher imports them).
+def make_file_id(inode: int, path: str) -> str:
+    return f"{inode}:{path}"
+
+
+def file_id_to_inode(file_id: str) -> int:
+    return int(file_id.split(":", 1)[0])
+
+
+def file_id_to_path(file_id: str) -> str:
+    return file_id.split(":", 1)[1]
+
+
 @dataclass
 class LocalFilesSource(SourceConnector):
     watched_dir: str
@@ -40,10 +54,9 @@ class LocalFilesSource(SourceConnector):
 
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
-        # file_id is "inode:path" — this source owns that format.
-        path = task.current_file_id.split(":", 1)[1]
+        path = file_id_to_path(task.current_file_id)
         file_stats = os.stat(path)
-        file_id = f"{file_stats.st_ino}:{path}"
+        file_id = make_file_id(file_stats.st_ino, path)
         file_type = pathlib.Path(path).suffix.lstrip(".")
 
         raw_content = None

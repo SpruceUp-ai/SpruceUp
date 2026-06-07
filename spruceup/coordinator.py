@@ -138,7 +138,7 @@ class Coordinator:
         chunks = [
             ChunkWrapper(
                 user_chunk=obj,
-                user_chunk_object_hash=hash_chunk_content(obj),
+                user_chunk_object_hash=hash_chunk_content(obj, self._target.vector_column),
             )
             for obj in user_chunks
         ]

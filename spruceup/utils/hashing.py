@@ -9,12 +9,16 @@ from typing import Callable
 DIGEST_SIZE = 16  # 16 bytes matches BINARY(16) in schema
 
 
-def hash_chunk_content(obj) -> bytes:
+def hash_chunk_content(obj, vector_column: str) -> bytes:
+    """Hash a chunk's content for diffing, excluding the embedding vector.
+
+    The vector is derived from the chunk text and would otherwise make every
+    re-embed look like a content change, so it is dropped by name (the field
+    the target designates as its vector_column) rather than sniffed for
+    list[float], which would also drop legitimate non-embedding float arrays.
+    """
     data = dataclasses.asdict(obj) if dataclasses.is_dataclass(obj) else obj.__dict__
-    filtered = {
-        k: v for k, v in data.items()
-        if not (isinstance(v, list) and v and isinstance(v[0], float))
-    }
+    filtered = {k: v for k, v in data.items() if k != vector_column}
     serialized = json.dumps(filtered, sort_keys=True, default=str).encode()
     return hashlib.blake2b(serialized, digest_size=DIGEST_SIZE).digest()
 

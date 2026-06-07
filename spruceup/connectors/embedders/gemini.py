@@ -49,8 +49,12 @@ class GeminiEmbedder(EmbedderConnector):
                 f"got {max_batch_size}"
             )
         resolved_dimensions = embedding_dimensions or _MODEL_DEFAULT_DIMENSIONS[model]
-        super().__init__(model=model, api_key=api_key, embedding_dimensions=resolved_dimensions)
-        self.max_batch_size = max_batch_size
+        super().__init__(
+            model=model,
+            api_key=api_key,
+            embedding_dimensions=resolved_dimensions,
+            max_batch_size=max_batch_size,
+        )
         self._dimensions_overridden = embedding_dimensions is not None
         self._needs_normalization = (
             resolved_dimensions != _NATIVE_DIMENSIONS[model]
