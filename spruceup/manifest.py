@@ -196,31 +196,22 @@ class Manifest:
             [(file_id, chunk.user_chunk_object_hash) for file_id, chunk in chunks],
         )
 
-    def ensure_file_row_exists(self, file_id: str, data_source_id: int) -> None:
-        # FK placeholder so per-file cache writes during transform don't violate
-        # the files(id) foreign key. data_source_id is set now (not deferred to
-        # upsert_file_row) so a crash before reconcile leaves a row the sweeper
-        # can still resolve, rather than one with a NULL source.
-        self._conn.execute(
-            """INSERT INTO files (id, data_source_id, sync_state)
-               VALUES (?, ?, 'in_flight')
-               ON CONFLICT (id) DO UPDATE SET
-                   data_source_id = excluded.data_source_id,
-                   sync_state = 'in_flight'""",
-            (file_id, data_source_id),
-        )
-
     def upsert_file_row(self, file: SpruceFile) -> None:
+        # Written up front (before transform), so the row exists for the per-file
+        # cache/chunk foreign keys. Stamped 'in_flight' until reconcile marks it
+        # 'synced'; a crash in between leaves it 'in_flight' -> reset to 'failed'
+        # on restart -> retried by the sweeper.
         self._conn.execute(
             """INSERT INTO files
-                   (id, content_hash, data_source_id, file_type, raw_content, modified_at)
-               VALUES (?, ?, ?, ?, ?, ?)
+                   (id, content_hash, data_source_id, file_type, raw_content, modified_at, sync_state)
+               VALUES (?, ?, ?, ?, ?, ?, 'in_flight')
                ON CONFLICT (id) DO UPDATE SET
                    content_hash   = excluded.content_hash,
                    data_source_id = excluded.data_source_id,
                    file_type      = excluded.file_type,
                    raw_content    = excluded.raw_content,
-                   modified_at    = excluded.modified_at""",
+                   modified_at    = excluded.modified_at,
+                   sync_state     = 'in_flight'""",
             (
                 file.file_id,
                 file.content_hash,

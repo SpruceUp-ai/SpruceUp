@@ -84,7 +84,10 @@ class Coordinator:
             return
 
         spruce_file.force_upsert = self._force_upsert
-        self._manifest.ensure_file_row_exists(spruce_file.file_id, spruce_file.data_source_id)
+        # Write the row now (in_flight) so it exists for the per-file cache and
+        # chunk foreign keys; reconcile flips it to 'synced' once the target write
+        # lands.
+        self._manifest.upsert_file_row(spruce_file)
 
         temp_keys: set[tuple[bytes, bytes]] = set()
         memo_stats = [0, 0]
