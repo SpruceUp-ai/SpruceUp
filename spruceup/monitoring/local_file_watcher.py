@@ -131,18 +131,17 @@ class LocalFileWatcher(BaseWatcher):
 
             path_to_fid = {fid.split(":", 1)[1]: fid for fid in self._known_file_ids}
 
-            # Stat each added path once, capturing inode + mtime to avoid double-stat
-            added_stats: dict[int, tuple[str, float]] = {}
+            # Stat each added path once to capture its inode (avoids double-stat).
+            # mtime isn't needed here — _watch detects changes from awatch events;
+            # mtime comparison is the catch-up scan's mechanism, not this one's.
+            path_by_inode: dict[int, str] = {}
             for p in added_paths:
                 p_obj = pathlib.Path(p)
                 if p_obj.exists():
-                    st = p_obj.stat()
-                    added_stats[st.st_ino] = (p, st.st_mtime)
+                    path_by_inode[p_obj.stat().st_ino] = p
 
-            # Reverse map for the upsert loop: O(1) path lookup for added files
-            added_path_stat: dict[str, tuple[int, float]] = {
-                p: (inode, mtime) for inode, (p, mtime) in added_stats.items()
-            }
+            # Reverse map for the upsert loop: O(1) inode lookup for added files
+            inode_by_path: dict[str, int] = {p: inode for inode, p in path_by_inode.items()}
 
             moves: set[tuple[str, str]] = set()
             for old_path in deleted_paths:
@@ -153,9 +152,9 @@ class LocalFileWatcher(BaseWatcher):
                     inode = int(current_fid.split(":", 1)[0])
                 except (ValueError, IndexError):
                     continue
-                result = added_stats.get(inode)
-                if result is not None:
-                    moves.add((old_path, result[0]))
+                new_path = path_by_inode.get(inode)
+                if new_path is not None:
+                    moves.add((old_path, new_path))
 
             moved_old = {old for old, _ in moves}
             moved_new = {new for _, new in moves}
@@ -190,10 +189,8 @@ class LocalFileWatcher(BaseWatcher):
             for path in (added_paths - moved_new) | modified_paths:
                 p = pathlib.Path(path)
                 if p.is_file() and self._is_supported(path):
-                    cached = added_path_stat.get(path)
-                    if cached is not None:
-                        inode = cached[0]
-                    else:
+                    inode = inode_by_path.get(path)
+                    if inode is None:
                         inode = p.stat().st_ino
                     new_file_id = f"{inode}:{path}"
                     old_fid = path_to_fid.get(path)
