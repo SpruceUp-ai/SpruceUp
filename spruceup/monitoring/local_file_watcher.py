@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import pathlib
-import time
 
 from watchfiles import awatch, Change
 
@@ -63,7 +62,7 @@ class LocalFileWatcher(BaseWatcher):
 
             if force_reindex:
                 await queue.put(SyncTask(
-                    self._source_type, "upsert", stat.st_mtime,
+                    self._source_type, "upsert",
                     current_file_id=new_file_id,
                     data_source_id=self._data_source_id,
                     use_manifest_cache=use_manifest_cache,
@@ -74,7 +73,7 @@ class LocalFileWatcher(BaseWatcher):
             stored = by_inode.get(inode)
             if stored is None:
                 await queue.put(SyncTask(
-                    self._source_type, "upsert", stat.st_mtime,
+                    self._source_type, "upsert",
                     current_file_id=new_file_id,
                     data_source_id=self._data_source_id,
                 ))
@@ -85,30 +84,28 @@ class LocalFileWatcher(BaseWatcher):
                 if renamed:
                     await queue.put(SyncTask(
                         self._source_type, "delete",
-                        stored_mtime if stored_mtime is not None else time.time(),
                         current_file_id=stored_file_id,
                         data_source_id=self._data_source_id,
                     ))
                     n_deletes += 1
                     await queue.put(SyncTask(
-                        self._source_type, "upsert", stat.st_mtime,
+                        self._source_type, "upsert",
                         current_file_id=new_file_id,
                         data_source_id=self._data_source_id,
                     ))
                     n_upserts += 1
                 elif stored_mtime is None or stored_mtime != stat.st_mtime:
                     await queue.put(SyncTask(
-                        self._source_type, "upsert", stat.st_mtime,
+                        self._source_type, "upsert",
                         current_file_id=new_file_id,
                         data_source_id=self._data_source_id,
                     ))
                     n_upserts += 1
 
-        for inode, (fid, stored_mtime) in by_inode.items():
+        for inode, (fid, _) in by_inode.items():
             if inode not in seen_inodes:
                 await queue.put(SyncTask(
                     self._source_type, "delete",
-                    stored_mtime if stored_mtime is not None else time.time(),
                     current_file_id=fid,
                     data_source_id=self._data_source_id,
                 ))
@@ -166,17 +163,16 @@ class LocalFileWatcher(BaseWatcher):
             for old_path, new_path in moves:
                 current_fid = path_to_fid[old_path]
                 inode_str = current_fid.split(":", 1)[0]
-                _, mtime = added_stats[int(inode_str)]
                 new_file_id = f"{inode_str}:{new_path}"
                 self._known_file_ids.discard(current_fid)
                 self._known_file_ids.add(new_file_id)
                 buffer.append(SyncTask(
-                    self._source_type, "delete", mtime,
+                    self._source_type, "delete",
                     current_file_id=current_fid,
                     data_source_id=self._data_source_id,
                 ))
                 buffer.append(SyncTask(
-                    self._source_type, "upsert", mtime,
+                    self._source_type, "upsert",
                     current_file_id=new_file_id,
                     data_source_id=self._data_source_id,
                 ))
@@ -186,7 +182,7 @@ class LocalFileWatcher(BaseWatcher):
                 if current_fid is not None:
                     self._known_file_ids.discard(current_fid)
                     buffer.append(SyncTask(
-                        self._source_type, "delete", time.time(),
+                        self._source_type, "delete",
                         current_file_id=current_fid,
                         data_source_id=self._data_source_id,
                     ))
@@ -196,17 +192,16 @@ class LocalFileWatcher(BaseWatcher):
                 if p.is_file() and self._is_supported(path):
                     cached = added_path_stat.get(path)
                     if cached is not None:
-                        inode, mtime = cached
+                        inode = cached[0]
                     else:
-                        st = p.stat()
-                        inode, mtime = st.st_ino, st.st_mtime
+                        inode = p.stat().st_ino
                     new_file_id = f"{inode}:{path}"
                     old_fid = path_to_fid.get(path)
                     if old_fid:
                         self._known_file_ids.discard(old_fid)
                     self._known_file_ids.add(new_file_id)
                     buffer.append(SyncTask(
-                        self._source_type, "upsert", mtime,
+                        self._source_type, "upsert",
                         current_file_id=new_file_id,
                         data_source_id=self._data_source_id,
                     ))

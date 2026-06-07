@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 
 from .models import SyncTask
 
@@ -41,14 +40,14 @@ class SyncSweeper:
             if change_type == "delete":
                 # A delete needs no source — its source may have been removed.
                 await self._queue.put(SyncTask(
-                    "", "delete", time.time(),
+                    "", "delete",
                     current_file_id=file_id,
                     data_source_id=ds_id,
                 ))
                 requeued += 1
             elif source is not None:
                 await self._queue.put(SyncTask(
-                    source.source_type, "upsert", time.time(),
+                    source.source_type, "upsert",
                     current_file_id=file_id,
                     data_source_id=ds_id,
                     use_manifest_cache=use_manifest_cache,

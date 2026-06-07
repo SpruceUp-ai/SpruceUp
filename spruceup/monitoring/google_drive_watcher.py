@@ -1,9 +1,7 @@
 import asyncio
 import json
 import logging
-import time
 from collections.abc import Callable
-from datetime import datetime
 
 from ..manifest import Manifest
 from ..models import SyncTask
@@ -14,12 +12,6 @@ log = logging.getLogger(__name__)
 _FOLDER_MIME = "application/vnd.google-apps.folder"
 _STATE_PAGE_TOKEN = "page_token"
 _STATE_FOLDER_IDS = "watched_folder_ids"
-
-
-def _parse_drive_time(s: str | None) -> float:
-    if not s:
-        return time.time()
-    return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
 
 
 class GoogleDriveWatcher(BaseWatcher):
@@ -95,7 +87,6 @@ class GoogleDriveWatcher(BaseWatcher):
                     elif self._is_supported(f["mimeType"]):
                         await queue.put(SyncTask(
                             self._source_type, "upsert",
-                            _parse_drive_time(f.get("modifiedTime")),
                             current_file_id=f["id"],
                             data_source_id=self._data_source_id,
                             use_manifest_cache=use_manifest_cache,
@@ -155,7 +146,7 @@ class GoogleDriveWatcher(BaseWatcher):
                 if removed:
                     if file_id in known_refs:
                         await queue.put(SyncTask(
-                            self._source_type, "delete", time.time(),
+                            self._source_type, "delete",
                             current_file_id=file_id,
                             data_source_id=self._data_source_id,
                         ))
@@ -173,25 +164,24 @@ class GoogleDriveWatcher(BaseWatcher):
                             watched_folder_ids.add(file_id)
                             folder_ids_updated = True
                     else:
-                        modified_at = _parse_drive_time(file_info.get("modifiedTime"))
                         if file_id in known_refs:
                             if in_tree and self._is_supported(mime):
                                 await queue.put(SyncTask(
-                                    self._source_type, "upsert", modified_at,
+                                    self._source_type, "upsert",
                                     current_file_id=file_id,
                                     data_source_id=self._data_source_id,
                                 ))
                                 n_upserts += 1
                             else:
                                 await queue.put(SyncTask(
-                                    self._source_type, "delete", time.time(),
+                                    self._source_type, "delete",
                                     current_file_id=file_id,
                                     data_source_id=self._data_source_id,
                                 ))
                                 n_deletes += 1
                         elif in_tree and self._is_supported(mime):
                             await queue.put(SyncTask(
-                                self._source_type, "upsert", modified_at,
+                                self._source_type, "upsert",
                                 current_file_id=file_id,
                                 data_source_id=self._data_source_id,
                             ))
