@@ -36,7 +36,7 @@ class SyncEngine:
                 manifest_deletes.append((file.file_id, h))
                 target_deletes.append(h)
 
-        self._manifest.ensure_file_row_exists(file.file_id)
+        self._manifest.ensure_file_row_exists(file.file_id, file.data_source_id)
 
         stored = self._manifest.get_file_modified_at(file.file_id)
         if stored is not None and file.modified_at < stored:

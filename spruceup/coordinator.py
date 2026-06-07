@@ -84,7 +84,7 @@ class Coordinator:
             return
 
         spruce_file.force_upsert = self._force_upsert
-        self._manifest.ensure_file_row_exists(spruce_file.file_id)
+        self._manifest.ensure_file_row_exists(spruce_file.file_id, spruce_file.data_source_id)
 
         temp_keys: set[tuple[bytes, bytes]] = set()
         memo_stats = [0, 0]

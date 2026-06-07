@@ -96,7 +96,7 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
-                file_id                TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                file_id                TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
                 user_chunk_object_hash BLOB NOT NULL,
                 PRIMARY KEY (file_id, user_chunk_object_hash)
             )
@@ -125,7 +125,7 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS memoize_cache (
-                file_id   TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                file_id   TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
                 fn_hash   BLOB NOT NULL,
                 args_hash BLOB NOT NULL,
                 result    BLOB NOT NULL,
@@ -138,7 +138,7 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS embedding_cache (
-                file_id         TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                file_id         TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
                 chunk_text_hash BLOB NOT NULL,
                 embedding       BLOB NOT NULL,
                 PRIMARY KEY (file_id, chunk_text_hash)
@@ -196,13 +196,18 @@ class Manifest:
             [(file_id, chunk.user_chunk_object_hash) for file_id, chunk in chunks],
         )
 
-    def ensure_file_row_exists(self, file_id: str) -> None:
+    def ensure_file_row_exists(self, file_id: str, data_source_id: int) -> None:
+        # FK placeholder so per-file cache writes during transform don't violate
+        # the files(id) foreign key. data_source_id is set now (not deferred to
+        # upsert_file_row) so a crash before reconcile leaves a row the sweeper
+        # can still resolve, rather than one with a NULL source.
         self._conn.execute(
-            """INSERT INTO files (id, sync_state)
-               VALUES (?, 'in_flight')
+            """INSERT INTO files (id, data_source_id, sync_state)
+               VALUES (?, ?, 'in_flight')
                ON CONFLICT (id) DO UPDATE SET
+                   data_source_id = excluded.data_source_id,
                    sync_state = 'in_flight'""",
-            (file_id,),
+            (file_id, data_source_id),
         )
 
     def upsert_file_row(self, file: SpruceFile) -> None:
@@ -247,15 +252,6 @@ class Manifest:
             {"file_id": row[0], "content_hash": row[1], "modified_at": row[2]}
             for row in rows
         ]
-
-    def update_file_id(self, old_id: str, new_id: str) -> None:
-        # UPDATE OR IGNORE is a no-op if new_id already exists (upsert ran first).
-        # The DELETE then removes the stale old_id row (and cascades its child rows).
-        with self.transaction():
-            self._conn.execute(
-                "UPDATE OR IGNORE files SET id = ? WHERE id = ?", (new_id, old_id)
-            )
-            self._conn.execute("DELETE FROM files WHERE id = ?", (old_id,))
 
     def delete_chunks(self, chunk_keys: list[tuple[str, bytes]]) -> None:
         if not chunk_keys:
