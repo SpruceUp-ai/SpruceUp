@@ -129,7 +129,6 @@ class GoogleDriveSource(SourceConnector):
         return GoogleDriveWatcher(
             self._folder_id,
             data_source_id,
-            self.source_type,
             self._on_token_expired,
             self.is_supported,
         )

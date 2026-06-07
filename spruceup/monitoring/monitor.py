@@ -30,10 +30,6 @@ async def _with_retry(
 
 
 class BaseWatcher(ABC):
-    @property
-    @abstractmethod
-    def source_type(self) -> str: ...
-
     @abstractmethod
     async def _catch_up(
         self,

@@ -28,7 +28,6 @@ class SpruceFile:
 
 @dataclass
 class SyncTask:
-    source_type: str          # "local", "google_drive", etc.
     change_type: str          # "upsert" | "delete"
     current_file_id: str | None = field(default=None)
     data_source_id: int = field(default=0)

@@ -1,6 +1,5 @@
 from spruceup.config import SpruceUpConfig
 
-_MISSING = object()
 
 def validate_schema_objects(objs: list, schema_class: type) -> None:
     """Raise ValueError if objs is not a valid list of schema_class instances.

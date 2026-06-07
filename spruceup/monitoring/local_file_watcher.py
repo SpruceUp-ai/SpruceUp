@@ -12,16 +12,11 @@ log = logging.getLogger(__name__)
 
 
 class LocalFileWatcher(BaseWatcher):
-    def __init__(self, dir_path: str, data_source_id: int, source_type: str, is_supported):
+    def __init__(self, dir_path: str, data_source_id: int, is_supported):
         self._root_path = str(pathlib.Path(dir_path).resolve())
         self._data_source_id = data_source_id
-        self._source_type = source_type
         self._is_supported = is_supported
         self._known_file_ids: set[str] = set()
-
-    @property
-    def source_type(self) -> str:
-        return self._source_type
 
     async def _catch_up(
         self,
@@ -62,7 +57,7 @@ class LocalFileWatcher(BaseWatcher):
 
             if force_reindex:
                 await queue.put(SyncTask(
-                    self._source_type, "upsert",
+                    "upsert",
                     current_file_id=new_file_id,
                     data_source_id=self._data_source_id,
                     use_manifest_cache=use_manifest_cache,
@@ -73,7 +68,7 @@ class LocalFileWatcher(BaseWatcher):
             stored = by_inode.get(inode)
             if stored is None:
                 await queue.put(SyncTask(
-                    self._source_type, "upsert",
+                    "upsert",
                     current_file_id=new_file_id,
                     data_source_id=self._data_source_id,
                 ))
@@ -83,20 +78,20 @@ class LocalFileWatcher(BaseWatcher):
                 renamed = stored_file_id != new_file_id
                 if renamed:
                     await queue.put(SyncTask(
-                        self._source_type, "delete",
+                        "delete",
                         current_file_id=stored_file_id,
                         data_source_id=self._data_source_id,
                     ))
                     n_deletes += 1
                     await queue.put(SyncTask(
-                        self._source_type, "upsert",
+                        "upsert",
                         current_file_id=new_file_id,
                         data_source_id=self._data_source_id,
                     ))
                     n_upserts += 1
                 elif stored_mtime is None or stored_mtime != stat.st_mtime:
                     await queue.put(SyncTask(
-                        self._source_type, "upsert",
+                        "upsert",
                         current_file_id=new_file_id,
                         data_source_id=self._data_source_id,
                     ))
@@ -105,7 +100,7 @@ class LocalFileWatcher(BaseWatcher):
         for inode, (fid, _) in by_inode.items():
             if inode not in seen_inodes:
                 await queue.put(SyncTask(
-                    self._source_type, "delete",
+                    "delete",
                     current_file_id=fid,
                     data_source_id=self._data_source_id,
                 ))
@@ -166,12 +161,12 @@ class LocalFileWatcher(BaseWatcher):
                 self._known_file_ids.discard(current_fid)
                 self._known_file_ids.add(new_file_id)
                 buffer.append(SyncTask(
-                    self._source_type, "delete",
+                    "delete",
                     current_file_id=current_fid,
                     data_source_id=self._data_source_id,
                 ))
                 buffer.append(SyncTask(
-                    self._source_type, "upsert",
+                    "upsert",
                     current_file_id=new_file_id,
                     data_source_id=self._data_source_id,
                 ))
@@ -181,7 +176,7 @@ class LocalFileWatcher(BaseWatcher):
                 if current_fid is not None:
                     self._known_file_ids.discard(current_fid)
                     buffer.append(SyncTask(
-                        self._source_type, "delete",
+                        "delete",
                         current_file_id=current_fid,
                         data_source_id=self._data_source_id,
                     ))
@@ -198,7 +193,7 @@ class LocalFileWatcher(BaseWatcher):
                         self._known_file_ids.discard(old_fid)
                     self._known_file_ids.add(new_file_id)
                     buffer.append(SyncTask(
-                        self._source_type, "upsert",
+                        "upsert",
                         current_file_id=new_file_id,
                         data_source_id=self._data_source_id,
                     ))

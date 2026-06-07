@@ -142,7 +142,7 @@ async def run(pipeline) -> None:
         manifest.purge_empty_inactive_sources(active_source_ids)
         for rec in manifest.get_orphaned_files(active_source_ids):
             await queue.put(SyncTask(
-                "", "delete",
+                "delete",
                 current_file_id=rec["file_id"],
                 data_source_id=rec["data_source_id"],
             ))

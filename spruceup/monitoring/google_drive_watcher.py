@@ -19,21 +19,15 @@ class GoogleDriveWatcher(BaseWatcher):
         self,
         folder_id: str,
         data_source_id: int,
-        source_type: str,
         on_token_expired: Callable[[], str],
         is_supported: Callable[[str], bool],
         poll_interval: float = 30.0,
     ):
         self._folder_id = folder_id
         self._data_source_id = data_source_id
-        self._source_type = source_type
         self._on_token_expired = on_token_expired
         self._is_supported = is_supported
         self._poll_interval = poll_interval
-
-    @property
-    def source_type(self) -> str:
-        return self._source_type
 
     def _build_service(self):
         from googleapiclient.discovery import build
@@ -86,7 +80,7 @@ class GoogleDriveWatcher(BaseWatcher):
                         folders_to_scan.append(f["id"])
                     elif self._is_supported(f["mimeType"]):
                         await queue.put(SyncTask(
-                            self._source_type, "upsert",
+                            "upsert",
                             current_file_id=f["id"],
                             data_source_id=self._data_source_id,
                             use_manifest_cache=use_manifest_cache,
@@ -146,7 +140,7 @@ class GoogleDriveWatcher(BaseWatcher):
                 if removed:
                     if file_id in known_refs:
                         await queue.put(SyncTask(
-                            self._source_type, "delete",
+                            "delete",
                             current_file_id=file_id,
                             data_source_id=self._data_source_id,
                         ))
@@ -167,21 +161,21 @@ class GoogleDriveWatcher(BaseWatcher):
                         if file_id in known_refs:
                             if in_tree and self._is_supported(mime):
                                 await queue.put(SyncTask(
-                                    self._source_type, "upsert",
+                                    "upsert",
                                     current_file_id=file_id,
                                     data_source_id=self._data_source_id,
                                 ))
                                 n_upserts += 1
                             else:
                                 await queue.put(SyncTask(
-                                    self._source_type, "delete",
+                                    "delete",
                                     current_file_id=file_id,
                                     data_source_id=self._data_source_id,
                                 ))
                                 n_deletes += 1
                         elif in_tree and self._is_supported(mime):
                             await queue.put(SyncTask(
-                                self._source_type, "upsert",
+                                "upsert",
                                 current_file_id=file_id,
                                 data_source_id=self._data_source_id,
                             ))

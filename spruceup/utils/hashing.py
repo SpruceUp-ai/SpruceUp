@@ -9,12 +9,6 @@ from typing import Callable
 DIGEST_SIZE = 16  # 16 bytes matches BINARY(16) in schema
 
 
-def hash_object(obj) -> bytes:
-    data = dataclasses.asdict(obj) if dataclasses.is_dataclass(obj) else obj.__dict__
-    serialized = json.dumps(data, sort_keys=True, default=str).encode()
-    return hashlib.blake2b(serialized, digest_size=DIGEST_SIZE).digest()
-
-
 def hash_chunk_content(obj) -> bytes:
     data = dataclasses.asdict(obj) if dataclasses.is_dataclass(obj) else obj.__dict__
     filtered = {
@@ -41,20 +35,14 @@ def hash_schema(schema: type, vector_column: str) -> str:
     return hashlib.blake2b("|".join(parts).encode(), digest_size=DIGEST_SIZE).hexdigest()
 
 
-def hash_file_content(p: pathlib.Path) -> bytes:
-    h = hashlib.blake2b(digest_size=DIGEST_SIZE)
-    with open(p, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.digest()
-
-
 def hash_text(text: str) -> bytes:
     return hashlib.blake2b(text.encode(), digest_size=DIGEST_SIZE).digest()
 
 
-def hash_args(fn: Callable, args: tuple, kwargs: dict) -> bytes:
-    sig = inspect.signature(fn)
+def hash_args(
+    fn: Callable, args: tuple, kwargs: dict, sig: inspect.Signature | None = None
+) -> bytes:
+    sig = sig if sig is not None else inspect.signature(fn)
     bound = sig.bind(*args, **kwargs)
     bound.apply_defaults()
     payload = json.dumps(_normalize(dict(bound.arguments)), sort_keys=True).encode()

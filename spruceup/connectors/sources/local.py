@@ -36,7 +36,7 @@ class LocalFilesSource(SourceConnector):
 
     def create_watcher(self, data_source_id: int):
         from spruceup.monitoring.local_file_watcher import LocalFileWatcher
-        return LocalFileWatcher(self.watched_dir, data_source_id, self.source_type, self.is_supported)
+        return LocalFileWatcher(self.watched_dir, data_source_id, self.is_supported)
 
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
