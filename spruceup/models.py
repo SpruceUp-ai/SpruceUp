@@ -20,7 +20,6 @@ class ChunkWrapper:
 class SpruceFile:
     file_id: str
     display_name: str
-    content_hash: bytes
     file_type: str
     data_source_id: int
     raw_content: str | bytes

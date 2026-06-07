@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import pathlib
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -180,12 +179,9 @@ class GoogleDriveSource(SourceConnector):
                     f"only Google Docs, plain text, markdown, HTML, JSON, PDF, DOC, and DOCX are supported."
                 )
 
-        content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
-
         return SpruceFile(
             file_id=file_id,
             display_name=meta["name"],
-            content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,
             raw_content=raw_content,

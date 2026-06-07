@@ -81,7 +81,6 @@ class Manifest:
             """
             CREATE TABLE IF NOT EXISTS files (
                 id                  TEXT PRIMARY KEY,
-                content_hash        BLOB,
                 data_source_id      INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
                 file_type           TEXT,
                 raw_content         BLOB,
@@ -203,10 +202,9 @@ class Manifest:
         # on restart -> retried by the sweeper.
         self._conn.execute(
             """INSERT INTO files
-                   (id, content_hash, data_source_id, file_type, raw_content, modified_at, sync_state)
-               VALUES (?, ?, ?, ?, ?, ?, 'in_flight')
+                   (id, data_source_id, file_type, raw_content, modified_at, sync_state)
+               VALUES (?, ?, ?, ?, ?, 'in_flight')
                ON CONFLICT (id) DO UPDATE SET
-                   content_hash   = excluded.content_hash,
                    data_source_id = excluded.data_source_id,
                    file_type      = excluded.file_type,
                    raw_content    = excluded.raw_content,
@@ -214,7 +212,6 @@ class Manifest:
                    sync_state     = 'in_flight'""",
             (
                 file.file_id,
-                file.content_hash,
                 file.data_source_id,
                 file.file_type,
                 file.raw_content if isinstance(file.raw_content, bytes) else file.raw_content.encode(),
@@ -236,11 +233,11 @@ class Manifest:
 
     def get_files_for_source(self, data_source_id: int) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT id, content_hash, modified_at FROM files WHERE data_source_id = ?",
+            "SELECT id, modified_at FROM files WHERE data_source_id = ?",
             (data_source_id,),
         ).fetchall()
         return [
-            {"file_id": row[0], "content_hash": row[1], "modified_at": row[2]}
+            {"file_id": row[0], "modified_at": row[1]}
             for row in rows
         ]
 
