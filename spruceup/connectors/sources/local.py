@@ -38,9 +38,6 @@ class LocalFilesSource(SourceConnector):
         from spruceup.monitoring.local_file_watcher import LocalFileWatcher
         return LocalFileWatcher(self.watched_dir, data_source_id, self.source_type, self.is_supported)
 
-    def decode_content(self, raw_content: bytes) -> str:
-        return raw_content.decode("utf-8", errors="replace")
-
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
         # file_id is "inode:path" — this source owns that format.

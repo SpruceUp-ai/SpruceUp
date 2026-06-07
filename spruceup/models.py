@@ -4,10 +4,9 @@ from typing import Any
 
 @dataclass
 class FileProps:
-    raw_content: str
+    raw_content: str | bytes
     display_name: str
     file_type: str
-    modified_at: float
 
 
 @dataclass
