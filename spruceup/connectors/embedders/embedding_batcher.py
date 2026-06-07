@@ -153,6 +153,12 @@ class EmbeddingBatcher(EmbedderConnector):
         async with self._semaphore:
             try:
                 embeddings = await self._inner.embed_batch(batch_strs)
+                if len(embeddings) != len(batch_strs):
+                    from ..base import EmbeddingError
+                    raise EmbeddingError(
+                        f"embedder returned {len(embeddings)} vector(s) for "
+                        f"{len(batch_strs)} input(s); counts must match"
+                    )
             except Exception as err:
                 from ..base import EmbeddingError
                 if isinstance(err, EmbeddingError):

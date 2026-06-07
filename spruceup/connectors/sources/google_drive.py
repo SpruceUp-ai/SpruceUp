@@ -124,9 +124,6 @@ class GoogleDriveSource(SourceConnector):
     def is_supported(self, file_identifier: str) -> bool:
         return file_identifier in _WORKSPACE_EXPORT_MIME or file_identifier in _SUPPORTED_MIME_TYPES
 
-    def identifier_from_file_id(self, file_id: str) -> str:
-        return file_id
-
     def create_watcher(self, data_source_id: int):
         from spruceup.monitoring.google_drive_watcher import GoogleDriveWatcher
 
@@ -137,9 +134,6 @@ class GoogleDriveSource(SourceConnector):
             self._on_token_expired,
             self.is_supported,
         )
-
-    def display_name(self, identifier: str) -> str:
-        return identifier
 
     def decode_content(self, raw_content: bytes) -> str:
         return raw_content.decode("utf-8", errors="replace")

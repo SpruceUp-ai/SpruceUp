@@ -49,8 +49,7 @@ class GeminiEmbedder(EmbedderConnector):
                 f"got {max_batch_size}"
             )
         resolved_dimensions = embedding_dimensions or _MODEL_DEFAULT_DIMENSIONS[model]
-        super().__init__(api_key=api_key, embedding_dimensions=resolved_dimensions)
-        self._model = model
+        super().__init__(model=model, api_key=api_key, embedding_dimensions=resolved_dimensions)
         self.max_batch_size = max_batch_size
         self._dimensions_overridden = embedding_dimensions is not None
         self._needs_normalization = (
@@ -73,7 +72,7 @@ class GeminiEmbedder(EmbedderConnector):
         if self._dimensions_overridden:
             config_kwargs["output_dimensionality"] = self.embedding_dimensions
         response = await self._get_client().aio.models.embed_content(
-            model=self._model,
+            model=self.model,
             contents=batch,
             config=types.EmbedContentConfig(**config_kwargs),
         )

@@ -14,18 +14,6 @@ class SyncEngine:
         self._manifest = manifest
         self._target = target
 
-    async def delete_stale_sources(self, active_ids: list[int]) -> None:
-        stale_file_ids = self._manifest.get_orphaned_file_ids(active_ids)
-        total_deleted = 0
-        for file_id in stale_file_ids:
-            chunks = self._manifest.get_chunks_for_file(file_id)
-            hashes = [c["user_chunk_object_hash"] for c in chunks]
-            if hashes:
-                await self._target.sync(file_id, [], hashes)
-                total_deleted += len(hashes)
-        self._manifest.purge_inactive_sources(active_ids)
-        log.info("Deleted %d stale chunk(s) from target db", total_deleted)
-
     async def reconcile(self, file: SpruceFile) -> None:
         manifest_upserts: list[tuple[str, ChunkWrapper]] = []
         target_upserts: list[ChunkWrapper] = []
@@ -48,7 +36,7 @@ class SyncEngine:
                 manifest_deletes.append((file.file_id, h))
                 target_deletes.append(h)
 
-        self._manifest.ensure_file_row_exists(file.file_id)
+        self._manifest.ensure_file_row_exists(file.file_id, file.data_source_id)
 
         stored = self._manifest.get_file_modified_at(file.file_id)
         if stored is not None and file.modified_at < stored:

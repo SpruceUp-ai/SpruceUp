@@ -96,7 +96,7 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
-                file_id                TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                file_id                TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
                 user_chunk_object_hash BLOB NOT NULL,
                 PRIMARY KEY (file_id, user_chunk_object_hash)
             )
@@ -125,7 +125,7 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS memoize_cache (
-                file_id   TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                file_id   TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
                 fn_hash   BLOB NOT NULL,
                 args_hash BLOB NOT NULL,
                 result    BLOB NOT NULL,
@@ -138,7 +138,7 @@ class Manifest:
         self._conn.execute(
             """
             CREATE TABLE IF NOT EXISTS embedding_cache (
-                file_id         TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                file_id         TEXT NOT NULL REFERENCES files(id) ON DELETE CASCADE,
                 chunk_text_hash BLOB NOT NULL,
                 embedding       BLOB NOT NULL,
                 PRIMARY KEY (file_id, chunk_text_hash)
@@ -196,13 +196,18 @@ class Manifest:
             [(file_id, chunk.user_chunk_object_hash) for file_id, chunk in chunks],
         )
 
-    def ensure_file_row_exists(self, file_id: str) -> None:
+    def ensure_file_row_exists(self, file_id: str, data_source_id: int) -> None:
+        # FK placeholder so per-file cache writes during transform don't violate
+        # the files(id) foreign key. data_source_id is set now (not deferred to
+        # upsert_file_row) so a crash before reconcile leaves a row the sweeper
+        # can still resolve, rather than one with a NULL source.
         self._conn.execute(
-            """INSERT INTO files (id, sync_state)
-               VALUES (?, 'in_flight')
+            """INSERT INTO files (id, data_source_id, sync_state)
+               VALUES (?, ?, 'in_flight')
                ON CONFLICT (id) DO UPDATE SET
+                   data_source_id = excluded.data_source_id,
                    sync_state = 'in_flight'""",
-            (file_id,),
+            (file_id, data_source_id),
         )
 
     def upsert_file_row(self, file: SpruceFile) -> None:
@@ -248,15 +253,6 @@ class Manifest:
             for row in rows
         ]
 
-    def update_file_id(self, old_id: str, new_id: str) -> None:
-        # UPDATE OR IGNORE is a no-op if new_id already exists (upsert ran first).
-        # The DELETE then removes the stale old_id row (and cascades its child rows).
-        with self.transaction():
-            self._conn.execute(
-                "UPDATE OR IGNORE files SET id = ? WHERE id = ?", (new_id, old_id)
-            )
-            self._conn.execute("DELETE FROM files WHERE id = ?", (old_id,))
-
     def delete_chunks(self, chunk_keys: list[tuple[str, bytes]]) -> None:
         if not chunk_keys:
             return
@@ -268,18 +264,25 @@ class Manifest:
     def delete_file_row(self, file_id: str) -> None:
         self._conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
 
-    def get_orphaned_file_ids(self, active_source_ids: list[int]) -> list[str]:
+    def get_orphaned_files(self, active_source_ids: list[int]) -> list[dict]:
         placeholders = ",".join("?" * len(active_source_ids))
         cursor = self._conn.execute(
-            f"SELECT id FROM files WHERE data_source_id NOT IN ({placeholders})",
+            f"SELECT id, data_source_id FROM files WHERE data_source_id NOT IN ({placeholders})",
             active_source_ids,
         )
-        return [row[0] for row in cursor]
+        return [{"file_id": row[0], "data_source_id": row[1]} for row in cursor]
 
-    def purge_inactive_sources(self, active_source_ids: list[int]) -> None:
+    def purge_empty_inactive_sources(self, active_source_ids: list[int]) -> None:
+        # Drop inactive sources that no longer have any files. A source whose
+        # delete is still pending keeps its files (and so its row) until the
+        # sweeper drains them, then it's purged on a later startup.
         placeholders = ",".join("?" * len(active_source_ids))
         self._conn.execute(
-            f"DELETE FROM data_sources WHERE id NOT IN ({placeholders})",
+            f"DELETE FROM data_sources "
+            f"WHERE id NOT IN ({placeholders}) "
+            f"AND id NOT IN ("
+            f"SELECT data_source_id FROM files WHERE data_source_id IS NOT NULL"
+            f")",
             active_source_ids,
         )
 

@@ -44,8 +44,7 @@ class CohereEmbedder(EmbedderConnector):
                     f"got {embedding_dimensions}"
                 )
             resolved_dimensions = embedding_dimensions
-        super().__init__(api_key=api_key, embedding_dimensions=resolved_dimensions)
-        self._model = model
+        super().__init__(model=model, api_key=api_key, embedding_dimensions=resolved_dimensions)
         self.max_batch_size = max_batch_size
         self._dimensions_overridden = embedding_dimensions is not None
         self._client: cohere.AsyncClientV2 | None = None
@@ -62,7 +61,7 @@ class CohereEmbedder(EmbedderConnector):
     )
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
         kwargs = {
-            "model": self._model,
+            "model": self.model,
             "texts": batch,
             "input_type": "search_document",
             "embedding_types": ["float"],
