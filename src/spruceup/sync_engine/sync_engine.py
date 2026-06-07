@@ -27,8 +27,7 @@ class SyncEngine:
         manifest_deletes: list[tuple[str, bytes]] = []
         target_deletes: list[bytes] = []
 
-        prev_chunks = self._manifest.get_chunks_for_file(file.file_id)
-        prev_hashes: set[bytes] = {c["user_chunk_object_hash"] for c in prev_chunks}
+        prev_hashes: set[bytes] = set(self._manifest.get_chunks_for_file(file.file_id))
         curr_hashes: dict[bytes, ChunkWrapper] = {
             chunk.user_chunk_object_hash: chunk for chunk in file.chunks
         }
@@ -60,8 +59,7 @@ class SyncEngine:
         )
 
     async def delete_file(self, file_id: str) -> None:
-        chunks = self._manifest.get_chunks_for_file(file_id)
-        hashes = [c["user_chunk_object_hash"] for c in chunks]
+        hashes = self._manifest.get_chunks_for_file(file_id)
         await self._target.sync(file_id, [], hashes)
         self._manifest.delete_file_row(file_id)
         log.info("Deleted %d chunk(s) for file_id=%s", len(hashes), file_id)

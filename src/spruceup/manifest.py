@@ -180,12 +180,12 @@ class Manifest:
     # Chunk and file operations
     # ------------------------------------------------------------------
 
-    def get_chunks_for_file(self, file_id: str) -> list[dict]:
+    def get_chunks_for_file(self, file_id: str) -> list[bytes]:
         cursor = self._conn.execute(
             "SELECT user_chunk_object_hash FROM chunks WHERE file_id = ?",
             (file_id,),
         )
-        return [{"user_chunk_object_hash": row[0]} for row in cursor]
+        return [row[0] for row in cursor]
 
     def upsert_chunks(self, chunks: list[tuple[str, ChunkWrapper]]) -> None:
         if not chunks:
