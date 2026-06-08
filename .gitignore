@@ -3,6 +3,8 @@
 **/.venv
 .pytest_cache/
 pyrightconfig.json
+__pycache__
+.claude
 poetry.lock
 
 Notes.md

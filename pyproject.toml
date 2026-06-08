@@ -25,6 +25,9 @@ dependencies = [
 [project.scripts]
 spruceup = "spruceup.cli:main"
 
+[tool.poetry]
+packages = [{ include = "spruceup", from = "src" }]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
@@ -37,8 +40,8 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
 
 [tool.pyright]
 pythonVersion = "3.14"
-extraPaths = ["."]
+extraPaths = ["src"]
