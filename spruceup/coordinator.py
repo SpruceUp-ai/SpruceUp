@@ -107,9 +107,10 @@ class Coordinator:
         try:
             user_chunks = await self._transform(
                 file_props=FileProps(
-                    raw_content=source.decode_content(spruce_file.raw_content),
+                    raw_content=source.decode_content(
+                        spruce_file.raw_content, spruce_file.file_type
+                    ),
                     display_name=spruce_file.display_name,
-                    modified_at=spruce_file.modified_at,
                     file_type=spruce_file.file_type,
                 ),
                 embed=self._embedder.process_chunks,

@@ -10,6 +10,10 @@ SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({
     "txt", "md", "html", "json", "pdf", "doc", "docx",
 })
 
+# Formats whose parsers need the original bytes; a utf-8 decode would corrupt
+# them, so decode_content passes these through unchanged.
+BINARY_EXTENSIONS: frozenset[str] = frozenset({"pdf", "doc", "docx"})
+
 
 class SourceConnector(ABC):
     @property
@@ -40,8 +44,16 @@ class SourceConnector(ABC):
         """
         ...
 
-    @abstractmethod
-    def decode_content(self, raw_content: bytes) -> str: ...
+    def decode_content(self, raw_content: bytes, file_type: str) -> str | bytes:
+        """Prepare raw bytes for the transform function.
+
+        Binary formats (see BINARY_EXTENSIONS) are returned unchanged so the
+        user's parser receives the original bytes it expects. Text formats are
+        decoded to a utf-8 str.
+        """
+        if file_type.lower() in BINARY_EXTENSIONS:
+            return raw_content
+        return raw_content.decode("utf-8", errors="replace")
 
 
 class TargetConnector(ABC):
