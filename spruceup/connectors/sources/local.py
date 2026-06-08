@@ -1,4 +1,3 @@
-import hashlib
 import os
 import pathlib
 from dataclasses import dataclass
@@ -58,11 +57,9 @@ class LocalFilesSource(SourceConnector):
             with open(path, "rb") as f:
                 raw_content = f.read()
 
-        content_hash = hashlib.blake2b(raw_content, digest_size=16).digest()
         return SpruceFile(
             file_id=file_id,
             display_name=pathlib.Path(path).name,
-            content_hash=content_hash,
             file_type=file_type,
             data_source_id=task.data_source_id,
             raw_content=raw_content,

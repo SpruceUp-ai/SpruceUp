@@ -81,7 +81,6 @@ class Manifest:
             """
             CREATE TABLE IF NOT EXISTS files (
                 id                  TEXT PRIMARY KEY,
-                content_hash        BLOB,
                 data_source_id      INTEGER REFERENCES data_sources(id) ON DELETE CASCADE,
                 file_type           TEXT,
                 raw_content         BLOB,
@@ -196,34 +195,23 @@ class Manifest:
             [(file_id, chunk.user_chunk_object_hash) for file_id, chunk in chunks],
         )
 
-    def ensure_file_row_exists(self, file_id: str, data_source_id: int) -> None:
-        # FK placeholder so per-file cache writes during transform don't violate
-        # the files(id) foreign key. data_source_id is set now (not deferred to
-        # upsert_file_row) so a crash before reconcile leaves a row the sweeper
-        # can still resolve, rather than one with a NULL source.
-        self._conn.execute(
-            """INSERT INTO files (id, data_source_id, sync_state)
-               VALUES (?, ?, 'in_flight')
-               ON CONFLICT (id) DO UPDATE SET
-                   data_source_id = excluded.data_source_id,
-                   sync_state = 'in_flight'""",
-            (file_id, data_source_id),
-        )
-
     def upsert_file_row(self, file: SpruceFile) -> None:
+        # Written up front (before transform), so the row exists for the per-file
+        # cache/chunk foreign keys. Stamped 'in_flight' until reconcile marks it
+        # 'synced'; a crash in between leaves it 'in_flight' -> reset to 'failed'
+        # on restart -> retried by the sweeper.
         self._conn.execute(
             """INSERT INTO files
-                   (id, content_hash, data_source_id, file_type, raw_content, modified_at)
-               VALUES (?, ?, ?, ?, ?, ?)
+                   (id, data_source_id, file_type, raw_content, modified_at, sync_state)
+               VALUES (?, ?, ?, ?, ?, 'in_flight')
                ON CONFLICT (id) DO UPDATE SET
-                   content_hash   = excluded.content_hash,
                    data_source_id = excluded.data_source_id,
                    file_type      = excluded.file_type,
                    raw_content    = excluded.raw_content,
-                   modified_at    = excluded.modified_at""",
+                   modified_at    = excluded.modified_at,
+                   sync_state     = 'in_flight'""",
             (
                 file.file_id,
-                file.content_hash,
                 file.data_source_id,
                 file.file_type,
                 file.raw_content if isinstance(file.raw_content, bytes) else file.raw_content.encode(),
@@ -245,11 +233,11 @@ class Manifest:
 
     def get_files_for_source(self, data_source_id: int) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT id, content_hash, modified_at FROM files WHERE data_source_id = ?",
+            "SELECT id, modified_at FROM files WHERE data_source_id = ?",
             (data_source_id,),
         ).fetchall()
         return [
-            {"file_id": row[0], "content_hash": row[1], "modified_at": row[2]}
+            {"file_id": row[0], "modified_at": row[1]}
             for row in rows
         ]
 

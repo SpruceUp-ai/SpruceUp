@@ -36,19 +36,14 @@ class SyncEngine:
                 manifest_deletes.append((file.file_id, h))
                 target_deletes.append(h)
 
-        self._manifest.ensure_file_row_exists(file.file_id, file.data_source_id)
-
-        stored = self._manifest.get_file_modified_at(file.file_id)
-        if stored is not None and file.modified_at < stored:
-            log.debug("[stale] %s — reconcile aborted", file.display_name)
-            return
-
+        # The file row was already written (in_flight) by the coordinator before
+        # transform, so it exists for the chunk foreign key here. The stale guard
+        # ran there too, before that write.
         await self._target.sync(file.file_id, target_upserts, target_deletes)
 
         with self._manifest.transaction():
             self._manifest.upsert_chunks(manifest_upserts)
             self._manifest.delete_chunks(manifest_deletes)
-            self._manifest.upsert_file_row(file)
 
         log.info(
             "Synced %s — %d upserted  %d deleted",

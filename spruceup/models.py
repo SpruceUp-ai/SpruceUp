@@ -20,7 +20,6 @@ class ChunkWrapper:
 class SpruceFile:
     file_id: str
     display_name: str
-    content_hash: bytes
     file_type: str
     data_source_id: int
     raw_content: str | bytes
@@ -32,7 +31,6 @@ class SpruceFile:
 class SyncTask:
     source_type: str          # "local", "google_drive", etc.
     change_type: str          # "upsert" | "delete"
-    modified_at: float        # Unix epoch of the file change; used for stale-task detection
     current_file_id: str | None = field(default=None)
     data_source_id: int = field(default=0)
     use_manifest_cache: bool = field(default=False)
