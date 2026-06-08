@@ -1,16 +1,19 @@
 import asyncio
 import typing
+from typing import LiteralString, cast
 
 import psycopg
 import psycopg_pool
+from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict
+from psycopg.rows import TupleRow
 
 from ..base import TargetConnector
 from ...models import ChunkWrapper
 from ...utils.schema import schema_hints, validate_vector_column
 
 
-_PY_TO_PG: dict[type, str] = {
+_PY_TO_PG: dict[type, LiteralString] = {
     str:   "TEXT",
     int:   "INTEGER",
     float: "DOUBLE PRECISION",
@@ -20,10 +23,10 @@ _PY_TO_PG: dict[type, str] = {
 
 _POOL_MAX_SIZE = 5
 
+_Pool = psycopg_pool.AsyncConnectionPool[psycopg.AsyncConnection[TupleRow]]
 
-def _py_to_pg_type(tp) -> str:
-    """Map a non-vector Python type to Postgres. The vector column is handled
-    separately by name in ensure_table_exists."""
+
+def _py_to_pg_type(tp) -> LiteralString:
     origin = typing.get_origin(tp)
     if origin is list:
         args = typing.get_args(tp)
@@ -39,7 +42,7 @@ class PgVectorTarget(TargetConnector):
         self.table = table
         self._schema = schema
         self._vector_column = vector_column
-        self._pool: psycopg_pool.AsyncConnectionPool | None = None
+        self._pool: _Pool | None = None
         self._pool_lock = asyncio.Lock()
 
     @property
@@ -62,26 +65,30 @@ class PgVectorTarget(TargetConnector):
         )
 
     def ensure_table_exists(self, embedding_dimensions: int, recreate: bool = False) -> None:
-        col_defs = ["id TEXT PRIMARY KEY"]
+        col_defs: list[sql.Composable] = [sql.SQL("id TEXT PRIMARY KEY")]
         for col, tp in schema_hints(self._schema).items():
             if col == self._vector_column:
-                col_defs.append(f"{col} vector({embedding_dimensions})")
+                dim = cast(LiteralString, str(int(embedding_dimensions)))
+                col_defs.append(sql.SQL("{} vector({})").format(sql.Identifier(col), sql.SQL(dim)))
             else:
-                col_defs.append(f"{col} {_py_to_pg_type(tp)}")
+                col_defs.append(sql.SQL("{} {}").format(sql.Identifier(col), sql.SQL(_py_to_pg_type(tp))))
+        table = sql.Identifier(self.table)
         with psycopg.connect(self.connstr) as conn:
             conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
             if recreate:
-                conn.execute(f"DROP TABLE IF EXISTS {self.table}")
+                conn.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(table))
             conn.execute(
-                f"CREATE TABLE IF NOT EXISTS {self.table} ({', '.join(col_defs)})"
+                sql.SQL("CREATE TABLE IF NOT EXISTS {} ({})").format(
+                    table, sql.SQL(", ").join(col_defs)
+                )
             )
 
-    async def _get_pool(self) -> psycopg_pool.AsyncConnectionPool:
+    async def _get_pool(self) -> _Pool:
         if self._pool is not None:
             return self._pool
         async with self._pool_lock:
             if self._pool is None:
-                pool = psycopg_pool.AsyncConnectionPool(
+                pool: _Pool = psycopg_pool.AsyncConnectionPool(
                     self.connstr,
                     min_size=1,
                     max_size=_POOL_MAX_SIZE,
@@ -89,7 +96,7 @@ class PgVectorTarget(TargetConnector):
                 )
                 await pool.open()
                 self._pool = pool
-        return self._pool
+            return self._pool
 
     async def sync(self, file_id: str, upserts: list[ChunkWrapper], deletes: list[bytes]) -> None:
         pool = await self._get_pool()
@@ -98,25 +105,31 @@ class PgVectorTarget(TargetConnector):
                 hints = typing.get_type_hints(self._schema)
                 col_names = list(hints.keys())
                 all_cols = ["id"] + col_names
-                placeholders = ", ".join(["%s"] * len(all_cols))
-                updates = ", ".join(f"{col} = EXCLUDED.{col}" for col in col_names)
-                sql = (
-                    f"INSERT INTO {self.table} ({', '.join(all_cols)}) "
-                    f"VALUES ({placeholders}) "
-                    f"ON CONFLICT (id) DO UPDATE SET {updates}"
+                insert_sql = sql.SQL(
+                    "INSERT INTO {table} ({cols}) VALUES ({ph}) "
+                    "ON CONFLICT (id) DO UPDATE SET {updates}"
+                ).format(
+                    table=sql.Identifier(self.table),
+                    cols=sql.SQL(", ").join(sql.Identifier(c) for c in all_cols),
+                    ph=sql.SQL(", ").join([sql.Placeholder()] * len(all_cols)),
+                    updates=sql.SQL(", ").join(
+                        sql.SQL("{c} = EXCLUDED.{c}").format(c=sql.Identifier(c)) for c in col_names
+                    ),
                 )
                 rows = [
                     [f"{file_id}:{chunk.user_chunk_object_hash.hex()}"] + [getattr(chunk.user_chunk, col) for col in col_names]
                     for chunk in upserts
                 ]
                 async with conn.cursor() as cur:
-                    await cur.executemany(sql, rows)
+                    await cur.executemany(insert_sql, rows)
 
             if deletes:
-                placeholders = ", ".join(["%s"] * len(deletes))
+                delete_sql = sql.SQL("DELETE FROM {table} WHERE id IN ({ph})").format(
+                    table=sql.Identifier(self.table),
+                    ph=sql.SQL(", ").join([sql.Placeholder()] * len(deletes)),
+                )
                 await conn.execute(
-                    f"DELETE FROM {self.table} WHERE id IN ({placeholders})",
-                    [f"{file_id}:{h.hex()}" for h in deletes],
+                    delete_sql, [f"{file_id}:{h.hex()}" for h in deletes]
                 )
 
     async def aclose(self) -> None:

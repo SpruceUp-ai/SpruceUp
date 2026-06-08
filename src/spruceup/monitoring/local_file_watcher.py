@@ -127,16 +127,12 @@ class LocalFileWatcher(BaseWatcher):
 
             path_to_fid = {file_id_to_path(fid): fid for fid in self._known_file_ids}
 
-            # Stat each added path once to capture its inode (avoids double-stat).
-            # mtime isn't needed here — _watch detects changes from awatch events;
-            # mtime comparison is the catch-up scan's mechanism, not this one's.
             path_by_inode: dict[int, str] = {}
             for p in added_paths:
                 p_obj = pathlib.Path(p)
                 if p_obj.exists():
                     path_by_inode[p_obj.stat().st_ino] = p
 
-            # Reverse map for the upsert loop: O(1) inode lookup for added files
             inode_by_path: dict[str, int] = {p: inode for inode, p in path_by_inode.items()}
 
             moves: set[tuple[str, str]] = set()

@@ -27,7 +27,7 @@ class SpruceFile:
 
 @dataclass
 class SyncTask:
-    change_type: str          # "upsert" | "delete"
+    change_type: str
     current_file_id: str | None = field(default=None)
     data_source_id: int = field(default=0)
     use_manifest_cache: bool = field(default=False)

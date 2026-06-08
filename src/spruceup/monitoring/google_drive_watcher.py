@@ -106,7 +106,7 @@ class GoogleDriveWatcher(BaseWatcher):
         service,
         queue: asyncio.Queue,
         manifest: "Manifest",
-        stored_token: str,
+        stored_token: str | None,
     ) -> tuple[int, int]:
         known_refs = {rec["file_id"] for rec in manifest.get_files_for_source(self._data_source_id)}
 

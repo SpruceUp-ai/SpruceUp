@@ -2,26 +2,22 @@ import asyncio
 import pathlib
 from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import cast
 
 from ..base import SourceConnector, SUPPORTED_EXTENSIONS
 
-# Google Docs (Google Workspace's native document format) are exported as plain
-# text; other Workspace types are not supported. This is distinct from Microsoft
-# Word .doc/.docx files, which are downloaded as-is (see _EXTENSION_TO_MIME).
 _WORKSPACE_EXPORT_MIME: dict[str, str] = {
     "application/vnd.google-apps.document": "text/plain",
 }
 
-# Maps file extensions from SUPPORTED_EXTENSIONS to their Drive MIME types. The
-# doc/docx entries are Microsoft Word formats — not Google Docs (see above).
 _EXTENSION_TO_MIME: dict[str, str] = {
     "txt":  "text/plain",
     "md":   "text/markdown",
     "html": "text/html",
     "json": "application/json",
     "pdf":  "application/pdf",
-    "doc":  "application/msword",  # Microsoft Word 97–2003
-    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # Microsoft Word
+    "doc":  "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 
 _SUPPORTED_MIME_TYPES: frozenset[str] = frozenset(
@@ -50,11 +46,6 @@ def _build_drive_service(on_token_expired):
 async def _folder_is_ancestor(
     service, ancestor_id: str, folder_id: str, known_roots: set[str]
 ) -> bool:
-    """Walk folder_id's parent chain; return True if ancestor_id appears in it.
-
-    Stops early if current climbs past any known watched root, since no
-    ancestor relationship is possible beyond that point.
-    """
     current = folder_id
     seen: set[str] = set()
     while current and current not in seen:
@@ -96,10 +87,11 @@ class GoogleDriveSource(SourceConnector):
         return self._folder_id
 
     @classmethod
-    async def validate(cls, sources: list["GoogleDriveSource"]) -> None:
-        known_roots = {src._folder_id for src in sources}
-        for i, src_a in enumerate(sources):
-            for src_b in sources[i + 1:]:
+    async def validate(cls, sources: list["SourceConnector"]) -> None:
+        typed = cast("list[GoogleDriveSource]", sources)
+        known_roots = {src._folder_id for src in typed}
+        for i, src_a in enumerate(typed):
+            for src_b in typed[i + 1:]:
                 if src_a._folder_id == src_b._folder_id:
                     raise ValueError(
                         f"Two GoogleDriveSource instances watch the same folder "
@@ -139,6 +131,7 @@ class GoogleDriveSource(SourceConnector):
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
 
+        assert task.current_file_id is not None
         file_id = task.current_file_id
         service = await asyncio.to_thread(_build_drive_service, self._on_token_expired)
 

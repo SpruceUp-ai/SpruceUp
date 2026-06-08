@@ -15,10 +15,7 @@ class SyncEngine:
     ) -> None:
         self._manifest = manifest
         self._target = target
-        # Run-level flag (from force_reindex): write every chunk to the target,
-        # bypassing the content diff. Needed because hash_chunk_content excludes
-        # the embedding, so a re-embed leaves chunk hashes unchanged and would
-        # otherwise be diffed out — the new vectors would never reach the target.
+        # Re-embeds don't change chunk hashes, so force a write to push new vectors.
         self._force_upsert = force_upsert
 
     async def reconcile(self, file: SpruceFile) -> None:
@@ -42,9 +39,6 @@ class SyncEngine:
                 manifest_deletes.append((file.file_id, h))
                 target_deletes.append(h)
 
-        # The file row was already written (in_flight) by the coordinator before
-        # transform, so it exists for the chunk foreign key here. The stale guard
-        # ran there too, before that write.
         await self._target.sync(file.file_id, target_upserts, target_deletes)
 
         with self._manifest.transaction():

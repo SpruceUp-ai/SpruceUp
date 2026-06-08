@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from .connectors.base import EmbedderConnector, EmbeddingError, TargetConnector
+from .debounce_queue import DebounceQueue
 from .manifest import Manifest
 from .models import ChunkWrapper, FileProps, SyncTask
 from .sync_engine import SyncEngine
@@ -14,7 +15,7 @@ log = logging.getLogger(__name__)
 class Coordinator:
     def __init__(
         self,
-        queue: object,
+        queue: DebounceQueue,
         transform,
         embedder: EmbedderConnector,
         sync_engine: SyncEngine,
@@ -36,57 +37,45 @@ class Coordinator:
         self._semaphore = asyncio.Semaphore(max_concurrency)
 
     async def process_task(self, task: SyncTask) -> None:
+        file_id = task.current_file_id
+        if file_id is None:
+            return
         if task.change_type == "delete":
-            # A delete only needs the file_id — no source required (its source
-            # may even have been removed from the config).
             try:
-                log.info("[delete] %s", task.current_file_id)
-                await self._sync_engine.delete_file(task.current_file_id)
+                log.info("[delete] %s", file_id)
+                await self._sync_engine.delete_file(file_id)
             except Exception:
-                log.exception("[error] %s — delete failed", task.current_file_id)
-                self._manifest.mark_failed(task.current_file_id, task.change_type)
+                log.exception("[error] %s — delete failed", file_id)
+                self._manifest.mark_failed(file_id, task.change_type)
         elif task.change_type == "upsert":
-            # The source is needed only here, to fetch the file.
             source = self._source_registry[task.data_source_id]
-            log.info("[upsert] %s — transforming …", task.current_file_id)
+            log.info("[upsert] %s — transforming …", file_id)
             await self.upsert_file(task, source)
 
     async def upsert_file(self, task: SyncTask, source) -> None:
-        # file_id is the only label available until the fetch yields the real
-        # display name.
-        label = task.current_file_id
+        assert task.current_file_id is not None
+        file_id = task.current_file_id
+        label = file_id
 
-        # Phase 1: fetch
         try:
             spruce_file = await source.fetch(task, self._manifest)
         except Exception:
             log.exception("[error] %s — fetch failed", label)
-            self._manifest.mark_failed(task.current_file_id, task.change_type)
+            self._manifest.mark_failed(file_id, task.change_type)
             return
 
         label = spruce_file.display_name
 
-        # Stale-task guard: a newer version of this file already synced. Abort
-        # before touching the row or running transform/embed, leaving the newer
-        # task's 'synced' state intact rather than marking this stale pass synced.
-        # (reconcile re-checks to cover the concurrency window after this point.)
         stored_modified_at = self._manifest.get_file_modified_at(spruce_file.file_id)
         if stored_modified_at is not None and spruce_file.modified_at < stored_modified_at:
             log.debug("[stale] %s — skipped", label)
             return
 
-        # Write the row now (in_flight) so it exists for the per-file cache and
-        # chunk foreign keys; reconcile flips it to 'synced' once the target write
-        # lands. With caching disabled the raw bytes are not persisted (and any
-        # previously cached bytes for this file are cleared to NULL here).
         self._manifest.upsert_file_row(spruce_file, cache_content=self._cache_files)
 
-        # Per-file context the @memoize decorator and EmbeddingBatcher read while
-        # the transform runs; they mutate its counters/used-key sets in place.
         ctx = TransformContext(manifest=self._manifest, file_id=spruce_file.file_id)
         _transform_context.set(ctx)
 
-        # Phase 2: transform (includes embed)
         try:
             user_chunks = await self._transform(
                 file_props=FileProps(
@@ -127,7 +116,6 @@ class Coordinator:
         ]
         spruce_file.chunks = chunks
 
-        # Phase 3: reconcile
         try:
             await self._sync_engine.reconcile(spruce_file)
         except Exception:

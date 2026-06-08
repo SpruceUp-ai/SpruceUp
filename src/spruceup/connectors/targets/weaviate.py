@@ -69,10 +69,14 @@ class WeaviateTarget(TargetConnector):
         if self._client is not None:
             return self._client
         if self.cluster_url:
-            auth = wvc.init.Auth.api_key(self.api_key) if self.api_key else None
+            if not self.api_key:
+                raise ValueError(
+                    "WeaviateTarget: api_key is required when cluster_url is set "
+                    "(Weaviate Cloud)"
+                )
             self._client = weaviate.connect_to_weaviate_cloud(
                 cluster_url=self.cluster_url,
-                auth_credentials=auth,
+                auth_credentials=wvc.init.Auth.api_key(self.api_key),
             )
         else:
             parsed = urlparse(self.url)
@@ -82,7 +86,7 @@ class WeaviateTarget(TargetConnector):
             )
         return self._client
 
-    def ensure_table_exists(self, embedding_dimensions: int, recreate: bool = False) -> None: # Weaviate doesn't have a dimensions config. It infers it from the first vector inserted.
+    def ensure_table_exists(self, embedding_dimensions: int, recreate: bool = False) -> None:
         client = self._get_client()
         hints = schema_hints(self._schema)
 
@@ -90,11 +94,14 @@ class WeaviateTarget(TargetConnector):
             client.collections.delete(self.collection_name)
 
         if not client.collections.exists(self.collection_name):
-            properties = [
-                wvc.config.Property(name=col, data_type=_py_to_wv_type(tp))
-                for col, tp in hints.items()
-                if col != self._vector_column and _py_to_wv_type(tp) is not None
-            ]
+            properties = []
+            for col, tp in hints.items():
+                if col == self._vector_column:
+                    continue
+                wv_type = _py_to_wv_type(tp)
+                if wv_type is None:
+                    continue
+                properties.append(wvc.config.Property(name=col, data_type=wv_type))
             client.collections.create(
                 name=self.collection_name,
                 vector_config=wvc.config.Configure.Vectors.self_provided(

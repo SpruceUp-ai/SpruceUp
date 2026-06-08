@@ -1,12 +1,11 @@
 import os
 import pathlib
 from dataclasses import dataclass
+from typing import cast
 
 from ..base import SourceConnector, SUPPORTED_EXTENSIONS
 
 
-# A local file's id is "inode:path". This source owns that format; the helpers
-# below are the only place it is constructed or parsed (the watcher imports them).
 def make_file_id(inode: int, path: str) -> str:
     return f"{inode}:{path}"
 
@@ -32,8 +31,9 @@ class LocalFilesSource(SourceConnector):
         return str(pathlib.Path(self.watched_dir).resolve())
 
     @classmethod
-    async def validate(cls, sources: list["LocalFilesSource"]) -> None:
-        resolved = [pathlib.Path(s.watched_dir).resolve() for s in sources]
+    async def validate(cls, sources: list["SourceConnector"]) -> None:
+        typed = cast("list[LocalFilesSource]", sources)
+        resolved = [pathlib.Path(s.watched_dir).resolve() for s in typed]
         for i, path_a in enumerate(resolved):
             for path_b in resolved[i + 1:]:
                 if path_b.is_relative_to(path_a) or path_a.is_relative_to(path_b):
@@ -54,6 +54,7 @@ class LocalFilesSource(SourceConnector):
 
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
+        assert task.current_file_id is not None
         path = file_id_to_path(task.current_file_id)
         file_stats = os.stat(path)
         file_id = make_file_id(file_stats.st_ino, path)

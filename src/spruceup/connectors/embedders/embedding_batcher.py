@@ -1,6 +1,7 @@
 import asyncio
 import time
 from dataclasses import dataclass, field
+from typing import cast
 
 from ..base import EmbedderConnector
 from ...utils.hashing import hash_text
@@ -36,7 +37,7 @@ class EmbeddingBatcher(EmbedderConnector):
         self._flusher_task: asyncio.Task | None = None
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        return await self._inner.embed_batch(batch)
+        return await self._inner.embed_batch_retrying(batch)
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         if not chunks:
@@ -68,12 +69,12 @@ class EmbeddingBatcher(EmbedderConnector):
 
         manifest.set_cached_embeddings(file_id, list(zip(miss_hashes, miss_embeddings)))
 
-        results = [None] * len(chunks)
+        results: list[list[float] | None] = [None] * len(chunks)
         for i, emb in hits.items():
             results[i] = emb
         for idx, emb in zip(miss_indices, miss_embeddings):
             results[idx] = emb
-        return results
+        return cast(list[list[float]], results)
 
     async def _dispatch_to_batcher(self, chunks: list[str]) -> list[list[float]]:
         self._ensure_flusher()
@@ -144,7 +145,7 @@ class EmbeddingBatcher(EmbedderConnector):
         touched_files = {file_index for file_index, _, _ in batch}
         async with self._semaphore:
             try:
-                embeddings = await self._inner.embed_batch(batch_strs)
+                embeddings = await self._inner.embed_batch_retrying(batch_strs)
                 if len(embeddings) != len(batch_strs):
                     from ..base import EmbeddingError
                     raise EmbeddingError(
