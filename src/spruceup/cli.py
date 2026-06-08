@@ -16,8 +16,22 @@ logging.basicConfig(
 
 def main() -> None:
     if len(sys.argv) < 2 or sys.argv[1] != "start":
-        print("Usage: spruceup start")
+        print("Usage: spruceup start [--no-cache-files]")
         sys.exit(1)
+
+    # Raw file bytes are cached in the manifest by default so a reindex can skip
+    # refetching from the source. For huge or binary (PDF/docx) corpora the cached
+    # bytes can dominate manifest size; --no-cache-files trades that storage for a
+    # refetch on every reindex. When disabled, each file's cached bytes are cleared
+    # to NULL the next time that file is upserted (lazy, not a bulk startup wipe).
+    cache_files = True
+    for arg in sys.argv[2:]:
+        if arg == "--no-cache-files":
+            cache_files = False
+        else:
+            print(f"Unknown argument: {arg}")
+            print("Usage: spruceup start [--no-cache-files]")
+            sys.exit(1)
 
     # required due to installed entry point (spruceup start)
     cwd = str(pathlib.Path.cwd())
@@ -36,6 +50,6 @@ def main() -> None:
 
     validate_pipeline(pipeline)
     try:
-        asyncio.run(app.run(pipeline))
+        asyncio.run(app.run(pipeline, cache_files=cache_files))
     except KeyboardInterrupt:
         print("\nSpruceUp manually aborted by user command")

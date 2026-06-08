@@ -83,14 +83,15 @@ def _plan_reindex(manifest: Manifest, config) -> ReindexPlan:
     )
 
 
-async def run(pipeline) -> None:
+async def run(pipeline, cache_files: bool = True) -> None:
     manifest = Manifest()
 
     config = pipeline.config
 
     log.info(
-        "SpruceUp starting — manifest=%s  target=%s",
+        "SpruceUp starting — manifest=%s  target=%s  file_cache=%s",
         manifest.path, config.target.display_name,
+        "on" if cache_files else "off",
     )
 
     plan = _plan_reindex(manifest, config)
@@ -146,6 +147,7 @@ async def run(pipeline) -> None:
             manifest=manifest,
             target=config.target,
             source_registry=source_registry,
+            cache_files=cache_files,
         )
 
         sync_sweeper = SyncSweeper(

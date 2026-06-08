@@ -8,12 +8,12 @@ _MANIFEST_PATH = "spruceup_manifest.db"
 
 
 def _pack_embedding(embedding: list[float]) -> bytes:
-    return struct.pack(f"{len(embedding)}d", *embedding)
+    return struct.pack(f"{len(embedding)}f", *embedding)
 
 
 def _unpack_embedding(blob: bytes) -> list[float]:
-    n = len(blob) // 8
-    return list(struct.unpack(f"{n}d", blob))
+    n = len(blob) // 4
+    return list(struct.unpack(f"{n}f", blob))
 
 _CONFIG_KEYS: frozenset[str] = frozenset({
     "file_cache_ready",
@@ -195,11 +195,24 @@ class Manifest:
             [(file_id, chunk.user_chunk_object_hash) for file_id, chunk in chunks],
         )
 
-    def upsert_file_row(self, file: SpruceFile) -> None:
+    def upsert_file_row(self, file: SpruceFile, cache_content: bool = True) -> None:
         # Written up front (before transform), so the row exists for the per-file
         # cache/chunk foreign keys. Stamped 'in_flight' until reconcile marks it
         # 'synced'; a crash in between leaves it 'in_flight' -> reset to 'failed'
         # on restart -> retried by the sweeper.
+        #
+        # When cache_content is False the raw bytes are dropped (stored NULL) even
+        # though they were just fetched for the transform. This also lazily clears
+        # bytes cached by a previous caching-enabled run: the column is nulled the
+        # next time each file is upserted, draining the cache as files turn over
+        # rather than wiping every row at startup.
+        raw_content = None
+        if cache_content:
+            raw_content = (
+                file.raw_content
+                if isinstance(file.raw_content, bytes)
+                else file.raw_content.encode()
+            )
         self._conn.execute(
             """INSERT INTO files
                    (id, data_source_id, file_type, raw_content, modified_at, sync_state)
@@ -214,7 +227,7 @@ class Manifest:
                 file.file_id,
                 file.data_source_id,
                 file.file_type,
-                file.raw_content if isinstance(file.raw_content, bytes) else file.raw_content.encode(),
+                raw_content,
                 file.modified_at,
             ),
         )

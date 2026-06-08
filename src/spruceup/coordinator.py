@@ -22,6 +22,7 @@ class Coordinator:
         target: TargetConnector,
         source_registry: dict,
         max_concurrency: int = 32,
+        cache_files: bool = True,
     ):
         self._queue = queue
         self._transform = transform
@@ -30,6 +31,7 @@ class Coordinator:
         self._manifest = manifest
         self._target = target
         self._source_registry = source_registry
+        self._cache_files = cache_files
         self._active_tasks = set()
         self._semaphore = asyncio.Semaphore(max_concurrency)
 
@@ -75,8 +77,9 @@ class Coordinator:
 
         # Write the row now (in_flight) so it exists for the per-file cache and
         # chunk foreign keys; reconcile flips it to 'synced' once the target write
-        # lands.
-        self._manifest.upsert_file_row(spruce_file)
+        # lands. With caching disabled the raw bytes are not persisted (and any
+        # previously cached bytes for this file are cleared to NULL here).
+        self._manifest.upsert_file_row(spruce_file, cache_content=self._cache_files)
 
         # Per-file context the @memoize decorator and EmbeddingBatcher read while
         # the transform runs; they mutate its counters/used-key sets in place.
