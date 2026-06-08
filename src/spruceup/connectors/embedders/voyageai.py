@@ -1,4 +1,6 @@
-import voyageai
+from typing import cast
+
+from voyageai import AsyncClient  # pyright: ignore[reportPrivateImportUsage]
 
 from ..base import EmbedderConnector
 
@@ -20,16 +22,17 @@ class VoyageAIEmbedder(EmbedderConnector):
             max_batch_size=max_batch_size,
         )
         self._dimensions_overridden = embedding_dimensions is not None
-        self._client: voyageai.AsyncClient | None = None
+        self._client: AsyncClient | None = None
 
-    def _get_client(self) -> voyageai.AsyncClient:
+    def _get_client(self) -> AsyncClient:
         if self._client is None:
-            self._client = voyageai.AsyncClient(api_key=self.api_key)
+            self._client = AsyncClient(api_key=self.api_key)
         return self._client
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        kwargs = {"texts": batch, "model": self.model}
-        if self._dimensions_overridden:
-            kwargs["output_dimension"] = self.embedding_dimensions
-        response = await self._get_client().embed(**kwargs)
-        return response.embeddings
+        response = await self._get_client().embed(
+            texts=batch,
+            model=self.model,
+            output_dimension=self.embedding_dimensions if self._dimensions_overridden else None,
+        )
+        return cast(list[list[float]], response.embeddings)

@@ -9,15 +9,8 @@ _memoize_fn_hashes: set[bytes] = set()
 
 
 def memoize(*, returns):
-    """Cache subfunction results in SQLite, scoped per file.
-
-    Supported return types: str, int, float, bool, list, dict.
-
-    Known limitation: fn_hash covers only this function's own source. Changes
-    to helper functions it calls will not invalidate the cache.
-
-    Only valid when called from within the transform function passed to defineConfig().
-    """
+    # fn_hash covers only this function's own source — changes to helpers it
+    # calls won't invalidate the cache. Only usable inside the transform.
     validate_return_type(returns)
 
     def decorator(fn):
@@ -43,7 +36,7 @@ def memoize(*, returns):
 
         if inspect.iscoroutinefunction(fn):
             @functools.wraps(fn)
-            async def wrapper(*args, **kwargs):
+            async def async_wrapper(*args, **kwargs):
                 ctx, args_h, cached = _lookup(args, kwargs)
                 ctx.memo_total += 1
                 if cached is not None:
@@ -52,17 +45,17 @@ def memoize(*, returns):
                 result = await fn(*args, **kwargs)
                 _store(ctx, args_h, result)
                 return result
-        else:
-            @functools.wraps(fn)
-            def wrapper(*args, **kwargs):
-                ctx, args_h, cached = _lookup(args, kwargs)
-                ctx.memo_total += 1
-                if cached is not None:
-                    ctx.memo_hits += 1
-                    return deserialize(cached, returns)
-                result = fn(*args, **kwargs)
-                _store(ctx, args_h, result)
-                return result
+            return async_wrapper
 
-        return wrapper
+        @functools.wraps(fn)
+        def sync_wrapper(*args, **kwargs):
+            ctx, args_h, cached = _lookup(args, kwargs)
+            ctx.memo_total += 1
+            if cached is not None:
+                ctx.memo_hits += 1
+                return deserialize(cached, returns)
+            result = fn(*args, **kwargs)
+            _store(ctx, args_h, result)
+            return result
+        return sync_wrapper
     return decorator

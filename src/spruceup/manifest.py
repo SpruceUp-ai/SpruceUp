@@ -161,12 +161,6 @@ class Manifest:
 
     @contextmanager
     def transaction(self):
-        """Group multiple writes into one atomic transaction.
-
-        Single writes outside this context auto-commit immediately via
-        autocommit=True. Use this only when multiple writes must succeed or
-        fail together.
-        """
         self._conn.execute("BEGIN")
         try:
             yield
@@ -196,16 +190,6 @@ class Manifest:
         )
 
     def upsert_file_row(self, file: SpruceFile, cache_content: bool = True) -> None:
-        # Written up front (before transform), so the row exists for the per-file
-        # cache/chunk foreign keys. Stamped 'in_flight' until reconcile marks it
-        # 'synced'; a crash in between leaves it 'in_flight' -> reset to 'failed'
-        # on restart -> retried by the sweeper.
-        #
-        # When cache_content is False the raw bytes are dropped (stored NULL) even
-        # though they were just fetched for the transform. This also lazily clears
-        # bytes cached by a previous caching-enabled run: the column is nulled the
-        # next time each file is upserted, draining the cache as files turn over
-        # rather than wiping every row at startup.
         raw_content = None
         if cache_content:
             raw_content = (
@@ -274,9 +258,6 @@ class Manifest:
         return [{"file_id": row[0], "data_source_id": row[1]} for row in cursor]
 
     def purge_empty_inactive_sources(self, active_source_ids: list[int]) -> None:
-        # Drop inactive sources that no longer have any files. A source whose
-        # delete is still pending keeps its files (and so its row) until the
-        # sweeper drains them, then it's purged on a later startup.
         placeholders = ",".join("?" * len(active_source_ids))
         self._conn.execute(
             f"DELETE FROM data_sources "

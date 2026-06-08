@@ -28,13 +28,14 @@ class CohereEmbedder(EmbedderConnector):
         return self._client
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        kwargs = {
-            "model": self.model,
-            "texts": batch,
-            "input_type": "search_document",
-            "embedding_types": ["float"],
-        }
-        if self._dimensions_overridden:
-            kwargs["output_dimension"] = self.embedding_dimensions
-        response = await self._get_client().embed(**kwargs)
-        return response.embeddings.float_
+        response = await self._get_client().embed(
+            model=self.model,
+            texts=batch,
+            input_type="search_document",
+            embedding_types=["float"],
+            output_dimension=self.embedding_dimensions if self._dimensions_overridden else None,
+        )
+        embeddings = response.embeddings.float_
+        if embeddings is None:
+            raise ValueError("CohereEmbedder: API returned no float embeddings")
+        return embeddings

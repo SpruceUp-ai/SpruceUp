@@ -38,7 +38,6 @@ class SyncSweeper:
             change_type = rec["change_type"] or "upsert"
             source = self._source_registry.get(ds_id)
             if change_type == "delete":
-                # A delete needs no source — its source may have been removed.
                 await self._queue.put(SyncTask(
                     "delete",
                     current_file_id=file_id,

@@ -1,6 +1,7 @@
 import asyncio
 import time
 from dataclasses import dataclass, field
+from typing import cast
 
 from ..base import EmbedderConnector
 from ...utils.hashing import hash_text
@@ -68,12 +69,12 @@ class EmbeddingBatcher(EmbedderConnector):
 
         manifest.set_cached_embeddings(file_id, list(zip(miss_hashes, miss_embeddings)))
 
-        results = [None] * len(chunks)
+        results: list[list[float] | None] = [None] * len(chunks)
         for i, emb in hits.items():
             results[i] = emb
         for idx, emb in zip(miss_indices, miss_embeddings):
             results[idx] = emb
-        return results
+        return cast(list[list[float]], results)
 
     async def _dispatch_to_batcher(self, chunks: list[str]) -> list[list[float]]:
         self._ensure_flusher()

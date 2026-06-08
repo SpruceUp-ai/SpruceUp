@@ -1,4 +1,5 @@
 import math
+from typing import Any, cast
 
 from google import genai  # pyright: ignore[reportMissingImports]
 from google.genai import types  # pyright: ignore[reportMissingImports]
@@ -35,10 +36,7 @@ class GeminiEmbedder(EmbedderConnector):
             max_batch_size=max_batch_size,
         )
         self._dimensions_overridden = embedding_dimensions is not None
-        # Gemini only returns unit-normalized vectors at the model's native
-        # dimension; any reduced output_dimensionality must be normalized here.
-        # Normalizing an already-unit native vector is a no-op, so gating on the
-        # override alone is safe without knowing the native dimension.
+        # Reduced-dimension outputs aren't unit-normalized by the API; fix here.
         self._needs_normalization = self._dimensions_overridden
         self._client: genai.Client | None = None
 
@@ -48,15 +46,21 @@ class GeminiEmbedder(EmbedderConnector):
         return self._client
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        config_kwargs = {"task_type": "RETRIEVAL_DOCUMENT"}
-        if self._dimensions_overridden:
-            config_kwargs["output_dimensionality"] = self.embedding_dimensions
         response = await self._get_client().aio.models.embed_content(
             model=self.model,
-            contents=batch,
-            config=types.EmbedContentConfig(**config_kwargs),
+            contents=cast(Any, batch),
+            config=types.EmbedContentConfig(
+                task_type="RETRIEVAL_DOCUMENT",
+                output_dimensionality=(
+                    self.embedding_dimensions if self._dimensions_overridden else None
+                ),
+            ),
         )
-        vectors = [item.values for item in response.embeddings]
+        vectors: list[list[float]] = []
+        for item in response.embeddings or []:
+            if item.values is None:
+                raise ValueError("GeminiEmbedder: API returned an empty embedding")
+            vectors.append(item.values)
         if self._needs_normalization:
             vectors = [_l2_normalize(v) for v in vectors]
         return vectors

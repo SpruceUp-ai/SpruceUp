@@ -19,20 +19,14 @@ log = logging.getLogger(__name__)
 @dataclass
 class ReindexPlan:
     force_reindex: bool
-    structure_changed: bool       # target table/index must be dropped + recreated
-    embeddings_invalidated: bool  # cached vectors must be flushed and recomputed
+    structure_changed: bool
+    embeddings_invalidated: bool
     reasons: list[str]
     transform_hash: bytes
-    fingerprints: dict[str, str]  # config_state values to persist once the run lands
+    fingerprints: dict[str, str]
 
 
 def _plan_reindex(manifest: Manifest, config) -> ReindexPlan:
-    """Compare persisted fingerprints against the current config to decide
-    whether a full reindex is needed, why, what to rebuild, and what to persist.
-
-    Pure decision-making: the caller performs the side effects (cache flush,
-    table rebuild, fingerprint persistence) based on the returned plan.
-    """
     transform_hash = hash_transform(config.transform)
     model = config.embedder.model
     dimensions = str(config.embedder.embedding_dimensions)
@@ -40,8 +34,6 @@ def _plan_reindex(manifest: Manifest, config) -> ReindexPlan:
     schema_fingerprint = hash_schema(config.target.schema, config.target.vector_column)
 
     def _changed(key: str, current: str) -> bool:
-        # First run (stored is None) is not a "change" — the value is just
-        # recorded for next time.
         stored = manifest.get_config_value(key)
         return stored is not None and stored != current
 
@@ -67,10 +59,7 @@ def _plan_reindex(manifest: Manifest, config) -> ReindexPlan:
 
     return ReindexPlan(
         force_reindex=bool(reasons),
-        # Drop + recreate only when the table's shape or destination changes; a
-        # transform/memoize change reuses the existing structure.
         structure_changed=dimensions_changed or target_changed or schema_changed,
-        # Re-embedding is only required when the vectors themselves are invalidated.
         embeddings_invalidated=model_changed or dimensions_changed,
         reasons=reasons,
         transform_hash=transform_hash,
@@ -94,10 +83,6 @@ async def run(pipeline, cache_files: bool = True) -> None:
         "on" if cache_files else "off",
     )
 
-    # Probe the embedding API before anything reads embedding_dimensions: it
-    # resolves the dimension when the user left it unset and validates the model
-    # name / credentials / dimension against the live provider, raising
-    # EmbeddingConfigError on a bad config.
     await config.embedder.health_check()
     log.info(
         "Embedder OK — model=%s  dimensions=%d",
@@ -172,11 +157,6 @@ async def run(pipeline, cache_files: bool = True) -> None:
         coordinator_task = asyncio.create_task(coordinator.run())
         sync_sweeper_task = asyncio.create_task(sync_sweeper.run())
 
-        # Files whose source was removed from the config are deleted as ordinary
-        # delete tasks — same path as any delete, so the sweeper retries
-        # failures. Enqueued after the coordinator starts so a large backlog
-        # drains instead of filling the bounded queue. Empty source rows left by
-        # prior completed removals are purged lazily here.
         manifest.purge_empty_inactive_sources(active_source_ids)
         for rec in manifest.get_orphaned_files(active_source_ids):
             await queue.put(SyncTask(
@@ -208,9 +188,6 @@ async def run(pipeline, cache_files: bool = True) -> None:
                 await queue.join()
                 manifest.set_config_value("file_cache_ready", "true")
                 log.info("Initial sync complete — file cache ready")
-            # Persisted after any pending reingest completes, so a crash mid-
-            # reindex re-triggers it; also backfills keys absent from an older
-            # manifest so future changes to them are detected.
             persist_config_state()
             await asyncio.gather(monitor_task, coordinator_task, sync_sweeper_task)
         except asyncio.CancelledError:

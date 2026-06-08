@@ -20,11 +20,6 @@ def main() -> None:
         print("Usage: spruceup start [--no-cache-files]")
         sys.exit(1)
 
-    # Raw file bytes are cached in the manifest by default so a reindex can skip
-    # refetching from the source. For huge or binary (PDF/docx) corpora the cached
-    # bytes can dominate manifest size; --no-cache-files trades that storage for a
-    # refetch on every reindex. When disabled, each file's cached bytes are cleared
-    # to NULL the next time that file is upserted (lazy, not a bulk startup wipe).
     cache_files = True
     for arg in sys.argv[2:]:
         if arg == "--no-cache-files":
@@ -34,7 +29,6 @@ def main() -> None:
             print("Usage: spruceup start [--no-cache-files]")
             sys.exit(1)
 
-    # required due to installed entry point (spruceup start)
     cwd = str(pathlib.Path.cwd())
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
