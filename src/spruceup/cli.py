@@ -5,6 +5,7 @@ import pathlib
 import sys
 
 from . import app
+from .connectors.base import EmbeddingConfigError
 from .utils.validation import validate_pipeline
 
 logging.basicConfig(
@@ -51,5 +52,7 @@ def main() -> None:
     validate_pipeline(pipeline)
     try:
         asyncio.run(app.run(pipeline, cache_files=cache_files))
+    except EmbeddingConfigError as exc:
+        sys.exit(f"\nEmbedder configuration error: {exc}")
     except KeyboardInterrupt:
         print("\nSpruceUp manually aborted by user command")

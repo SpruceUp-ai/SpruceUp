@@ -1,10 +1,17 @@
 from abc import ABC, abstractmethod
 
+import tenacity
+
 from ..models import ChunkWrapper, SpruceFile
 
 
 class EmbeddingError(Exception):
     """Raised when the embedding API fails after all retries are exhausted."""
+
+
+class EmbeddingConfigError(Exception):
+    """Raised when the embedder's model, credentials, or dimensions don't match
+    what the provider's API actually accepts/returns (detected by health_check)."""
 
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({
     "txt", "md", "html", "json", "pdf", "doc", "docx",
@@ -108,9 +115,57 @@ class EmbedderConnector(ABC):
         self.max_batch_size = max_batch_size
 
     @abstractmethod
-    async def embed_batch(self, batch: list[str]) -> list[list[float]]: ...
+    async def embed_batch(self, batch: list[str]) -> list[list[float]]:
+        """Raw embedding API call for one batch — no retry.
+
+        The shared transient-failure retry policy lives in embed_batch_retrying,
+        which the production path uses. Keeping embed_batch raw lets health_check
+        fail fast on a bad model/credential/dimension instead of retrying it.
+        """
+        ...
+
+    async def embed_batch_retrying(self, batch: list[str]) -> list[list[float]]:
+        async for attempt in tenacity.AsyncRetrying(
+            wait=tenacity.wait_exponential_jitter(initial=1, max=30),
+            stop=tenacity.stop_after_attempt(5),
+            reraise=True,
+        ):
+            with attempt:
+                return await self.embed_batch(batch)
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
-        return await self.embed_batch(chunks)
+        return await self.embed_batch_retrying(chunks)
+
+    async def health_check(self) -> None:
+        """Validate model name, credentials, and dimensions against the live API.
+
+        Embeds a short probe string. A wrong model name, bad credentials, or an
+        unsupported embedding_dimensions surfaces as the provider's own API error,
+        re-raised as EmbeddingConfigError. The probe's vector length resolves
+        embedding_dimensions when the user left it unset, or is checked against the
+        user's value when set. Runs once at startup, before the target table is
+        created (which needs the dimension) and before reindex fingerprinting.
+        """
+        try:
+            vectors = await self.embed_batch(["spruceup embedder health check"])
+        except Exception as exc:
+            raise EmbeddingConfigError(
+                f"{type(self).__name__}: health check failed for model "
+                f"{self.model!r} — {exc}"
+            ) from exc
+        if not vectors or not vectors[0]:
+            raise EmbeddingConfigError(
+                f"{type(self).__name__}: model {self.model!r} returned an empty "
+                f"embedding during health check"
+            )
+        actual = len(vectors[0])
+        if self.embedding_dimensions is None:
+            self.embedding_dimensions = actual
+        elif self.embedding_dimensions != actual:
+            raise EmbeddingConfigError(
+                f"{type(self).__name__}: configured embedding_dimensions="
+                f"{self.embedding_dimensions} but model {self.model!r} returned "
+                f"{actual}-dim vectors"
+            )
 
     async def aclose(self) -> None: ...

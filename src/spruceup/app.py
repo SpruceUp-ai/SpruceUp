@@ -94,6 +94,16 @@ async def run(pipeline, cache_files: bool = True) -> None:
         "on" if cache_files else "off",
     )
 
+    # Probe the embedding API before anything reads embedding_dimensions: it
+    # resolves the dimension when the user left it unset and validates the model
+    # name / credentials / dimension against the live provider, raising
+    # EmbeddingConfigError on a bad config.
+    await config.embedder.health_check()
+    log.info(
+        "Embedder OK — model=%s  dimensions=%d",
+        config.embedder.model, config.embedder.embedding_dimensions,
+    )
+
     plan = _plan_reindex(manifest, config)
     if plan.force_reindex:
         if plan.embeddings_invalidated:

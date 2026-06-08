@@ -36,7 +36,7 @@ class EmbeddingBatcher(EmbedderConnector):
         self._flusher_task: asyncio.Task | None = None
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        return await self._inner.embed_batch(batch)
+        return await self._inner.embed_batch_retrying(batch)
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         if not chunks:
@@ -144,7 +144,7 @@ class EmbeddingBatcher(EmbedderConnector):
         touched_files = {file_index for file_index, _, _ in batch}
         async with self._semaphore:
             try:
-                embeddings = await self._inner.embed_batch(batch_strs)
+                embeddings = await self._inner.embed_batch_retrying(batch_strs)
                 if len(embeddings) != len(batch_strs):
                     from ..base import EmbeddingError
                     raise EmbeddingError(
