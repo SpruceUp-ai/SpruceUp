@@ -5,20 +5,23 @@ from datetime import datetime, timezone
 
 from ..base import SourceConnector, SUPPORTED_EXTENSIONS
 
-# Google Docs are exported as plain text; other Workspace types are not supported.
+# Google Docs (Google Workspace's native document format) are exported as plain
+# text; other Workspace types are not supported. This is distinct from Microsoft
+# Word .doc/.docx files, which are downloaded as-is (see _EXTENSION_TO_MIME).
 _WORKSPACE_EXPORT_MIME: dict[str, str] = {
     "application/vnd.google-apps.document": "text/plain",
 }
 
-# Maps file extensions from SUPPORTED_EXTENSIONS to their Drive MIME types.
+# Maps file extensions from SUPPORTED_EXTENSIONS to their Drive MIME types. The
+# doc/docx entries are Microsoft Word formats — not Google Docs (see above).
 _EXTENSION_TO_MIME: dict[str, str] = {
     "txt":  "text/plain",
     "md":   "text/markdown",
     "html": "text/html",
     "json": "application/json",
     "pdf":  "application/pdf",
-    "doc":  "application/msword",
-    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "doc":  "application/msword",  # Microsoft Word 97–2003
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # Microsoft Word
 }
 
 _SUPPORTED_MIME_TYPES: frozenset[str] = frozenset(
@@ -172,7 +175,8 @@ class GoogleDriveSource(SourceConnector):
             else:
                 raise ValueError(
                     f"Unsupported file type {mime_type!r} for {meta['name']!r} — "
-                    f"only Google Docs, plain text, markdown, HTML, JSON, PDF, DOC, and DOCX are supported."
+                    f"only Google Docs, plain text, markdown, HTML, JSON, PDF, and "
+                    f"Microsoft Word (.doc/.docx) are supported."
                 )
 
         return SpruceFile(

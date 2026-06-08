@@ -11,7 +11,9 @@ SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({
 })
 
 # Formats whose parsers need the original bytes; a utf-8 decode would corrupt
-# them, so decode_content passes these through unchanged.
+# them, so decode_content passes these through unchanged. doc/docx here are
+# Microsoft Word files — Google Docs are exported to text upstream and arrive
+# as "txt", so they are never treated as binary.
 BINARY_EXTENSIONS: frozenset[str] = frozenset({"pdf", "doc", "docx"})
 
 
