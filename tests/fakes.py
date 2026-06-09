@@ -102,6 +102,7 @@ def make_file(
     file_id: str = "file-1",
     data_source_id: int = 1,
     chunks: list[ChunkWrapper] | None = None,
+    modified_at: float = 123.0,
 ) -> SpruceFile:
     return SpruceFile(
         file_id=file_id,
@@ -110,5 +111,5 @@ def make_file(
         data_source_id=data_source_id,
         raw_content=b"hello",
         chunks=chunks or [],
-        modified_at=123.0,
+        modified_at=modified_at,
     )

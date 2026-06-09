@@ -83,3 +83,20 @@ async def test_run_crashes_on_transform_bug(manifest):
 
     with pytest.raises(RuntimeError, match="transform bug"):
         await asyncio.wait_for(coord.run(), timeout=2.0)
+
+
+async def test_stale_event_is_skipped_without_overriding_newer_data(manifest):
+    source_id = manifest.register_source("fake", "src")
+    newer = make_file(file_id="1:doc.txt", data_source_id=source_id, modified_at=200.0)
+    manifest.upsert_file_row(newer)
+
+    stale = make_file(file_id="1:doc.txt", data_source_id=source_id, modified_at=100.0)
+    source = FakeSource(spruce_file=stale)
+    coord, target, embedder = build_coordinator(manifest, source_id, source)
+
+    task = SyncTask("upsert", current_file_id="1:doc.txt", data_source_id=source_id)
+    await coord.process_task(task)
+
+    assert target.calls == []
+    assert embedder.embedded_batches == []
+    assert manifest.get_file_modified_at("1:doc.txt") == 200.0
