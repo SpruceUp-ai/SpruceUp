@@ -38,6 +38,10 @@ def make_chunk(hash_: bytes, payload=None) -> ChunkWrapper:
     )
 
 
+def make_chunks(n: int) -> list[ChunkWrapper]:
+    return [make_chunk(f"hash-{i}".encode()) for i in range(n)]
+
+
 def make_file(
     file_id: str = "file-1",
     data_source_id: int = 1,

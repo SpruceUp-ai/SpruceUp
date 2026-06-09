@@ -2,7 +2,6 @@ import dataclasses
 import hashlib
 import inspect
 import json
-import pathlib
 import typing
 from typing import Callable
 
@@ -22,14 +21,18 @@ def hash_chunk_content(obj, vector_column: str) -> bytes:
 
 
 def hash_transform(func: Callable) -> bytes:
-    return hashlib.blake2b(inspect.getsource(func).encode(), digest_size=DIGEST_SIZE).digest()
+    return hashlib.blake2b(
+        inspect.getsource(func).encode(), digest_size=DIGEST_SIZE
+    ).digest()
 
 
 def hash_schema(schema: type, vector_column: str) -> str:
     hints = typing.get_type_hints(schema)
     parts = [f"{name}={tp!s}" for name, tp in sorted(hints.items())]
     parts.append(f"__vector_column__={vector_column}")
-    return hashlib.blake2b("|".join(parts).encode(), digest_size=DIGEST_SIZE).hexdigest()
+    return hashlib.blake2b(
+        "|".join(parts).encode(), digest_size=DIGEST_SIZE
+    ).hexdigest()
 
 
 def hash_text(text: str) -> bytes:
