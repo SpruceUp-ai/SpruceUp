@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 import tenacity
 
 from ..models import ChunkWrapper, SpruceFile
+from ..utils.schema import validate_vector_column
 
 if TYPE_CHECKING:
     from ..manifest import Manifest
@@ -57,17 +58,22 @@ class SourceConnector(ABC):
 
 
 class TargetConnector(ABC):
+    def __init__(self, schema: type, vector_column: str) -> None:
+        validate_vector_column(schema, vector_column)
+        self._schema = schema
+        self._vector_column = vector_column
+
+    @property
+    def schema(self) -> type:
+        return self._schema
+
+    @property
+    def vector_column(self) -> str:
+        return self._vector_column
+
     @property
     @abstractmethod
     def display_name(self) -> str: ...
-
-    @property
-    @abstractmethod
-    def schema(self) -> type: ...
-
-    @property
-    @abstractmethod
-    def vector_column(self) -> str: ...
 
     @abstractmethod
     def identity(self) -> str:

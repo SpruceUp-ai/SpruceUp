@@ -9,7 +9,7 @@ import weaviate.classes as wvc
 
 from ..base import TargetConnector
 from ...models import ChunkWrapper
-from ...utils.schema import schema_hints, validate_vector_column
+from ...utils.schema import schema_hints
 
 
 _PY_TO_WV: dict[type, Any] = {
@@ -40,10 +40,8 @@ class WeaviateTarget(TargetConnector):
         cluster_url: str | None = None,
         api_key: str | None = None,
     ) -> None:
-        validate_vector_column(schema, vector_column)
+        super().__init__(schema, vector_column)
         self.collection_name = collection_name
-        self._schema = schema
-        self._vector_column = vector_column
         self.url = url
         self.cluster_url = cluster_url
         self.api_key = api_key
@@ -53,14 +51,6 @@ class WeaviateTarget(TargetConnector):
     @property
     def display_name(self) -> str:
         return self.collection_name
-
-    @property
-    def schema(self) -> type:
-        return self._schema
-
-    @property
-    def vector_column(self) -> str:
-        return self._vector_column
 
     def identity(self) -> str:
         return f"weaviate:{self.cluster_url or self.url}:{self.collection_name}"
