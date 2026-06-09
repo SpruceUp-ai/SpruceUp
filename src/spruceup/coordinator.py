@@ -61,7 +61,7 @@ class Coordinator:
             spruce_file = await source.fetch(task, self._manifest)
         except Exception:
             log.exception("[error] %s — fetch failed", label)
-            self._manifest.mark_failed(file_id, task.change_type)
+            self._manifest.mark_fetch_failed(file_id, task.data_source_id, task.change_type)
             return
 
         label = spruce_file.display_name
