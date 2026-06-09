@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import patch
 
 import pytest
 
@@ -100,3 +101,34 @@ async def test_stale_event_is_skipped_without_overriding_newer_data(manifest):
     assert target.calls == []
     assert embedder.embedded_batches == []
     assert manifest.get_file_modified_at("1:doc.txt") == 200.0
+
+
+async def test_delete_task_routes_to_sync_engine(manifest):
+    source_id = manifest.register_source("fake", "src")
+    coord, _, _ = build_coordinator(manifest, source_id, FakeSource())
+
+    task = SyncTask("delete", current_file_id="1:doc.txt", data_source_id=source_id)
+    with (
+        patch.object(
+            coord._sync_engine, "delete_file", wraps=coord._sync_engine.delete_file
+        ) as delete_file,
+        patch.object(manifest, "mark_failed", wraps=manifest.mark_failed) as mark_failed,
+    ):
+        await coord.process_task(task)
+
+    delete_file.assert_awaited_once_with("1:doc.txt")
+    mark_failed.assert_not_called()
+
+
+async def test_delete_failure_is_marked_failed(manifest):
+    source_id = manifest.register_source("fake", "src")
+    coord, _, _ = build_coordinator(manifest, source_id, FakeSource())
+
+    task = SyncTask("delete", current_file_id="1:doc.txt", data_source_id=source_id)
+    with (
+        patch.object(coord._sync_engine, "delete_file", side_effect=RuntimeError("boom")),
+        patch.object(manifest, "mark_failed", wraps=manifest.mark_failed) as mark_failed,
+    ):
+        await coord.process_task(task)
+
+    mark_failed.assert_called_once_with("1:doc.txt", "delete")
