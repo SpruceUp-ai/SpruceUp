@@ -10,7 +10,7 @@ from psycopg.rows import TupleRow
 
 from ..base import TargetConnector
 from ...models import ChunkWrapper
-from ...utils.schema import schema_hints, validate_vector_column
+from ...utils.schema import schema_hints
 
 
 _PY_TO_PG: dict[type, LiteralString] = {
@@ -37,25 +37,15 @@ def _py_to_pg_type(tp) -> LiteralString:
 
 class PgVectorTarget(TargetConnector):
     def __init__(self, connstr: str, table: str, schema: type, vector_column: str) -> None:
-        validate_vector_column(schema, vector_column)
+        super().__init__(schema, vector_column)
         self.connstr = connstr
         self.table = table
-        self._schema = schema
-        self._vector_column = vector_column
         self._pool: _Pool | None = None
         self._pool_lock = asyncio.Lock()
 
     @property
     def display_name(self) -> str:
         return self.table
-
-    @property
-    def schema(self) -> type:
-        return self._schema
-
-    @property
-    def vector_column(self) -> str:
-        return self._vector_column
 
     def identity(self) -> str:
         info = conninfo_to_dict(self.connstr)

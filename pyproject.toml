@@ -41,6 +41,8 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+asyncio_mode = "auto"
+testpaths = ["tests"]
 
 [tool.pyright]
 pythonVersion = "3.14"

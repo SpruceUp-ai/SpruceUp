@@ -325,6 +325,16 @@ class Manifest:
             (change_type, file_id),
         )
 
+    def mark_fetch_failed(self, file_id: str, data_source_id: int, change_type: str) -> None:
+        self._conn.execute(
+            """INSERT INTO files (id, data_source_id, sync_state, last_change_type)
+               VALUES (?, ?, 'failed', ?)
+               ON CONFLICT (id) DO UPDATE SET
+                   sync_state       = 'failed',
+                   last_change_type = excluded.last_change_type""",
+            (file_id, data_source_id, change_type),
+        )
+
     def get_failed_files(self) -> list[dict]:
         rows = self._conn.execute(
             "SELECT id, data_source_id, last_change_type "

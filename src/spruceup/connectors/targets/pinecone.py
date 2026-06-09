@@ -5,7 +5,7 @@ from pinecone import Pinecone, ServerlessSpec
 
 from ..base import TargetConnector
 from ...models import ChunkWrapper
-from ...utils.schema import schema_hints, validate_vector_column
+from ...utils.schema import schema_hints
 
 
 class PineconeTarget(TargetConnector):
@@ -20,11 +20,9 @@ class PineconeTarget(TargetConnector):
         cloud: str = "aws",
         region: str = "us-east-1",
     ) -> None:
-        validate_vector_column(schema, vector_column)
+        super().__init__(schema, vector_column)
         self.api_key = api_key
         self.index_name = index_name
-        self._schema = schema
-        self._vector_column = vector_column
         self.namespace = namespace
         self.metric = metric
         self.cloud = cloud
@@ -35,14 +33,6 @@ class PineconeTarget(TargetConnector):
     @property
     def display_name(self) -> str:
         return self.index_name
-
-    @property
-    def schema(self) -> type:
-        return self._schema
-
-    @property
-    def vector_column(self) -> str:
-        return self._vector_column
 
     def identity(self) -> str:
         return f"pinecone:{self.index_name}:{self.namespace}"
