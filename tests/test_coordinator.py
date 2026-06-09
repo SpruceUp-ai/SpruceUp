@@ -1,3 +1,7 @@
+import asyncio
+
+import pytest
+
 from spruceup.coordinator import Coordinator
 from spruceup.debounce_queue import DebounceQueue
 from spruceup.models import SyncTask
@@ -62,3 +66,20 @@ async def test_fetch_failure_records_retryable_failed_row(manifest):
     assert failed[0]["file_id"] == "1:doc.txt"
     assert failed[0]["data_source_id"] == source_id
     assert failed[0]["change_type"] == "upsert"
+
+
+async def test_run_crashes_on_transform_bug(manifest):
+    source_id = manifest.register_source("fake", "src")
+    file = make_file(file_id="1:doc.txt", data_source_id=source_id)
+    source = FakeSource(spruce_file=file)
+
+    async def boom(*, file_props, embed):
+        raise RuntimeError("transform bug")
+
+    coord, _, _ = build_coordinator(manifest, source_id, source, transform=boom)
+    coord._queue.put_nowait(
+        SyncTask("upsert", current_file_id=file.file_id, data_source_id=source_id)
+    )
+
+    with pytest.raises(RuntimeError, match="transform bug"):
+        await asyncio.wait_for(coord.run(), timeout=2.0)

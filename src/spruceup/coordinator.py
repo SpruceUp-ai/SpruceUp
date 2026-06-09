@@ -35,6 +35,7 @@ class Coordinator:
         self._cache_files = cache_files
         self._active_tasks = set()
         self._semaphore = asyncio.Semaphore(max_concurrency)
+        self._fatal: asyncio.Future[None] | None = None
 
     async def process_task(self, task: SyncTask) -> None:
         file_id = task.current_file_id
@@ -91,10 +92,6 @@ class Coordinator:
             log.exception("[error] %s — embedding failed", label)
             self._manifest.mark_failed(spruce_file.file_id, task.change_type)
             return
-        except Exception:
-            log.exception("[error] %s — transform failed", label)
-            self._manifest.mark_failed(spruce_file.file_id, task.change_type)
-            return
 
         if ctx.memo_total > 0:
             log.info("[memoize] %s — %d/%d hits", label, ctx.memo_hits, ctx.memo_total)
@@ -126,13 +123,29 @@ class Coordinator:
         self._manifest.set_sync_state(spruce_file.file_id, "synced")
 
     async def run(self) -> None:
+        self._fatal = asyncio.get_running_loop().create_future()
         while True:
-            next_task: SyncTask = await self._queue.get()
+            get_task = asyncio.ensure_future(self._queue.get())
+            await asyncio.wait(
+                {get_task, self._fatal}, return_when=asyncio.FIRST_COMPLETED
+            )
+            if self._fatal.done():
+                get_task.cancel()
+                await self._fatal  # re-raises a child task's fatal exception
+            next_task: SyncTask = get_task.result()
             await self._semaphore.acquire()
-            asyncio_task = asyncio.create_task(self._process_and_release(next_task))
-            self._active_tasks.add(asyncio_task)
-            asyncio_task.add_done_callback(self._active_tasks.discard)
+            child = asyncio.create_task(self._process_and_release(next_task))
+            self._active_tasks.add(child)
+            child.add_done_callback(self._on_task_done)
             await asyncio.sleep(0)
+
+    def _on_task_done(self, task: asyncio.Task) -> None:
+        self._active_tasks.discard(task)
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None and self._fatal is not None and not self._fatal.done():
+            self._fatal.set_exception(exc)
 
     async def _process_and_release(self, task: SyncTask) -> None:
         try:
