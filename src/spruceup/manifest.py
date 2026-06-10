@@ -16,7 +16,6 @@ def _unpack_embedding(blob: bytes) -> list[float]:
     return list(struct.unpack(f"{n}f", blob))
 
 _CONFIG_KEYS: frozenset[str] = frozenset({
-    "file_cache_ready",
     "embedding_model",
     "embedding_dimensions",
     "target_identity",

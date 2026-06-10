@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -28,6 +28,5 @@ class SpruceFile:
 @dataclass
 class SyncTask:
     change_type: str
-    current_file_id: str | None = field(default=None)
-    data_source_id: int = field(default=0)
-    use_manifest_cache: bool = field(default=False)
+    current_file_id: str
+    data_source_id: int

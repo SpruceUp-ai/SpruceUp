@@ -27,9 +27,6 @@ class LocalFileWatcher(BaseWatcher):
     ) -> None:
         log.info("Scanning %s …", self._root_path)
         n_upserts = n_deletes = 0
-        use_manifest_cache = (
-            force_reindex and manifest.get_config_value("file_cache_ready") == "true"
-        )
 
         by_inode: dict[int, tuple[str, float | None]] = {}
         if not force_reindex:
@@ -61,7 +58,6 @@ class LocalFileWatcher(BaseWatcher):
                     "upsert",
                     current_file_id=new_file_id,
                     data_source_id=self._data_source_id,
-                    use_manifest_cache=use_manifest_cache,
                 ))
                 n_upserts += 1
                 continue

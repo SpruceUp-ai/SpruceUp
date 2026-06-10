@@ -172,7 +172,6 @@ async def run(pipeline, cache_files: bool = True) -> None:
         try:
             if plan.force_reindex:
                 await queue.join()
-                manifest.set_config_value("file_cache_ready", "true")
                 manifest.update_transform_hash(plan.transform_hash)
                 manifest.update_memoize_fn_hashes(_memoize_fn_hashes)
                 n_failed = len(manifest.get_failed_files())
@@ -184,10 +183,6 @@ async def run(pipeline, cache_files: bool = True) -> None:
                     )
                 else:
                     log.info("Reindex complete")
-            elif manifest.get_config_value("file_cache_ready") is None:
-                await queue.join()
-                manifest.set_config_value("file_cache_ready", "true")
-                log.info("Initial sync complete — file cache ready")
             persist_config_state()
             await asyncio.gather(monitor_task, coordinator_task, sync_sweeper_task)
         except asyncio.CancelledError:
