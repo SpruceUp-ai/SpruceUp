@@ -199,14 +199,15 @@ class Manifest:
             )
         self._conn.execute(
             """INSERT INTO files
-                   (id, data_source_id, file_type, raw_content, modified_at, sync_state)
-               VALUES (?, ?, ?, ?, ?, 'in_flight')
+                   (id, data_source_id, file_type, raw_content, modified_at, sync_state, last_change_type)
+               VALUES (?, ?, ?, ?, ?, 'in_flight', 'upsert')
                ON CONFLICT (id) DO UPDATE SET
-                   data_source_id = excluded.data_source_id,
-                   file_type      = excluded.file_type,
-                   raw_content    = excluded.raw_content,
-                   modified_at    = excluded.modified_at,
-                   sync_state     = 'in_flight'""",
+                   data_source_id   = excluded.data_source_id,
+                   file_type        = excluded.file_type,
+                   raw_content      = excluded.raw_content,
+                   modified_at      = excluded.modified_at,
+                   sync_state       = 'in_flight',
+                   last_change_type = 'upsert'""",
             (
                 file.file_id,
                 file.data_source_id,
