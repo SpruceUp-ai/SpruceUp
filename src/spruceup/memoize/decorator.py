@@ -16,9 +16,9 @@ def memoize(*, memoized_subfn_return_type):
     def decorator(fn):
         if not inspect.iscoroutinefunction(fn):
             raise TypeError(
-                f"@memoize requires an async function; '{fn.__name__}' is sync. "
-                "Memoize expensive awaitable work (network calls), or wrap CPU-bound "
-                "work in asyncio.to_thread so it doesn't block the event loop."
+                f"""@memoize requires an async function; '{fn.__name__}' is sync.
+                Memoize expensive awaitable work (network calls), or wrap CPU-bound
+                work in asyncio.to_thread so it doesn't block the event loop."""
             )
 
         fn_hash = hash_transform(fn)
