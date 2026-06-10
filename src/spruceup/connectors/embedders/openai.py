@@ -1,12 +1,14 @@
+from collections.abc import Callable
+
 import openai
 
-from ..base import EmbedderConnector
+from ..base import EmbedderConnector, TokenExpiredError
 
 
 class OpenAIEmbedder(EmbedderConnector):
     def __init__(
         self,
-        api_key: str,
+        api_key: str | Callable[[], str],
         model: str = "text-embedding-3-small",
         max_batch_size: int = 150,
         embedding_dimensions: int | None = None,
@@ -24,7 +26,7 @@ class OpenAIEmbedder(EmbedderConnector):
 
     def _get_client(self) -> openai.AsyncOpenAI:
         if self._client is None:
-            self._client = openai.AsyncOpenAI(api_key=self.api_key)
+            self._client = openai.AsyncOpenAI(api_key=self._resolve_api_key())
         return self._client
 
     async def aclose(self) -> None:
@@ -40,5 +42,8 @@ class OpenAIEmbedder(EmbedderConnector):
         }
         if self._dimensions_overridden:
             kwargs["dimensions"] = self.embedding_dimensions
-        response = await self._get_client().embeddings.create(**kwargs)
+        try:
+            response = await self._get_client().embeddings.create(**kwargs)
+        except openai.AuthenticationError as exc:
+            raise TokenExpiredError(str(exc)) from exc
         return [item.embedding for item in response.data]
