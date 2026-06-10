@@ -8,12 +8,19 @@ from .serialization import validate_return_type, serialize, deserialize
 _memoize_fn_hashes: set[bytes] = set()
 
 
-def memoize(*, returns):
+def memoize(*, memoized_subfn_return_type):
     # fn_hash covers only this function's own source — changes to helpers it
     # calls won't invalidate the cache. Only usable inside the transform.
-    validate_return_type(returns)
+    validate_return_type(memoized_subfn_return_type)
 
     def decorator(fn):
+        if not inspect.iscoroutinefunction(fn):
+            raise TypeError(
+                f"@memoize requires an async function; '{fn.__name__}' is sync. "
+                "Memoize expensive awaitable work (network calls), or wrap CPU-bound "
+                "work in asyncio.to_thread so it doesn't block the event loop."
+            )
+
         fn_hash = hash_transform(fn)
         _sig = inspect.signature(fn)
         _memoize_fn_hashes.add(fn_hash)
@@ -32,30 +39,21 @@ def memoize(*, returns):
             return ctx, args_h, cached
 
         def _store(ctx, args_h, result):
-            ctx.manifest.set_memoized(ctx.file_id, fn_hash, args_h, serialize(result, returns))
-
-        if inspect.iscoroutinefunction(fn):
-            @functools.wraps(fn)
-            async def async_wrapper(*args, **kwargs):
-                ctx, args_h, cached = _lookup(args, kwargs)
-                ctx.memo_total += 1
-                if cached is not None:
-                    ctx.memo_hits += 1
-                    return deserialize(cached, returns)
-                result = await fn(*args, **kwargs)
-                _store(ctx, args_h, result)
-                return result
-            return async_wrapper
+            ctx.manifest.set_memoized(
+                ctx.file_id, fn_hash, args_h, serialize(result, memoized_subfn_return_type)
+            )
 
         @functools.wraps(fn)
-        def sync_wrapper(*args, **kwargs):
+        async def async_wrapper(*args, **kwargs):
             ctx, args_h, cached = _lookup(args, kwargs)
             ctx.memo_total += 1
             if cached is not None:
                 ctx.memo_hits += 1
-                return deserialize(cached, returns)
-            result = fn(*args, **kwargs)
+                return deserialize(cached, memoized_subfn_return_type)
+            result = await fn(*args, **kwargs)
             _store(ctx, args_h, result)
             return result
-        return sync_wrapper
+
+        return async_wrapper
+
     return decorator

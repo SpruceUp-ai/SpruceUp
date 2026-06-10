@@ -2,10 +2,12 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 
+from .manifest import Manifest
+
 
 @dataclass
 class TransformContext:
-    manifest: object
+    manifest: Manifest
     file_id: str
     used_memoized_subfn_call_keys: set = field(default_factory=set)
     memo_hits: int = 0

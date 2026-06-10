@@ -114,10 +114,10 @@ Wraps any `EmbedderConnector`. Accumulates chunks from concurrent file transform
 
 ### `@memoize` decorator (`memoize/decorator.py`)
 
-Caches sync or async subfunctions in the Manifest, scoped per file. Results are invalidated when the function body changes. Valid **only** when called from within the `transform` function — it reads `contextvars` set by `Coordinator.upsert_file()`.
+Caches async subfunctions in the Manifest, scoped per file. The decorated function must be `async` — decorating a sync function raises `TypeError` at import. Results are invalidated when the function body changes. Valid **only** when called from within the `transform` function — it reads the `contextvars` set by `Coordinator.upsert_file()` via `transform_scope`.
 
 ```python
-@memoize(returns=str)
+@memoize(memoized_subfn_return_type=str)
 async def summarize(text: str) -> str: ...
 ```
 
