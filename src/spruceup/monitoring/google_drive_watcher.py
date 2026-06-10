@@ -47,7 +47,7 @@ class GoogleDriveWatcher(BaseWatcher):
         return build("drive", "v3", credentials=Credentials(token=token))
 
     async def _full_scan(
-        self, service, queue: asyncio.Queue, manifest: "Manifest", use_manifest_cache: bool = False
+        self, service, queue: asyncio.Queue, manifest: "Manifest"
     ) -> int:
         token_resp = await asyncio.to_thread(
             service.changes().getStartPageToken().execute
@@ -83,7 +83,6 @@ class GoogleDriveWatcher(BaseWatcher):
                             "upsert",
                             current_file_id=f["id"],
                             data_source_id=self._data_source_id,
-                            use_manifest_cache=use_manifest_cache,
                         ))
                         n_upserts += 1
 
@@ -206,11 +205,8 @@ class GoogleDriveWatcher(BaseWatcher):
         service = await asyncio.to_thread(self._build_service)
         stored_token = manifest.get_source_state(self._data_source_id, _STATE_PAGE_TOKEN)
 
-        use_manifest_cache = (
-            force_reindex and manifest.get_config_value("file_cache_ready") == "true"
-        )
         if force_reindex or stored_token is None:
-            n_upserts = await self._full_scan(service, queue, manifest, use_manifest_cache=use_manifest_cache)
+            n_upserts = await self._full_scan(service, queue, manifest)
             n_deletes = 0
         else:
             n_upserts, n_deletes = await self._incremental_scan(

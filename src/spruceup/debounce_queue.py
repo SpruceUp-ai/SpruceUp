@@ -11,16 +11,14 @@ class DebounceQueue(asyncio.Queue[SyncTask]):
         self._in_queue: dict[str, SyncTask] = {}
 
     def _put(self, item: SyncTask) -> None:
-        if item.current_file_id is not None:
-            old = self._in_queue.get(item.current_file_id)
-            if old is not None:
-                self._queue.remove(old)  # pyright: ignore[reportAttributeAccessIssue]
-                self._unfinished_tasks -= 1
-            self._in_queue[item.current_file_id] = item
+        old = self._in_queue.get(item.current_file_id)
+        if old is not None:
+            self._queue.remove(old)  # pyright: ignore[reportAttributeAccessIssue]
+            self._unfinished_tasks -= 1
+        self._in_queue[item.current_file_id] = item
         super()._put(item)
 
     def _get(self) -> SyncTask:
         item = super()._get()
-        if item.current_file_id is not None:
-            self._in_queue.pop(item.current_file_id, None)
+        self._in_queue.pop(item.current_file_id, None)
         return item

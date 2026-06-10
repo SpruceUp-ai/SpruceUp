@@ -131,7 +131,6 @@ class GoogleDriveSource(SourceConnector):
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
 
-        assert task.current_file_id is not None
         file_id = task.current_file_id
         service = await asyncio.to_thread(_build_drive_service, self._on_token_expired)
 
@@ -150,9 +149,8 @@ class GoogleDriveSource(SourceConnector):
         ).timestamp()
 
         raw_content = None
-        if task.use_manifest_cache:
-            if manifest.get_file_modified_at(file_id) == modified_at:
-                raw_content = manifest.get_raw_content(file_id)
+        if manifest.get_file_modified_at(file_id) == modified_at:
+            raw_content = manifest.get_raw_content(file_id)
 
         if raw_content is None:
             if export_mime:

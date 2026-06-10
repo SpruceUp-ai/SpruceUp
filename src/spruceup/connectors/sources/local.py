@@ -54,16 +54,14 @@ class LocalFilesSource(SourceConnector):
 
     async def fetch(self, task, manifest):
         from spruceup.models import SpruceFile
-        assert task.current_file_id is not None
         path = file_id_to_path(task.current_file_id)
         file_stats = os.stat(path)
         file_id = make_file_id(file_stats.st_ino, path)
         file_type = pathlib.Path(path).suffix.lstrip(".")
 
         raw_content = None
-        if task.use_manifest_cache:
-            if manifest.get_file_modified_at(file_id) == file_stats.st_mtime:
-                raw_content = manifest.get_raw_content(file_id)
+        if manifest.get_file_modified_at(file_id) == file_stats.st_mtime:
+            raw_content = manifest.get_raw_content(file_id)
         if raw_content is None:
             with open(path, "rb") as f:
                 raw_content = f.read()

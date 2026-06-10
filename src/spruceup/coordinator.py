@@ -39,8 +39,6 @@ class Coordinator:
 
     async def process_task(self, task: SyncTask) -> None:
         file_id = task.current_file_id
-        if file_id is None:
-            return
         if task.change_type == "delete":
             try:
                 log.info("[delete] %s", file_id)
@@ -54,7 +52,6 @@ class Coordinator:
             await self.upsert_file(task, source)
 
     async def upsert_file(self, task: SyncTask, source) -> None:
-        assert task.current_file_id is not None
         file_id = task.current_file_id
         label = file_id
 
