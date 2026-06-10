@@ -6,7 +6,7 @@ from .debounce_queue import DebounceQueue
 from .manifest import Manifest
 from .models import ChunkWrapper, FileProps, SyncTask
 from .sync_engine import SyncEngine
-from .transform_context import TransformContext, _transform_context
+from .transform_context import TransformContext, transform_scope
 from .utils.hashing import hash_chunk_content
 from .utils.validation import validate_schema_objects
 
@@ -72,31 +72,30 @@ class Coordinator:
         self._manifest.upsert_file_row(spruce_file, cache_content=self._cache_files)
 
         ctx = TransformContext(manifest=self._manifest, file_id=spruce_file.file_id)
-        _transform_context.set(ctx)
-
-        try:
-            user_chunks = await self._transform(
-                file_props=FileProps(
-                    raw_content=source.decode_content(
-                        spruce_file.raw_content, spruce_file.file_type
+        with transform_scope(ctx):
+            try:
+                user_chunks = await self._transform(
+                    file_props=FileProps(
+                        raw_content=source.decode_content(
+                            spruce_file.raw_content, spruce_file.file_type
+                        ),
+                        display_name=spruce_file.display_name,
+                        file_type=spruce_file.file_type,
                     ),
-                    display_name=spruce_file.display_name,
-                    file_type=spruce_file.file_type,
-                ),
-                embed=self._embedder.process_chunks,
-            )
-        except EmbeddingError:
-            log.exception("[error] %s — embedding failed", label)
-            self._manifest.mark_failed(spruce_file.file_id, task.change_type)
-            return
+                    embed=self._embedder.process_chunks,
+                )
+            except EmbeddingError:
+                log.exception("[error] %s — embedding failed", label)
+                self._manifest.mark_failed(spruce_file.file_id, task.change_type)
+                return
 
         if ctx.memo_total > 0:
             log.info("[memoize] %s — %d/%d hits", label, ctx.memo_hits, ctx.memo_total)
         if ctx.embed_total > 0:
             log.info("[embed_cache] %s — %d/%d hits", label, ctx.embed_hits, ctx.embed_total)
 
-        self._manifest.sweep_memoized(spruce_file.file_id, ctx.memo_temp_keys)
-        self._manifest.sweep_embedding_cache(spruce_file.file_id, ctx.embed_used_hashes)
+        self._manifest.sweep_memoized(spruce_file.file_id, ctx.used_memoized_subfn_call_keys)
+        self._manifest.sweep_embedding_cache(spruce_file.file_id, ctx.used_chunk_embedding_cache_keys)
 
         validate_schema_objects(user_chunks, self._target.schema)
         log.info("[upsert] %s — %d chunk(s)", label, len(user_chunks))

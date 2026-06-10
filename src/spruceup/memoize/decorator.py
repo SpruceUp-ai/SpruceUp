@@ -2,7 +2,7 @@ import functools
 import inspect
 
 from ..utils.hashing import hash_args, hash_transform
-from ..transform_context import _transform_context
+from ..transform_context import get_transform_context
 from .serialization import validate_return_type, serialize, deserialize
 
 _memoize_fn_hashes: set[bytes] = set()
@@ -19,7 +19,7 @@ def memoize(*, returns):
         _memoize_fn_hashes.add(fn_hash)
 
         def _lookup(args, kwargs):
-            ctx = _transform_context.get()
+            ctx = get_transform_context()
             if ctx is None:
                 raise RuntimeError(
                     f"@memoize function '{fn.__name__}' was called outside a transform "
@@ -27,7 +27,7 @@ def memoize(*, returns):
                     "transform function passed to defineConfig()."
                 )
             args_h = hash_args(fn, args, kwargs, sig=_sig)
-            ctx.memo_temp_keys.add((fn_hash, args_h))
+            ctx.used_memoized_subfn_call_keys.add((fn_hash, args_h))
             cached = ctx.manifest.get_memoized(ctx.file_id, fn_hash, args_h)
             return ctx, args_h, cached
 

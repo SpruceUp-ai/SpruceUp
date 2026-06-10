@@ -5,7 +5,7 @@ from typing import cast
 
 from ..base import EmbedderConnector
 from ...utils.hashing import hash_text
-from ...transform_context import _transform_context
+from ...transform_context import get_transform_context
 
 
 @dataclass
@@ -43,7 +43,7 @@ class EmbeddingBatcher(EmbedderConnector):
         if not chunks:
             return []
 
-        ctx = _transform_context.get()
+        ctx = get_transform_context()
         if ctx is None:
             return await self._dispatch_to_batcher(chunks)
 
@@ -53,7 +53,7 @@ class EmbeddingBatcher(EmbedderConnector):
         chunk_hashes = [hash_text(c) for c in chunks]
         cached = manifest.get_cached_embeddings(file_id, chunk_hashes)
 
-        ctx.embed_used_hashes.update(chunk_hashes)
+        ctx.used_chunk_embedding_cache_keys.update(chunk_hashes)
 
         hits = {i: cached[h] for i, h in enumerate(chunk_hashes) if h in cached}
         ctx.embed_hits += len(hits)
