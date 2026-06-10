@@ -61,7 +61,7 @@ def split_chunks(raw_content: str, file_name: str, ext: str) -> list[str]:
 # --- memoized helpers -------------------------------------------------
 
 
-# @memoize(memoized_subfn_return_type=str)
+# @memoize(return_type=str)
 # async def prepare_chunk(chunk_text: str) -> str:
 #     # await asyncio.sleep(0.05)  # simulate async preprocessing
 #     return chunk_text
@@ -77,7 +77,7 @@ def _get_openai_client() -> openai.AsyncOpenAI:
     return _openai_client
 
 
-# @memoize(memoized_subfn_return_type=str)
+# @memoize(return_type=str)
 # async def summarize_chunk(chunk_text: str) -> str:
 #     response = await _get_openai_client().chat.completions.create(
 #         model="gpt-4o-mini",
