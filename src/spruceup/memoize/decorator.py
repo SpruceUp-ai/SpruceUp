@@ -1,9 +1,9 @@
 import functools
 import inspect
 
-from ..utils.hashing import hash_args, hash_transform
 from ..transform_context import get_transform_context
-from .serialization import validate_return_type, serialize, deserialize
+from ..utils.hashing import hash_args, hash_transform
+from .decorator_utility import deserialize, serialize, validate_return_type
 
 _memoize_fn_hashes: set[bytes] = set()
 
@@ -29,9 +29,9 @@ def memoize(*, memoized_subfn_return_type):
             ctx = get_transform_context()
             if ctx is None:
                 raise RuntimeError(
-                    f"@memoize function '{fn.__name__}' was called outside a transform "
-                    "context. @memoize subfunctions may only be called from within the "
-                    "transform function passed to defineConfig()."
+                    f"""@memoize function '{fn.__name__}' was called outside a transform
+                    context. @memoize subfunctions may only be called from within the
+                    transform function passed to defineConfig()."""
                 )
             args_h = hash_args(fn, args, kwargs, sig=_sig)
             ctx.used_memoized_subfn_call_keys.add((fn_hash, args_h))
@@ -40,7 +40,10 @@ def memoize(*, memoized_subfn_return_type):
 
         def _store(ctx, args_h, result):
             ctx.manifest.set_memoized(
-                ctx.file_id, fn_hash, args_h, serialize(result, memoized_subfn_return_type)
+                ctx.file_id,
+                fn_hash,
+                args_h,
+                serialize(result, memoized_subfn_return_type),
             )
 
         @functools.wraps(fn)
