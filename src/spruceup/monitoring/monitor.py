@@ -35,7 +35,6 @@ class BaseWatcher(ABC):
         self,
         queue: asyncio.Queue,
         manifest: "Manifest",
-        force_reindex: bool = False,
     ) -> None: ...
 
     @abstractmethod
@@ -50,13 +49,12 @@ class BaseWatcher(ABC):
         self,
         queue: asyncio.Queue,
         manifest: "Manifest",
-        force_reindex: bool = False,
         catchup_done: asyncio.Event | None = None,
     ) -> None:
         watch_ready = asyncio.Event()
         watch_task = asyncio.create_task(self._watch(queue, manifest, watch_ready))
         try:
-            await self._catch_up(queue, manifest, force_reindex)
+            await self._catch_up(queue, manifest)
             watch_ready.set()
             if catchup_done:
                 catchup_done.set()
@@ -75,15 +73,11 @@ class Monitor:
     def add_watcher(self, watcher: BaseWatcher) -> None:
         self._watchers.append(watcher)
 
-    async def run(
-        self, force_reindex: bool = False, startup_done: asyncio.Event | None = None
-    ) -> None:
+    async def run(self, startup_done: asyncio.Event | None = None) -> None:
         watcher_events = [asyncio.Event() for _ in self._watchers]
         tasks = [
             asyncio.create_task(
-                _with_retry(
-                    watcher.run, self._queue, self._manifest, force_reindex, event
-                )
+                _with_retry(watcher.run, self._queue, self._manifest, event)
             )
             for watcher, event in zip(self._watchers, watcher_events)
         ]

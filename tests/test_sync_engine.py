@@ -57,15 +57,16 @@ async def test_reconcile_adds_and_removes_changed_chunks(manifest):
     assert deletes == [b"b"]
 
 
-async def test_reconcile_force_upsert_repushes_already_synced_chunks(manifest):
+async def test_reconcile_repushes_synced_chunks_of_needs_reindex_file(manifest):
     source_id = manifest.register_source("local", "src")
     target = FakeTarget()
-    engine = SyncEngine(manifest, target, force_upsert=True)
+    engine = SyncEngine(manifest, target)
 
     chunks = make_chunks(3)
     file = make_file(data_source_id=source_id, chunks=chunks)
     manifest.upsert_file_row(file)
     manifest.upsert_chunks([(file.file_id, c) for c in chunks])
+    manifest.mark_all_files_needs_reindex()
 
     await engine.reconcile(file)
 
