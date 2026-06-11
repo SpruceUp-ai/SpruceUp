@@ -39,10 +39,13 @@ Examples:
 
 import argparse
 import asyncio
+import cProfile
 import hashlib
+import io
 import logging
 import os
 import pathlib
+import pstats
 import resource
 import time
 import tracemalloc
@@ -97,15 +100,28 @@ class _ErrorCounter(logging.Handler):
 
 
 def _current_rss_mb() -> float:
-    with open("/proc/self/status") as f:
-        for line in f:
-            if line.startswith("VmRSS:"):
-                return int(line.split()[1]) / 1024
-    return 0.0
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024
+    except FileNotFoundError:
+        pass
+    try:
+        import sys
+        rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return rss / 1024 if sys.platform == "linux" else rss / (1024 * 1024)
+    except Exception:
+        return 0.0
 
 
 def _peak_rss_mb() -> float:
-    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    try:
+        import sys
+        rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return rss / 1024 if sys.platform == "linux" else rss / (1024 * 1024)
+    except Exception:
+        return 0.0
 
 
 # --- drain helper -----------------------------------------------------
@@ -212,10 +228,6 @@ async def drive(args) -> None:
     if args.index_chunks:
         manifest._conn.execute("CREATE INDEX IF NOT EXISTS ix_chunks_file_id ON chunks(file_id)")
 
-    if args.index_files:
-        manifest._conn.execute("CREATE INDEX IF NOT EXISTS ix_files_inode_src ON files(inode, data_source_id)")
-        manifest._conn.execute("CREATE INDEX IF NOT EXISTS ix_files_src ON files(data_source_id)")
-
     if args.shared_conn:
         # Diagnostic: Manifest already uses a single persistent connection opened at
         # construction time (self._conn), so this flag is now a no-op — the
@@ -227,6 +239,8 @@ async def drive(args) -> None:
         # the manifest's SQLite usage is the source of any measured overhead.
         manifest.get_chunks_for_file = lambda *a, **k: []
         manifest.get_file_modified_at = lambda *a, **k: None
+        manifest.get_cached_embeddings = lambda *a, **k: {}
+        manifest.set_cached_embeddings = lambda *a, **k: None
         manifest.upsert_file_row = lambda *a, **k: None
         manifest.upsert_chunks = lambda *a, **k: None
         manifest.sweep_memoized = lambda *a, **k: None
@@ -302,6 +316,8 @@ async def drive(args) -> None:
             await asyncio.sleep(args.trim_interval_ms / 1000)
             malloc_trim(0)
 
+    profiler = cProfile.Profile() if args.profile else None
+
     rss_start = _current_rss_mb()
     coordinator_task = asyncio.create_task(coordinator.run())
     sampler_task = asyncio.create_task(sampler())
@@ -318,7 +334,11 @@ async def drive(args) -> None:
         embed_t0 = embedder.total_embed_time_s
         upserts_t0 = target.upserts if args.target != "pg" else 0
 
+        if profiler:
+            profiler.enable()
         elapsed, timed_out = await _enqueue_and_drain(queue, coordinator, file_ids, data_source_id, args.timeout)
+        if profiler:
+            profiler.disable()
 
         run_records.append({
             "run": run_idx + 1,
@@ -454,6 +474,18 @@ async def drive(args) -> None:
                 loc = f"{pathlib.Path(fr.filename).name}:{fr.lineno}"
                 print(f"      {stat.size / 1e6:6.1f} MB  {loc}")
         tracemalloc.stop()
+    if profiler:
+        buf = io.StringIO()
+        ps = pstats.Stats(profiler, stream=buf).sort_stats("cumulative")
+        ps.print_stats(20)
+        print("\n  -- cProfile top 20 by cumulative time --")
+        for line in buf.getvalue().splitlines()[4:]:
+            print(" ", line)
+
+    corpus_size_mb = sum(os.path.getsize(fp) for fp in files) / 1e6
+    manifest_size_mb = os.path.getsize(args.manifest) / 1e6
+    print(f"\n  corpus size:       {corpus_size_mb:.1f} MB  ({n_files} files × {corpus_size_mb / n_files * 1024:.0f} KB avg)")
+    print(f"  manifest size:     {manifest_size_mb:.1f} MB  ({manifest_size_mb / corpus_size_mb:.2f}× corpus)")
     print(f"  errors logged:     {errors.count}")
     for s in errors.samples:
         print(f"      e.g. {s[:90]}")
@@ -486,7 +518,7 @@ def main() -> None:
     ap.add_argument("--skip-manifest", action="store_true", help="diagnostic: no-op all SQLite manifest access")
     ap.add_argument("--index-chunks", action="store_true", help="diagnostic: add an index on chunks(file_id)")
     ap.add_argument("--shared-conn", action="store_true", help="diagnostic: no-op (manifest already uses a single persistent connection)")
-    ap.add_argument("--index-files", action="store_true", help="diagnostic: add indexes on files(inode, data_source_id)")
+    ap.add_argument("--profile", action="store_true", help="diagnostic: profile ingest runs with cProfile and print top 20 functions by cumulative time")
     ap.add_argument("--mode", choices=["enqueue", "catchup"], default="enqueue",
                     help="catchup also times a no-op catch-up scan on the populated manifest")
     ap.add_argument("--manifest", default="/tmp/loadtest_manifest.db")
