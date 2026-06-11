@@ -8,6 +8,8 @@ from ..base import EmbedderConnector, TokenExpiredError
 
 
 class VoyageAIEmbedder(EmbedderConnector):
+    _client: AsyncClient | None
+
     def __init__(
         self,
         api_key: str | Callable[[], str],
@@ -24,7 +26,6 @@ class VoyageAIEmbedder(EmbedderConnector):
             max_batch_size=max_batch_size,
         )
         self._dimensions_overridden = embedding_dimensions is not None
-        self._client: AsyncClient | None = None
 
     def _get_client(self) -> AsyncClient:
         if self._client is None:

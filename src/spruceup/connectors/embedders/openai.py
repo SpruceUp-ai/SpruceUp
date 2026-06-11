@@ -6,6 +6,8 @@ from ..base import EmbedderConnector, TokenExpiredError
 
 
 class OpenAIEmbedder(EmbedderConnector):
+    _client: openai.AsyncOpenAI | None
+
     def __init__(
         self,
         api_key: str | Callable[[], str],
@@ -22,7 +24,6 @@ class OpenAIEmbedder(EmbedderConnector):
             max_batch_size=max_batch_size,
         )
         self._dimensions_overridden = embedding_dimensions is not None
-        self._client: openai.AsyncOpenAI | None = None
 
     def _get_client(self) -> openai.AsyncOpenAI:
         if self._client is None:
