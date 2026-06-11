@@ -107,6 +107,7 @@ class EmbeddingBatcher(EmbedderConnector):
                     break
                 try:
                     await asyncio.wait_for(self._wake.wait(), timeout=remaining_time)
+                    self._wake.clear()
                 except asyncio.TimeoutError:
                     break
             self._dispatch_pending_chunks()
