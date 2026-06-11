@@ -8,9 +8,10 @@ from .decorator_utility import deserialize, serialize, validate_return_type
 _memoize_fn_hashes: set[bytes] = set()
 
 
-def memoize(*, memoized_subfn_return_type):
+def memoize(*, return_type):
     # fn_hash covers only this function's own source — changes to helpers it
     # calls won't invalidate the cache. Only usable inside the transform.
+    memoized_subfn_return_type = return_type
     validate_return_type(memoized_subfn_return_type)
 
     def decorator(fn):

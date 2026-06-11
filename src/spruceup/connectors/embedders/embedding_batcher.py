@@ -1,6 +1,6 @@
 import asyncio
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import cast
 
 from ..base import EmbedderConnector
@@ -9,35 +9,34 @@ from ...transform_context import get_transform_context
 
 
 @dataclass
-class _PendingChunksForFile:
-    chunks: list[str]
+class _PendingChunk:
+    text: str
     future: asyncio.Future
-    results: list[list[float] | None] = field(default_factory=list)
 
 
 class EmbeddingBatcher(EmbedderConnector):
     def __init__(
         self,
-        inner: EmbedderConnector,
+        embedder: EmbedderConnector,
         max_wait_ms: int = 100,
         max_concurrent_batches: int = 5,
         max_batch_size: int | None = None,
     ) -> None:
         super().__init__(
-            model=inner.model,
-            api_key=inner.api_key,
-            embedding_dimensions=inner.embedding_dimensions,
-            max_batch_size=max_batch_size or inner.max_batch_size,
+            model=embedder.model,
+            api_key=embedder.api_key,
+            embedding_dimensions=embedder.embedding_dimensions,
+            max_batch_size=max_batch_size or embedder.max_batch_size,
         )
-        self._inner = inner
+        self._embedder = embedder
         self._max_wait = max_wait_ms / 1000
         self._semaphore = asyncio.Semaphore(max_concurrent_batches)
-        self._all_pending_files: list[_PendingChunksForFile] = []
+        self._pending: list[_PendingChunk] = []
         self._wake = asyncio.Event()
-        self._flusher_task: asyncio.Task | None = None
+        self._batch_task: asyncio.Task | None = None
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        return await self._inner.embed_batch_retrying(batch)
+        return await self._embedder.embed_batch_retrying(batch)
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         if not chunks:
@@ -77,24 +76,18 @@ class EmbeddingBatcher(EmbedderConnector):
         return cast(list[list[float]], results)
 
     async def _dispatch_to_batcher(self, chunks: list[str]) -> list[list[float]]:
-        self._ensure_flusher()
+        self._ensure_batch_loop()
         loop = asyncio.get_running_loop()
-        future = loop.create_future()
-        self._all_pending_files.append(
-            _PendingChunksForFile(
-                chunks=list(chunks),
-                future=future,
-                results=[None] * len(chunks),
-            )
-        )
+        pending = [_PendingChunk(text=c, future=loop.create_future()) for c in chunks]
+        self._pending.extend(pending)
         self._wake.set()
-        return await future
+        return await asyncio.gather(*(pc.future for pc in pending))
 
-    def _ensure_flusher(self) -> None:
-        if self._flusher_task is None or self._flusher_task.done():
-            self._flusher_task = asyncio.create_task(self._flusher_loop())
+    def _ensure_batch_loop(self) -> None:
+        if self._batch_task is None or self._batch_task.done():
+            self._batch_task = asyncio.create_task(self._batch_loop())
 
-    async def _flusher_loop(self) -> None:
+    async def _batch_loop(self) -> None:
         while True:
             await self._wake.wait()
             self._wake.clear()
@@ -113,62 +106,43 @@ class EmbeddingBatcher(EmbedderConnector):
             self._dispatch_pending_chunks()
 
     def _should_flush_now(self) -> bool:
-        if not self._all_pending_files:
-            return False
-        num_pending_chunks = sum(len(pending_file.chunks) for pending_file in self._all_pending_files)
-        return num_pending_chunks >= self.max_batch_size
+        return len(self._pending) >= self.max_batch_size
 
     def _dispatch_pending_chunks(self) -> None:
-        if not self._all_pending_files:
+        if not self._pending:
             return
-        pending_files, self._all_pending_files = self._all_pending_files, []
-        chunk_text_indexed_by_file_and_chunk = [
-            (file_index, chunk_index, chunk_text)
-            for file_index, pending_file in enumerate(pending_files)
-            for chunk_index, chunk_text in enumerate(pending_file.chunks)
-        ]
-        for i in range(0, len(chunk_text_indexed_by_file_and_chunk), self.max_batch_size):
-            batch = chunk_text_indexed_by_file_and_chunk[i : i + self.max_batch_size]
-            asyncio.create_task(self._run_batch(batch, pending_files))
+        pending, self._pending = self._pending, []
+        for i in range(0, len(pending), self.max_batch_size):
+            batch = pending[i : i + self.max_batch_size]
+            asyncio.create_task(self._run_batch(batch))
 
     async def aclose(self) -> None:
-        if self._flusher_task is not None and not self._flusher_task.done():
-            self._flusher_task.cancel()
-            await asyncio.gather(self._flusher_task, return_exceptions=True)
-        await self._inner.aclose()
+        if self._batch_task is not None and not self._batch_task.done():
+            self._batch_task.cancel()
+            await asyncio.gather(self._batch_task, return_exceptions=True)
+        await self._embedder.aclose()
 
-    async def _run_batch(
-        self,
-        batch: list[tuple[int, int, str]],
-        files_in_flight: list[_PendingChunksForFile],
-    ) -> None:
-        batch_strs = [chunk_text for _, _, chunk_text in batch]
-        touched_files = {file_index for file_index, _, _ in batch}
+    async def _run_batch(self, batch: list[_PendingChunk]) -> None:
+        from ..base import EmbeddingError
+
+        texts = [pc.text for pc in batch]
         async with self._semaphore:
             try:
-                embeddings = await self._inner.embed_batch_retrying(batch_strs)
-                if len(embeddings) != len(batch_strs):
-                    from ..base import EmbeddingError
+                embeddings = await self._embedder.embed_batch_retrying(texts)
+                if len(embeddings) != len(texts):
                     raise EmbeddingError(
                         f"embedder returned {len(embeddings)} vector(s) for "
-                        f"{len(batch_strs)} input(s); counts must match"
+                        f"{len(texts)} input(s); counts must match"
                     )
             except Exception as err:
-                from ..base import EmbeddingError
-                if isinstance(err, EmbeddingError):
-                    wrapped = err
-                else:
-                    wrapped = EmbeddingError(str(err))
+                wrapped = err if isinstance(err, EmbeddingError) else EmbeddingError(str(err))
+                if wrapped is not err:
                     wrapped.__cause__ = err
-                for file_index in touched_files:
-                    if not files_in_flight[file_index].future.done():
-                        files_in_flight[file_index].future.set_exception(wrapped)
+                for pc in batch:
+                    if not pc.future.done():
+                        pc.future.set_exception(wrapped)
                 return
 
-        for (file_index, chunk_index, _), embedding in zip(batch, embeddings):
-            files_in_flight[file_index].results[chunk_index] = embedding
-
-        for file_index in touched_files:
-            file = files_in_flight[file_index]
-            if not file.future.done() and all(result is not None for result in file.results):
-                file.future.set_result(file.results)
+        for pc, emb in zip(batch, embeddings):
+            if not pc.future.done():
+                pc.future.set_result(emb)
