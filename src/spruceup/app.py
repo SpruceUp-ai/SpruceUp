@@ -115,9 +115,13 @@ async def run(pipeline, cache_files: bool = True) -> None:
         log.info("Target %s rebuilt (drop + recreate)", config.target.display_name)
     embedder: EmbeddingBatcher | None = None
     try:
-        sync_engine = SyncEngine(
-            manifest=manifest, target=config.target, force_upsert=plan.force_reindex
-        )
+        sync_engine = SyncEngine(manifest=manifest, target=config.target)
+
+        if plan.force_reindex:
+            manifest.mark_all_files_needs_reindex()
+        manifest.update_transform_hash(plan.transform_hash)
+        manifest.update_memoize_fn_hashes(_memoize_fn_hashes)
+        persist_config_state()
 
         manifest.reset_in_flight_to_failed()
 
@@ -131,6 +135,20 @@ async def run(pipeline, cache_files: bool = True) -> None:
             active_source_ids.append(data_source_id)
             source_registry[data_source_id] = source
             monitor.add_watcher(source.create_watcher(data_source_id))
+
+        manifest.purge_empty_inactive_sources(active_source_ids)
+        for rec in manifest.get_orphaned_files(active_source_ids):
+            await queue.put(SyncTask(
+                "delete",
+                current_file_id=rec["file_id"],
+                data_source_id=rec["data_source_id"],
+            ))
+        for rec in manifest.get_needs_reindex_files(active_source_ids):
+            await queue.put(SyncTask(
+                rec["change_type"],
+                current_file_id=rec["file_id"],
+                data_source_id=rec["data_source_id"],
+            ))
 
         embedder = EmbeddingBatcher(config.embedder)
 
@@ -153,37 +171,15 @@ async def run(pipeline, cache_files: bool = True) -> None:
 
         startup_done = asyncio.Event()
 
-        monitor_task = asyncio.create_task(monitor.run(plan.force_reindex, startup_done))
+        monitor_task = asyncio.create_task(monitor.run(startup_done))
         coordinator_task = asyncio.create_task(coordinator.run())
         sync_sweeper_task = asyncio.create_task(sync_sweeper.run())
-
-        manifest.purge_empty_inactive_sources(active_source_ids)
-        for rec in manifest.get_orphaned_files(active_source_ids):
-            await queue.put(SyncTask(
-                "delete",
-                current_file_id=rec["file_id"],
-                data_source_id=rec["data_source_id"],
-            ))
 
         await startup_done.wait()
         watched = ", ".join(repr(source) for source in config.sources)
         log.info("Startup complete — watching %s for changes", watched)
 
         try:
-            if plan.force_reindex:
-                await queue.join()
-                manifest.update_transform_hash(plan.transform_hash)
-                manifest.update_memoize_fn_hashes(_memoize_fn_hashes)
-                n_failed = len(manifest.get_failed_files())
-                if n_failed:
-                    log.warning(
-                        "Reindex complete with %d failed file(s) — "
-                        "sync sweeper will retry",
-                        n_failed,
-                    )
-                else:
-                    log.info("Reindex complete")
-            persist_config_state()
             await asyncio.gather(monitor_task, coordinator_task, sync_sweeper_task)
         except asyncio.CancelledError:
             monitor_task.cancel()

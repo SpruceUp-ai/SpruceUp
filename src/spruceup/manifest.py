@@ -205,7 +205,8 @@ class Manifest:
                    file_type        = excluded.file_type,
                    raw_content      = excluded.raw_content,
                    modified_at      = excluded.modified_at,
-                   sync_state       = 'in_flight',
+                   sync_state       = CASE WHEN sync_state = 'needs_reindex'
+                                           THEN 'needs_reindex' ELSE 'in_flight' END,
                    last_change_type = 'upsert'""",
             (
                 file.file_id,
@@ -219,6 +220,12 @@ class Manifest:
     def get_raw_content(self, file_id: str) -> bytes | None:
         row = self._conn.execute(
             "SELECT raw_content FROM files WHERE id = ?", (file_id,)
+        ).fetchone()
+        return row[0] if row else None
+
+    def get_sync_state(self, file_id: str) -> str | None:
+        row = self._conn.execute(
+            "SELECT sync_state FROM files WHERE id = ?", (file_id,)
         ).fetchone()
         return row[0] if row else None
 
@@ -319,7 +326,8 @@ class Manifest:
     def mark_failed(self, file_id: str, change_type: str) -> None:
         self._conn.execute(
             """UPDATE files
-               SET sync_state = 'failed',
+               SET sync_state = CASE WHEN sync_state = 'needs_reindex'
+                                     THEN 'needs_reindex' ELSE 'failed' END,
                    last_change_type = ?
                WHERE id = ?""",
             (change_type, file_id),
@@ -330,10 +338,47 @@ class Manifest:
             """INSERT INTO files (id, data_source_id, sync_state, last_change_type)
                VALUES (?, ?, 'failed', ?)
                ON CONFLICT (id) DO UPDATE SET
-                   sync_state       = 'failed',
+                   sync_state       = CASE WHEN sync_state = 'needs_reindex'
+                                           THEN 'needs_reindex' ELSE 'failed' END,
                    last_change_type = excluded.last_change_type""",
             (file_id, data_source_id, change_type),
         )
+
+    def mark_all_files_needs_reindex(self) -> None:
+        # Pending deletes are left alone: the file is gone from the source, so
+        # "re-upsert under the new config" would resurrect it.
+        self._conn.execute(
+            """UPDATE files
+               SET sync_state = 'needs_reindex', last_change_type = 'upsert'
+               WHERE last_change_type IS NOT 'delete'"""
+        )
+
+    def get_needs_reindex_files(self, active_source_ids: list[int]) -> list[dict]:
+        placeholders = ",".join("?" * len(active_source_ids))
+        rows = self._conn.execute(
+            f"SELECT id, data_source_id, last_change_type FROM files "
+            f"WHERE sync_state = 'needs_reindex' "
+            f"AND data_source_id IN ({placeholders})",
+            active_source_ids,
+        ).fetchall()
+        return [
+            {"file_id": row[0], "data_source_id": row[1], "change_type": row[2]}
+            for row in rows
+        ]
+
+    def get_files_to_retry(self) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT id, data_source_id, last_change_type "
+            "FROM files WHERE sync_state IN ('failed', 'needs_reindex')",
+        ).fetchall()
+        return [
+            {
+                "file_id": row[0],
+                "data_source_id": row[1],
+                "change_type": row[2],
+            }
+            for row in rows
+        ]
 
     def get_failed_files(self) -> list[dict]:
         rows = self._conn.execute(

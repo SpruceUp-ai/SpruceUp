@@ -10,15 +10,15 @@ log = logging.getLogger(__name__)
 
 @final
 class SyncEngine:
-    def __init__(
-        self, manifest: Manifest, target: TargetConnector, force_upsert: bool = False
-    ) -> None:
+    def __init__(self, manifest: Manifest, target: TargetConnector) -> None:
         self._manifest = manifest
         self._target = target
-        # Re-embeds don't change chunk hashes, so force a write to push new vectors.
-        self._force_upsert = force_upsert
 
     async def reconcile(self, file: SpruceFile) -> None:
+        # Config changes (model, dimensions, target, schema) don't change chunk
+        # hashes, so the diff can't see them — a needs_reindex file pushes all
+        # its chunks, not just the diff.
+        force_upsert = self._manifest.get_sync_state(file.file_id) == "needs_reindex"
         manifest_upserts: list[tuple[str, ChunkWrapper]] = []
         target_upserts: list[ChunkWrapper] = []
         manifest_deletes: list[tuple[str, bytes]] = []
@@ -30,7 +30,7 @@ class SyncEngine:
         }
 
         for h, chunk in curr_hashes.items():
-            if self._force_upsert or h not in prev_hashes:
+            if force_upsert or h not in prev_hashes:
                 manifest_upserts.append((file.file_id, chunk))
                 target_upserts.append(chunk)
 
