@@ -76,7 +76,7 @@ Source watcher → DebounceQueue → Coordinator
                               Manifest.set_sync_state("synced")
 ```
 
-`DebounceQueue` (wraps `asyncio.Queue`) evicts any already-queued task for the same `file_id` when a newer task arrives, preventing redundant processing.
+`DebounceQueue` (wraps `asyncio.Queue`) evicts any already-queued task for the same `file_id` when a newer task arrives, preventing redundant processing. **Tradeoff:** to evict the superseded task it reaches into `asyncio.Queue` internals (`_queue`, `_unfinished_tasks`), so it's coupled to the CPython queue implementation and could break on a stdlib change.
 
 ### Manifest (`manifest.py`)
 
@@ -108,9 +108,13 @@ Available implementations:
 
 `LocalFilesSource` and `LocalFileWatcher` exist for local testing. Production reasoning should be framed in terms of the connector ABCs.
 
+An embedder's `api_key` accepts a `str` or a `Callable[[], str]` (e.g. a secrets-manager fetch, resolved at client build). On a credential rejection the embedder raises `TokenExpiredError`; the base `embed_batch_retrying` then drops the cached client so the next retry rebuilds it with a re-resolved token. Static-string keys are left untouched (no point re-resolving). Auth-error detection is per-SDK (each `embed_batch` catches its provider's exception and normalizes to `TokenExpiredError`).
+
 ### EmbeddingBatcher (`connectors/embedders/embedding_batcher.py`)
 
 Wraps any `EmbedderConnector`. Accumulates chunks from concurrent file transforms and flushes them as batched API calls (max 100ms wait or `max_batch_size` chunks, max 5 concurrent API calls). Also consults the Manifest embedding cache before calling the API — cache is scoped per `file_id` and keyed by `blake2b(chunk_text)`.
+
+Each accumulated chunk gets its own `asyncio.Future`; a per-call `asyncio.gather` over those futures reassembles a caller's embeddings in order and waits for completion, so the batcher carries no per-file slot bookkeeping (a flushed batch may mix chunks from several callers).
 
 ### `@memoize` decorator (`memoize/decorator.py`)
 

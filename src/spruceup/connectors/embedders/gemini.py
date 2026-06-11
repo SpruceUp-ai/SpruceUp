@@ -1,10 +1,11 @@
 import math
+from collections.abc import Callable
 from typing import Any, cast
 
 from google import genai  # pyright: ignore[reportMissingImports]
-from google.genai import types  # pyright: ignore[reportMissingImports]
+from google.genai import errors, types  # pyright: ignore[reportMissingImports]
 
-from ..base import EmbedderConnector
+from ..base import EmbedderConnector, TokenExpiredError
 
 
 def _l2_normalize(vec: list[float]) -> list[float]:
@@ -17,7 +18,7 @@ def _l2_normalize(vec: list[float]) -> list[float]:
 class GeminiEmbedder(EmbedderConnector):
     def __init__(
         self,
-        api_key: str,
+        api_key: str | Callable[[], str],
         model: str = "gemini-embedding-001",
         max_batch_size: int = 100,
         embedding_dimensions: int | None = None,
@@ -42,20 +43,25 @@ class GeminiEmbedder(EmbedderConnector):
 
     def _get_client(self) -> genai.Client:
         if self._client is None:
-            self._client = genai.Client(api_key=self.api_key)
+            self._client = genai.Client(api_key=self._resolve_api_key())
         return self._client
 
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
-        response = await self._get_client().aio.models.embed_content(
-            model=self.model,
-            contents=cast(Any, batch),
-            config=types.EmbedContentConfig(
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=(
-                    self.embedding_dimensions if self._dimensions_overridden else None
+        try:
+            response = await self._get_client().aio.models.embed_content(
+                model=self.model,
+                contents=cast(Any, batch),
+                config=types.EmbedContentConfig(
+                    task_type="RETRIEVAL_DOCUMENT",
+                    output_dimensionality=(
+                        self.embedding_dimensions if self._dimensions_overridden else None
+                    ),
                 ),
-            ),
-        )
+            )
+        except errors.ClientError as exc:
+            if exc.code in (401, 403):
+                raise TokenExpiredError(str(exc)) from exc
+            raise
         vectors: list[list[float]] = []
         for item in response.embeddings or []:
             if item.values is None:

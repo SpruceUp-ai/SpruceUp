@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import tenacity
@@ -19,6 +20,11 @@ class EmbeddingError(Exception):
 class EmbeddingConfigError(Exception):
     """Raised when the embedder's model, credentials, or dimensions don't match
     what the provider's API actually accepts/returns (detected by health_check)."""
+
+
+class TokenExpiredError(Exception):
+    """Raised by an embedder when the API rejects its credentials, signalling that
+    a callable api_key should be re-resolved and the client rebuilt before retry."""
 
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({
     "txt", "md", "html", "json", "pdf", "doc", "docx",
@@ -93,7 +99,7 @@ class EmbedderConnector(ABC):
     def __init__(
         self,
         model: str,
-        api_key: str | None = None,
+        api_key: str | Callable[[], str] | None = None,
         embedding_dimensions: int | None = None,
         max_batch_size: int = 100,
     ) -> None:
@@ -101,6 +107,12 @@ class EmbedderConnector(ABC):
         self.api_key = api_key
         self.embedding_dimensions = embedding_dimensions
         self.max_batch_size = max_batch_size
+
+    def _resolve_api_key(self) -> str | None:
+        return self.api_key() if callable(self.api_key) else self.api_key
+
+    def _invalidate_client(self) -> None:
+        self._client = None
 
     @abstractmethod
     async def embed_batch(self, batch: list[str]) -> list[list[float]]:
@@ -111,11 +123,19 @@ class EmbedderConnector(ABC):
         async for attempt in tenacity.AsyncRetrying(
             wait=tenacity.wait_exponential_jitter(initial=1, max=30),
             stop=tenacity.stop_after_attempt(5),
+            before_sleep=self._refresh_token_before_retry,
             reraise=True,
         ):
             with attempt:
                 return await self.embed_batch(batch)
         raise AssertionError("unreachable: reraise=True returns or raises")
+
+    def _refresh_token_before_retry(self, retry_state: tenacity.RetryCallState) -> None:
+        outcome = retry_state.outcome
+        if outcome is None:
+            return
+        if isinstance(outcome.exception(), TokenExpiredError) and callable(self.api_key):
+            self._invalidate_client()
 
     async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
         return await self.embed_batch_retrying(chunks)
