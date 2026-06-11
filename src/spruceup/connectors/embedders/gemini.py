@@ -16,6 +16,8 @@ def _l2_normalize(vec: list[float]) -> list[float]:
 
 
 class GeminiEmbedder(EmbedderConnector):
+    _client: genai.Client | None
+
     def __init__(
         self,
         api_key: str | Callable[[], str],
@@ -39,7 +41,6 @@ class GeminiEmbedder(EmbedderConnector):
         self._dimensions_overridden = embedding_dimensions is not None
         # Reduced-dimension outputs aren't unit-normalized by the API; fix here.
         self._needs_normalization = self._dimensions_overridden
-        self._client: genai.Client | None = None
 
     def _get_client(self) -> genai.Client:
         if self._client is None:

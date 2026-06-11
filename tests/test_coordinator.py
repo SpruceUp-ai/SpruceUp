@@ -1,7 +1,4 @@
-import asyncio
 from unittest.mock import patch
-
-import pytest
 
 from spruceup.coordinator import Coordinator
 from spruceup.debounce_queue import DebounceQueue
@@ -69,7 +66,7 @@ async def test_fetch_failure_records_retryable_failed_row(manifest):
     assert failed[0]["change_type"] == "upsert"
 
 
-async def test_run_crashes_on_transform_bug(manifest):
+async def test_transform_bug_marks_file_failed_without_crashing(manifest):
     source_id = manifest.register_source("fake", "src")
     file = make_file(file_id="1:doc.txt", data_source_id=source_id)
     source = FakeSource(spruce_file=file)
@@ -77,13 +74,13 @@ async def test_run_crashes_on_transform_bug(manifest):
     async def boom(*, file_props, embed):
         raise RuntimeError("transform bug")
 
-    coord, _, _ = build_coordinator(manifest, source_id, source, transform=boom)
-    coord._queue.put_nowait(
-        SyncTask("upsert", current_file_id=file.file_id, data_source_id=source_id)
-    )
+    coord, target, _ = build_coordinator(manifest, source_id, source, transform=boom)
 
-    with pytest.raises(RuntimeError, match="transform bug"):
-        await asyncio.wait_for(coord.run(), timeout=2.0)
+    task = SyncTask("upsert", current_file_id=file.file_id, data_source_id=source_id)
+    await coord.process_task(task)
+
+    assert target.calls == []
+    assert sync_state(manifest, file.file_id) == "failed"
 
 
 async def test_stale_event_is_skipped_without_overriding_newer_data(manifest):

@@ -30,7 +30,7 @@ class SyncSweeper:
                 log.exception("Sync sweeper error — will retry next interval")
 
     async def _requeue_failed(self) -> None:
-        records = self._manifest.get_failed_files()
+        records = self._manifest.get_files_to_retry()
         requeued = 0
         for rec in records:
             file_id = rec["file_id"]

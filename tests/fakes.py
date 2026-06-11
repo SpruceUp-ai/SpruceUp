@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from spruceup.connectors.base import (
@@ -36,8 +37,15 @@ class FakeTarget(TargetConnector):
 
 
 class FakeEmbedder(EmbedderConnector):
-    def __init__(self, dimensions: int = 3, vector: list[float] | None = None):
-        super().__init__(model="fake-model", embedding_dimensions=dimensions)
+    def __init__(
+        self,
+        dimensions: int = 3,
+        vector: list[float] | None = None,
+        api_key: str | Callable[[], str] | None = None,
+    ):
+        super().__init__(
+            model="fake-model", embedding_dimensions=dimensions, api_key=api_key
+        )
         self._vector = vector if vector is not None else [0.0] * dimensions
         self.embedded_batches: list[list[str]] = []
 

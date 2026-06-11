@@ -52,7 +52,9 @@ On startup, `app.run(pipeline)` compares persisted fingerprints in the Manifest 
 5. Target identity changed — `target.identity()`, a credential-free string (host/db/table or index/collection)
 6. Schema changed — `hash_schema()` over field names+types and the designated `vector_column`
 
-Signals 3–4 additionally **flush the embedding cache** (`embeddings_invalidated`). Signals 4–6 are **structural** and additionally **drop + recreate** the target table/index before reingest (`ensure_table_exists(recreate=True)`) — chosen over in-place migration because reingest must re-embed everything anyway. Persisted fingerprints are written only *after* a reindex completes, so a crash mid-reindex re-triggers it.
+Signals 3–4 additionally **flush the embedding cache** (`embeddings_invalidated`). Signals 4–6 are **structural** and additionally **drop + recreate** the target table/index before reingest (`ensure_table_exists(recreate=True)`) — chosen over in-place migration because reingest must re-embed everything anyway.
+
+On any mismatch, every file row is marked `needs_reindex` and the new fingerprints are persisted immediately (mark first, persist second — a crash in between just re-marks on the next start). A file stays `needs_reindex` until a sync **succeeds**; failures and restarts don't clear it. `SyncEngine.reconcile` pushes **all** chunks of a `needs_reindex` file instead of the diff (config changes don't alter chunk hashes, so the diff can't see them). `needs_reindex` files are re-enqueued at every startup and retried by the sync sweeper, so an interrupted reindex resumes where it left off.
 
 Then it launches three concurrent asyncio tasks:
 
@@ -60,7 +62,7 @@ Then it launches three concurrent asyncio tasks:
 |------|------|
 | `Monitor` | Runs all watchers; each watcher does a catch-up scan then enters a watch loop |
 | `Coordinator` | Dequeues `SyncTask` objects and processes them (up to 32 concurrent) |
-| `SyncSweeper` | Retries failed files every 60 seconds |
+| `SyncSweeper` | Retries `failed` and `needs_reindex` files every 60 seconds |
 
 ### File change lifecycle
 
@@ -82,7 +84,7 @@ Source watcher → DebounceQueue → Coordinator
 
 A local SQLite database (`spruceup_manifest.db`) that is the source of truth for:
 - Registered data sources and their state (e.g. Google Drive page tokens)
-- File rows: content hash, raw content, sync state (`in_flight` / `synced` / `failed`)
+- File rows: content hash, raw content, sync state (`needs_reindex` / `in_flight` / `synced` / `failed`)
 - Chunk rows: `(file_id, user_chunk_object_hash)` pairs for diffing
 - Memoize cache: `(file_id, fn_hash, args_hash) → result`
 - Embedding cache: `(file_id, chunk_text_hash) → embedding bytes`

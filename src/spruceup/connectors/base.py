@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import tenacity
 
@@ -107,6 +107,7 @@ class EmbedderConnector(ABC):
         self.api_key = api_key
         self.embedding_dimensions = embedding_dimensions
         self.max_batch_size = max_batch_size
+        self._client: Any = None
 
     def _resolve_api_key(self) -> str | None:
         return self.api_key() if callable(self.api_key) else self.api_key

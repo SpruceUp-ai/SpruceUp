@@ -6,6 +6,8 @@ from ..base import EmbedderConnector, TokenExpiredError
 
 
 class CohereEmbedder(EmbedderConnector):
+    _client: cohere.AsyncClientV2 | None
+
     def __init__(
         self,
         api_key: str | Callable[[], str],
@@ -22,7 +24,6 @@ class CohereEmbedder(EmbedderConnector):
             max_batch_size=max_batch_size,
         )
         self._dimensions_overridden = embedding_dimensions is not None
-        self._client: cohere.AsyncClientV2 | None = None
 
     def _get_client(self) -> cohere.AsyncClientV2:
         if self._client is None:

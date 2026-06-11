@@ -23,19 +23,17 @@ class LocalFileWatcher(BaseWatcher):
         self,
         queue: asyncio.Queue,
         manifest: "Manifest",
-        force_reindex: bool = False,
     ) -> None:
         log.info("Scanning %s …", self._root_path)
         n_upserts = n_deletes = 0
 
         by_inode: dict[int, tuple[str, float | None]] = {}
-        if not force_reindex:
-            for rec in manifest.get_files_for_source(self._data_source_id):
-                fid = rec["file_id"]
-                try:
-                    by_inode[file_id_to_inode(fid)] = (fid, rec["modified_at"])
-                except (ValueError, IndexError):
-                    pass
+        for rec in manifest.get_files_for_source(self._data_source_id):
+            fid = rec["file_id"]
+            try:
+                by_inode[file_id_to_inode(fid)] = (fid, rec["modified_at"])
+            except (ValueError, IndexError):
+                pass
 
         seen_inodes: set[int] = set()
         n_skipped = 0
@@ -52,15 +50,6 @@ class LocalFileWatcher(BaseWatcher):
             new_file_id = make_file_id(inode, path_str)
             seen_inodes.add(inode)
             self._known_file_ids.add(new_file_id)
-
-            if force_reindex:
-                await queue.put(SyncTask(
-                    "upsert",
-                    current_file_id=new_file_id,
-                    data_source_id=self._data_source_id,
-                ))
-                n_upserts += 1
-                continue
 
             stored = by_inode.get(inode)
             if stored is None:

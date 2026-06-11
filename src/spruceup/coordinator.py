@@ -88,6 +88,15 @@ class Coordinator:
                 log.exception("[error] %s — embedding failed", label)
                 self._manifest.mark_failed(spruce_file.file_id, task.change_type)
                 return
+            except Exception:
+                # TODO: a deterministically failing file (e.g. corrupted content)
+                # needs a dead-letter state; 'failed' means the sweeper retries
+                # it every interval forever.
+                log.exception(
+                    "[error] %s — transform failed (possibly corrupted file)", label
+                )
+                self._manifest.mark_failed(spruce_file.file_id, task.change_type)
+                return
 
         if ctx.memo_total > 0:
             log.info("[memoize] %s — %d/%d hits", label, ctx.memo_hits, ctx.memo_total)

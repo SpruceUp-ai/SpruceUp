@@ -200,12 +200,11 @@ class GoogleDriveWatcher(BaseWatcher):
         self,
         queue: asyncio.Queue,
         manifest: "Manifest",
-        force_reindex: bool = False,
     ) -> None:
         service = await asyncio.to_thread(self._build_service)
         stored_token = manifest.get_source_state(self._data_source_id, _STATE_PAGE_TOKEN)
 
-        if force_reindex or stored_token is None:
+        if stored_token is None:
             n_upserts = await self._full_scan(service, queue, manifest)
             n_deletes = 0
         else:
