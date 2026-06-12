@@ -72,7 +72,7 @@ def _plan_reindex(manifest: Manifest, config) -> ReindexPlan:
     )
 
 
-async def run(pipeline, cache_files: bool = True) -> None:
+async def run(pipeline) -> None:
     manifest = Manifest()
 
     config = pipeline.config
@@ -80,7 +80,7 @@ async def run(pipeline, cache_files: bool = True) -> None:
     log.info(
         "SpruceUp starting — manifest=%s  target=%s  file_cache=%s",
         manifest.path, config.target.display_name,
-        "on" if cache_files else "off",
+        "on" if config.cache_files else "off",
     )
 
     await config.embedder.health_check()
@@ -160,7 +160,7 @@ async def run(pipeline, cache_files: bool = True) -> None:
             manifest=manifest,
             target=config.target,
             source_registry=source_registry,
-            cache_files=cache_files,
+            cache_files=config.cache_files,
         )
 
         sync_sweeper = SyncSweeper(

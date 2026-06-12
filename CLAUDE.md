@@ -37,6 +37,7 @@ config = defineConfig(
     target=PgVectorTarget(connstr=..., table="data_chunks", schema=LectureChunk, vector_column="chunk_embedding"),
     embedder=OpenAIEmbedder(api_key=..., model="text-embedding-3-small"),
     transform=build_lecture_chunks,  # async fn(*, file_props: FileProps, embed) -> list[schema]
+    cache_files=False,  # optional; True caches raw file content in the manifest (default False)
 )
 ```
 
@@ -84,11 +85,11 @@ Source watcher → DebounceQueue → Coordinator
 
 A local SQLite database (`spruceup_manifest.db`) that is the source of truth for:
 - Registered data sources and their state (e.g. Google Drive page tokens)
-- File rows: content hash, raw content, sync state (`needs_reindex` / `in_flight` / `synced` / `failed`)
+- File rows: content hash, raw content (only when `cache_files=True`), sync state (`needs_reindex` / `in_flight` / `synced` / `failed`)
 - Chunk rows: `(file_id, user_chunk_object_hash)` pairs for diffing
 - Memoize cache: `(file_id, fn_hash, args_hash) → result`
 - Embedding cache: `(file_id, chunk_text_hash) → embedding bytes`
-- Config state: `embedding_model`, `file_cache_ready`
+- Config state: `embedding_model`, `embedding_dimensions`, `target_identity`, `schema_fingerprint`
 
 Opened with `autocommit=True`; use `manifest.transaction()` only when multiple writes must be atomic.
 

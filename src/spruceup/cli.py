@@ -17,17 +17,13 @@ logging.basicConfig(
 
 def main() -> None:
     if len(sys.argv) < 2 or sys.argv[1] != "start":
-        print("Usage: spruceup start [--no-cache-files]")
+        print("Usage: spruceup start")
         sys.exit(1)
 
-    cache_files = True
     for arg in sys.argv[2:]:
-        if arg == "--no-cache-files":
-            cache_files = False
-        else:
-            print(f"Unknown argument: {arg}")
-            print("Usage: spruceup start [--no-cache-files]")
-            sys.exit(1)
+        print(f"Unknown argument: {arg}")
+        print("Usage: spruceup start")
+        sys.exit(1)
 
     cwd = str(pathlib.Path.cwd())
     if cwd not in sys.path:
@@ -45,7 +41,7 @@ def main() -> None:
 
     validate_pipeline(pipeline)
     try:
-        asyncio.run(app.run(pipeline, cache_files=cache_files))
+        asyncio.run(app.run(pipeline))
     except EmbeddingConfigError as exc:
         sys.exit(f"\nEmbedder configuration error: {exc}")
     except KeyboardInterrupt:

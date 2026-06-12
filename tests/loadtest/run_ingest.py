@@ -20,9 +20,10 @@ Key flags for the four benchmarks:
        simulate realistic API round-trips.
 
   (iii) File-content cache savings (run 2 reads raw_content from SQLite):
+       python run_ingest.py --corpus /tmp/corpus --runs 2 --cache-files
        python run_ingest.py --corpus /tmp/corpus --runs 2
-       python run_ingest.py --corpus /tmp/corpus --runs 2 --no-cache-files
-       Compare run-2 times: with vs. without --no-cache-files.
+       Compare run-2 times: with vs. without --cache-files (off by default,
+       matching the pipeline default).
 
   (iv) Asyncio concurrency vs. sequential processing:
        python run_ingest.py --corpus /tmp/corpus --compare-sequential
@@ -350,7 +351,7 @@ async def drive(args) -> None:
         target=target,
         source_registry=source_registry,
         max_concurrency=args.max_concurrency,
-        cache_files=not args.no_cache_files,
+        cache_files=args.cache_files,
     )
 
     errors = _ErrorCounter()
@@ -506,9 +507,9 @@ async def drive(args) -> None:
         if len(run_records) >= 2:
             r1, r2 = run_records[0]["elapsed"], run_records[1]["elapsed"]
             speedup = r1 / r2 if r2 > 0 else float("inf")
-            note = "file-content + embed cache warm on run 2"
-            if args.no_cache_files:
-                note = "embed cache warm on run 2 (file-content cache disabled)"
+            note = "embed cache warm on run 2 (file-content cache disabled)"
+            if args.cache_files:
+                note = "file-content + embed cache warm on run 2"
             print(f"  cache speedup:     {speedup:.2f}x   <- {note}")
         if catchup_elapsed is not None:
             print(f"  catch-up scan:     {catchup_elapsed:.2f} s   <- no-op rescan of {n_files} unchanged files")
@@ -582,10 +583,11 @@ def main() -> None:
     ap.add_argument("--max-concurrency", type=int, default=32)
     ap.add_argument("--runs", type=int, default=1, metavar="N",
                     help="Run ingest N times on the same manifest without resetting between runs. "
-                         "Run 2+ use the warm file-content and embedding caches. (default: 1)")
-    ap.add_argument("--no-cache-files", action="store_true",
-                    help="Disable caching raw file content in the manifest (coordinator cache_files=False). "
-                         "Use with --runs 2 to isolate the file-content cache contribution.")
+                         "Run 2+ use the warm embedding cache (and the file-content cache "
+                         "if --cache-files is set). (default: 1)")
+    ap.add_argument("--cache-files", action="store_true",
+                    help="Enable caching raw file content in the manifest (coordinator cache_files=True). "
+                         "Use with --runs 2 to measure the file-content cache contribution.")
     ap.add_argument("--compare-sequential", action="store_true",
                     help="After the main run, perform a fresh ingest with max_concurrency=1 and "
                          "report the speedup ratio from asyncio concurrency.")

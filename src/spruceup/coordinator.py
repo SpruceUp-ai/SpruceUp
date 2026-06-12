@@ -23,7 +23,7 @@ class Coordinator:
         target: TargetConnector,
         source_registry: dict,
         max_concurrency: int = 32,
-        cache_files: bool = True,
+        cache_files: bool = False,
     ):
         self._queue = queue
         self._transform = transform

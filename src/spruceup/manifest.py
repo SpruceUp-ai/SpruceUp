@@ -188,7 +188,7 @@ class Manifest:
             [(file_id, chunk.user_chunk_object_hash) for file_id, chunk in chunks],
         )
 
-    def upsert_file_row(self, file: SpruceFile, cache_content: bool = True) -> None:
+    def upsert_file_row(self, file: SpruceFile, cache_content: bool = False) -> None:
         raw_content = None
         if cache_content:
             raw_content = (

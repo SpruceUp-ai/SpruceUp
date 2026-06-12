@@ -10,9 +10,10 @@ class SpruceUpConfig:
     target: TargetConnector
     embedder: EmbedderConnector
     transform: Callable
+    cache_files: bool = False
 
 
-def defineConfig(*, sources, target, embedder, transform) -> SpruceUpConfig:
+def defineConfig(*, sources, target, embedder, transform, cache_files=False) -> SpruceUpConfig:
     if not isinstance(sources, list) or not sources:
         raise ValueError("sources must be a non-empty list of source connectors")
     for i, source in enumerate(sources):
@@ -32,4 +33,13 @@ def defineConfig(*, sources, target, embedder, transform) -> SpruceUpConfig:
     if not callable(transform):
         raise TypeError(f"transform must be a callable, got {type(transform).__name__!r}")
 
-    return SpruceUpConfig(sources=sources, target=target, embedder=embedder, transform=transform)
+    if not isinstance(cache_files, bool):
+        raise TypeError(f"cache_files must be a bool, got {type(cache_files).__name__!r}")
+
+    return SpruceUpConfig(
+        sources=sources,
+        target=target,
+        embedder=embedder,
+        transform=transform,
+        cache_files=cache_files,
+    )
