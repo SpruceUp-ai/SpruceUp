@@ -52,7 +52,10 @@ import tracemalloc
 
 import dotenv
 
+from typing import cast
+
 from spruceup import LocalFilesSource, PgVectorTarget
+from spruceup.connectors.base import EmbedderConnector
 from spruceup.connectors.embedders.embedding_batcher import EmbeddingBatcher
 from spruceup.connectors.sources.local import make_file_id
 from spruceup.coordinator import Coordinator
@@ -60,8 +63,69 @@ from spruceup.debounce_queue import DebounceQueue
 from spruceup.manifest import Manifest
 from spruceup.models import FileProps, SyncTask
 from spruceup.sync_engine import SyncEngine
+from spruceup.transform_context import get_transform_context
+from spruceup.utils.hashing import hash_text
 
 from tests.loadtest.stubs import LoadTestChunk, StubEmbedder, StubTarget
+
+
+class CachingDirectEmbedder(EmbedderConnector):
+    """Direct per-file embedder with the same embedding cache logic as EmbeddingBatcher.
+
+    Used to fairly compare batcher vs. per-file throughput: both pay the same
+    SQLite cache read/write cost so the only variable is the batching strategy.
+    """
+
+    def __init__(self, embedder: EmbedderConnector) -> None:
+        super().__init__(
+            model=embedder.model,
+            api_key=embedder.api_key,
+            embedding_dimensions=embedder.embedding_dimensions,
+            max_batch_size=embedder.max_batch_size,
+        )
+        self._embedder = embedder
+
+    async def embed_batch(self, batch: list[str]) -> list[list[float]]:
+        return await self._embedder.embed_batch_retrying(batch)
+
+    async def process_chunks(self, chunks: list[str]) -> list[list[float]]:
+        if not chunks:
+            return []
+
+        ctx = get_transform_context()
+        if ctx is None:
+            return await self._embedder.embed_batch_retrying(chunks)
+
+        manifest = ctx.manifest
+        file_id = ctx.file_id
+
+        chunk_hashes = [hash_text(c) for c in chunks]
+        cached = manifest.get_cached_embeddings(file_id, chunk_hashes)
+
+        ctx.used_chunk_embedding_cache_keys.update(chunk_hashes)
+        hits = {i: cached[h] for i, h in enumerate(chunk_hashes) if h in cached}
+        ctx.embed_hits += len(hits)
+        ctx.embed_total += len(chunks)
+
+        miss_indices = [i for i, h in enumerate(chunk_hashes) if h not in cached]
+        if not miss_indices:
+            return [hits[i] for i in range(len(chunks))]
+
+        miss_chunks = [chunks[i] for i in miss_indices]
+        miss_hashes = [chunk_hashes[i] for i in miss_indices]
+        miss_embeddings = await self._embedder.embed_batch_retrying(miss_chunks)
+
+        manifest.set_cached_embeddings(file_id, list(zip(miss_hashes, miss_embeddings)))
+
+        results: list[list[float] | None] = [None] * len(chunks)
+        for i, emb in hits.items():
+            results[i] = emb
+        for idx, emb in zip(miss_indices, miss_embeddings):
+            results[idx] = emb
+        return cast(list[list[float]], results)
+
+    async def aclose(self) -> None:
+        await self._embedder.aclose()
 
 
 # --- transform (self-contained; splits on blank lines) ----------------
@@ -245,6 +309,7 @@ async def drive(args) -> None:
         manifest.upsert_chunks = lambda *a, **k: None
         manifest.sweep_memoized = lambda *a, **k: None
         manifest.sweep_embedding_cache = lambda *a, **k: None
+        manifest.get_sync_state = lambda *a, **k: None
         manifest.set_sync_state = lambda *a, **k: None
         manifest.mark_failed = lambda *a, **k: None
         manifest.mark_fetch_failed = lambda *a, **k: None
@@ -267,7 +332,10 @@ async def drive(args) -> None:
         latency_s=args.embed_latency_ms / 1000,
         max_batch_size=args.max_batch_size,
     )
-    batcher = EmbeddingBatcher(embedder, max_batch_size=args.max_batch_size)
+    if args.no_batcher:
+        active_embedder = CachingDirectEmbedder(embedder)
+    else:
+        active_embedder = EmbeddingBatcher(embedder, max_wait_ms=args.embed_wait_ms, max_concurrent_batches=args.embed_max_concurrent_batches, max_batch_size=args.max_batch_size)
 
     target.ensure_table_exists(embedder.embedding_dimensions)
 
@@ -276,7 +344,7 @@ async def drive(args) -> None:
     coordinator = Coordinator(
         queue=queue,
         transform=load_test_transform,
-        embedder=batcher,
+        embedder=active_embedder,
         sync_engine=sync_engine,
         manifest=manifest,
         target=target,
@@ -353,7 +421,7 @@ async def drive(args) -> None:
     if args.mode == "catchup":
         watcher = source.create_watcher(data_source_id)
         cu0 = time.monotonic()
-        await watcher._catch_up(queue, manifest, force_reindex=False)
+        await watcher._catch_up(queue, manifest)
         stable = 0
         while True:
             await asyncio.sleep(0.02)
@@ -484,14 +552,15 @@ async def drive(args) -> None:
 
     corpus_size_mb = sum(os.path.getsize(fp) for fp in files) / 1e6
     manifest_size_mb = os.path.getsize(args.manifest) / 1e6
-    print(f"\n  corpus size:       {corpus_size_mb:.1f} MB  ({n_files} files × {corpus_size_mb / n_files * 1024:.0f} KB avg)")
+    avg_kb = (corpus_size_mb / n_files * 1024) if n_files else 0
+    print(f"\n  corpus size:       {corpus_size_mb:.1f} MB  ({n_files} files × {avg_kb:.0f} KB avg)")
     print(f"  manifest size:     {manifest_size_mb:.1f} MB  ({manifest_size_mb / corpus_size_mb:.2f}× corpus)")
     print(f"  errors logged:     {errors.count}")
     for s in errors.samples:
         print(f"      e.g. {s[:90]}")
     print("=" * 60)
 
-    await batcher.aclose()
+    await active_embedder.aclose()
     manifest.close()
 
 
@@ -504,6 +573,12 @@ def main() -> None:
     ap.add_argument("--embed-latency-ms", type=float, default=0.0)
     ap.add_argument("--target-latency-ms", type=float, default=0.0)
     ap.add_argument("--max-batch-size", type=int, default=150)
+    ap.add_argument("--embed-max-concurrent-batches", type=int, default=5,
+                    help="EmbeddingBatcher max concurrent API calls (default: 5)")
+    ap.add_argument("--embed-wait-ms", type=float, default=100.0,
+                    help="EmbeddingBatcher accumulation window in ms (0 = flush immediately per file, default: 100)")
+    ap.add_argument("--no-batcher", action="store_true",
+                    help="Pass the embedder directly to the Coordinator (no EmbeddingBatcher); each file makes its own API call, up to max-concurrency concurrent")
     ap.add_argument("--max-concurrency", type=int, default=32)
     ap.add_argument("--runs", type=int, default=1, metavar="N",
                     help="Run ingest N times on the same manifest without resetting between runs. "

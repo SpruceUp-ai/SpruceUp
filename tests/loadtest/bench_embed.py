@@ -41,9 +41,16 @@ async def _time_batched(embedder, chunks: list[str]) -> float:
     return time.monotonic() - t0
 
 
-async def _time_parallel(embedder, chunks: list[str]) -> float:
+async def _time_parallel(embedder, chunks: list[str], max_concurrent: int = 0) -> float:
     t0 = time.monotonic()
-    await asyncio.gather(*[embedder.embed_batch([c]) for c in chunks])
+    if max_concurrent > 0:
+        sem = asyncio.Semaphore(max_concurrent)
+        async def _one(c: str) -> None:
+            async with sem:
+                await embedder.embed_batch([c])
+        await asyncio.gather(*[_one(c) for c in chunks])
+    else:
+        await asyncio.gather(*[embedder.embed_batch([c]) for c in chunks])
     return time.monotonic() - t0
 
 
@@ -70,40 +77,59 @@ async def run(args) -> None:
         api_key = args.api_key or os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise SystemExit("--api-key or OPENAI_API_KEY env var is required")
-        embedder = OpenAIEmbedder(api_key=api_key, model=args.model)
+        def _make_embedder():
+            return OpenAIEmbedder(api_key=api_key, model=args.model)
     else:
         raise SystemExit(f"unknown provider: {args.provider!r}")
 
     chunks = _make_chunks(args.n_chunks, args.chunk_words)
 
+    parallel_label = f"{args.n_chunks} reqs, max {args.max_concurrent} concurrent" if args.max_concurrent else f"{args.n_chunks} reqs, concurrent"
+
     print(f"\nProvider / model: {args.provider} / {args.model}")
     print(f"Chunks:           {args.n_chunks}  ({args.chunk_words} words each)")
     print(f"Repeats:          {args.repeats}  (+ 1 warm-up)\n")
 
-    # warm-up to establish the HTTP connection pool before timing
-    await embedder.embed_batch(chunks[:1])
+    # warm-up
+    warmup = _make_embedder()
+    await warmup.embed_batch(chunks[:1])
+    await warmup.aclose()
 
     batched_times: list[float] = []
     parallel_times: list[float] = []
     serial_times: list[float] = []
 
     for rep in range(args.repeats):
-        b = await _time_batched(embedder, chunks)
-        p = await _time_parallel(embedder, chunks)
-        s = await _time_serial(embedder, chunks)
+        # fresh embedder per test to avoid httpx connection state accumulation
+        eb = _make_embedder()
+        b = await _time_batched(eb, chunks)
+        await eb.aclose()
+
+        ep = _make_embedder()
+        p = await _time_parallel(ep, chunks, max_concurrent=args.max_concurrent)
+        await ep.aclose()
+
+        if not args.no_serial:
+            es = _make_embedder()
+            s = await _time_serial(es, chunks)
+            await es.aclose()
+        else:
+            s = None
         batched_times.append(b)
         parallel_times.append(p)
-        serial_times.append(s)
+        if s is not None:
+            serial_times.append(s)
+        serial_str = "skipped" if s is None else f"{s * 1000:.0f}ms"
         print(
             f"  rep {rep + 1}/{args.repeats}"
             f"  batched={b * 1000:.0f}ms"
             f"  parallel={p * 1000:.0f}ms"
-            f"  serial={s * 1000:.0f}ms"
+            f"  serial={serial_str}"
         )
 
     mean_b = statistics.mean(batched_times)
     mean_p = statistics.mean(parallel_times)
-    mean_s = statistics.mean(serial_times)
+    mean_s = statistics.mean(serial_times) if serial_times else None
 
     # Per-request overhead: parallel runs N requests concurrently; the extra
     # wall time vs. batched is the cost of N-1 extra round-trips firing in
@@ -113,20 +139,20 @@ async def run(args) -> None:
 
     print("\n" + "=" * 64)
     print(f"  batched  (1 req, {args.n_chunks} chunks):          {_fmt(batched_times)}")
-    print(f"  parallel ({args.n_chunks} reqs, concurrent):       {_fmt(parallel_times)}")
-    print(f"  serial   ({args.n_chunks} reqs, sequential):       {_fmt(serial_times)}")
+    print(f"  parallel ({parallel_label}):  {_fmt(parallel_times)}")
+    if serial_times:
+        print(f"  serial   ({args.n_chunks} reqs, sequential):       {_fmt(serial_times)}")
     print()
     print(f"  parallel / batched:  {mean_p / mean_b:.2f}x slower")
-    print(f"  serial   / batched:  {mean_s / mean_b:.2f}x slower")
-    print(f"  serial   / parallel: {mean_s / mean_p:.2f}x slower  (asyncio concurrency gain)")
+    if mean_s is not None:
+        print(f"  serial   / batched:  {mean_s / mean_b:.2f}x slower")
+        print(f"  serial   / parallel: {mean_s / mean_p:.2f}x slower  (asyncio concurrency gain)")
     print()
     print(
         f"  per-request round-trip overhead: ~{overhead_per_req_ms:.1f} ms"
         f"  (extra {overhead_total_ms:.0f} ms for {args.n_chunks} parallel requests vs 1 batch)"
     )
     print("=" * 64 + "\n")
-
-    await embedder.aclose()
 
 
 def main() -> None:
@@ -145,6 +171,10 @@ def main() -> None:
                     help="Words per chunk (default: 50)")
     ap.add_argument("--repeats", type=int, default=5,
                     help="Number of timed repetitions per strategy (default: 5)")
+    ap.add_argument("--max-concurrent", type=int, default=0,
+                    help="Cap parallel requests to this many concurrent (0 = unlimited, default: 0)")
+    ap.add_argument("--no-serial", action="store_true",
+                    help="Skip the serial test (useful for large --n-chunks where serial would take too long)")
     args = ap.parse_args()
     asyncio.run(run(args))
 
