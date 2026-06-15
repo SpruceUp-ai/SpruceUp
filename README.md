@@ -160,7 +160,7 @@ class MyChunk:
     embedding: list[float]
 ```
 
-All target connectors support `str`, `int`, `float`, `bool`, and `list[float]` as field types. Use `list[float]` for your embedding vector. You do not need to define an `id` field — SpruceUp generates one from each chunk's content hash.
+All target connectors support `str`, `int`, `float`, `bool`, and `list[float]` as field types. Use `list[float]` for your embedding vector. You do not need to define an `id` field. SpruceUp generates one from each chunk's content hash.
 
 ---
 
@@ -296,6 +296,8 @@ Use either `url` for a local instance or `cluster_url` + `api_key` for a cloud d
 
 ## Embedder Connectors
 
+SpruceUp runs a health check at startup that embeds a test string and reads the actual output size from the API. The `embedding_dimensions` parameter is optional on all embedders. If omitted, the dimension is detected automatically. If provided, SpruceUp validates it matches what the API actually returns and raises an error if not.
+
 ### `OpenAIEmbedder`
 
 ```python
@@ -312,17 +314,7 @@ OpenAIEmbedder(
 | `api_key`              | `str \| Callable[[], str]`  | Yes      | —                          | OpenAI API key, or a callable that returns one |
 | `model`                | `str`                       | No       | `"text-embedding-3-small"` | Embedding model            |
 | `max_batch_size`       | `int`                       | No       | `150`                      | Max texts per API call     |
-| `embedding_dimensions` | `int \| None`               | No       | `None`                     | Override output dimensions |
-
-The following models have their output dimensions inferred automatically:
-
-| Model                    | Default dimensions |
-| ------------------------ | ------------------ |
-| `text-embedding-3-small` | 1536               |
-| `text-embedding-3-large` | 3072               |
-| `text-embedding-ada-002` | 1536               |
-
-Any other OpenAI embedding model can be used by passing both `model` and `embedding_dimensions` explicitly.
+| `embedding_dimensions` | `int \| None`               | No       | `None`                     | Override output dimensions. If omitted, SpruceUp reads the actual dimension from the API at startup. |
 
 ---
 
@@ -342,19 +334,9 @@ CohereEmbedder(
 | `api_key`              | `str \| Callable[[], str]`  | Yes      | —              | Cohere API key, or a callable that returns one |
 | `model`                | `str`                       | No       | `"embed-v4.0"` | Embedding model            |
 | `max_batch_size`       | `int`                       | No       | `96`           | Max texts per API call     |
-| `embedding_dimensions` | `int \| None`               | No       | `None`         | Override output dimensions |
+| `embedding_dimensions` | `int \| None`               | No       | `None`         | Override output dimensions. If omitted, SpruceUp reads the actual dimension from the API at startup. |
 
-The following models have their output dimensions inferred automatically:
-
-| Model                           | Default dimensions |
-| ------------------------------- | ------------------ |
-| `embed-v4.0`                    | 1536               |
-| `embed-english-v3.0`            | 1024               |
-| `embed-english-light-v3.0`      | 384                |
-| `embed-multilingual-v3.0`       | 1024               |
-| `embed-multilingual-light-v3.0` | 384                |
-
-Any other Cohere embedding model can be used by passing both `model` and `embedding_dimensions` explicitly. When using an `embed-v4` model with a custom `embedding_dimensions`, the value must be one of `256`, `512`, `1024`, or `1536`.
+When using an `embed-v4` model with a custom `embedding_dimensions`, the value must be one of `256`, `512`, `1024`, or `1536`.
 
 ---
 
@@ -373,15 +355,7 @@ GeminiEmbedder(
 | `api_key`              | `str \| Callable[[], str]`  | Yes      | —                        | Google Generative AI API key, or a callable that returns one |
 | `model`                | `str`                       | No       | `"gemini-embedding-001"` | Embedding model                          |
 | `max_batch_size`       | `int`                       | No       | `100`                    | Max texts per API call (hard limit: 100) |
-| `embedding_dimensions` | `int \| None`               | No       | `None`                   | Override output dimensions               |
-
-Only the following models are supported:
-
-| Model                  | Default dimensions |
-| ---------------------- | ------------------ |
-| `gemini-embedding-001` | 3072               |
-| `text-embedding-004`   | 768                |
-| `embedding-001`        | 768                |
+| `embedding_dimensions` | `int \| None`               | No       | `None`                   | Override output dimensions. If omitted, SpruceUp reads the actual dimension from the API at startup. |
 
 ---
 
@@ -401,19 +375,9 @@ VoyageAIEmbedder(
 | `api_key`              | `str \| Callable[[], str]`  | Yes      | —                  | Voyage AI API key, or a callable that returns one |
 | `model`                | `str`                       | No       | `"voyage-4-large"` | Embedding model            |
 | `max_batch_size`       | `int`                       | No       | `150`              | Max texts per API call     |
-| `embedding_dimensions` | `int \| None`               | No       | `None`             | Override output dimensions |
+| `embedding_dimensions` | `int \| None`               | No       | `None`             | Override output dimensions. If omitted, SpruceUp reads the actual dimension from the API at startup. |
 
-The following models have their output dimensions inferred automatically:
-
-| Model            | Default dimensions |
-| ---------------- | ------------------ |
-| `voyage-4-large` | 1024               |
-| `voyage-4-lite`  | 1024               |
-| `voyage-3-large` | 1024               |
-| `voyage-3`       | 1024               |
-| `voyage-3-lite`  | 512                |
-
-Any other Voyage AI embedding model can be used by passing both `model` and `embedding_dimensions` explicitly. When using a `voyage-4` model with a custom `embedding_dimensions`, the value must be one of `256`, `512`, `1024`, or `2048`.
+When using a `voyage-4` model with a custom `embedding_dimensions`, the value must be one of `256`, `512`, `1024`, or `2048`.
 
 ---
 
@@ -447,4 +411,4 @@ async def transform(*, file_props: FileProps, embed) -> list[MyChunk]:
 
 Supported return types: `str`, `int`, `float`, `bool`, `list`, `dict`.
 
-`memoize` only works on `async` functions — decorating a sync function raises `TypeError`. It can only be used inside a transform function. Calling a memoized function outside of a transform context will raise a `RuntimeError`.
+`memoize` only works on `async` functions. Decorating a sync function raises a `TypeError`. It can only be used inside a transform function. Calling a memoized function outside of a transform context will raise a `RuntimeError`.
