@@ -160,7 +160,7 @@ class MyChunk:
     embedding: list[float]
 ```
 
-All target connectors support `str`, `int`, `float`, `bool`, and `list[float]` as field types. Use `list[float]` for your embedding vector. You do not need to define an `id` field — SpruceUp generates one from each chunk's content hash.
+All target connectors support `str`, `int`, `float`, `bool`, and `list[float]` as field types. Use `list[float]` for your embedding vector. You do not need to define an `id` field. SpruceUp generates one from each chunk's content hash.
 
 ---
 
@@ -411,4 +411,4 @@ async def transform(*, file_props: FileProps, embed) -> list[MyChunk]:
 
 Supported return types: `str`, `int`, `float`, `bool`, `list`, `dict`.
 
-`memoize` only works on `async` functions — decorating a sync function raises `TypeError`. It can only be used inside a transform function. Calling a memoized function outside of a transform context will raise a `RuntimeError`.
+`memoize` only works on `async` functions. Decorating a sync function raises a `TypeError`. It can only be used inside a transform function. Calling a memoized function outside of a transform context will raise a `RuntimeError`.
