@@ -23,8 +23,7 @@ class LocalFileWatcher(BaseWatcher):
         self,
         queue: asyncio.Queue,
         manifest: "Manifest",
-    ) -> None:
-        log.info("Scanning %s …", self._root_path)
+    ) -> str:
         n_upserts = n_deletes = 0
 
         by_inode: dict[int, tuple[str, float | None]] = {}
@@ -92,16 +91,13 @@ class LocalFileWatcher(BaseWatcher):
                 ))
                 n_deletes += 1
 
-        log.info(
-            "Catch-up complete — %d upsert(s)  %d delete(s)  %d skipped",
-            n_upserts, n_deletes, n_skipped,
-        )
         if n_skipped:
             log.info(
-                "%d file(s) were skipped due to unsupported file type. "
+                "%d files skipped — unsupported file type. "
                 "See documentation for the list of supported file types.",
                 n_skipped,
             )
+        return f"{n_upserts} file upserts  {n_deletes} file deletes"
 
     async def _watch(self, queue: asyncio.Queue, manifest: "Manifest", catchup_done: asyncio.Event) -> None:
         buffer: list[SyncTask] = []
@@ -182,10 +178,8 @@ class LocalFileWatcher(BaseWatcher):
             if catchup_done.is_set():
                 for task in buffer:
                     await queue.put(task)
-                n_upserts = sum(1 for t in buffer if t.change_type == "upsert")
-                n_deletes = sum(1 for t in buffer if t.change_type == "delete")
+                    log.info(
+                        "Change detected: %s",
+                        pathlib.Path(file_id_to_path(task.current_file_id)).name,
+                    )
                 buffer.clear()
-                log.info(
-                    "Change detected — %d upsert(s)  %d delete(s)",
-                    n_upserts, n_deletes,
-                )

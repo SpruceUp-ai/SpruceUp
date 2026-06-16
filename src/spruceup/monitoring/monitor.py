@@ -1,5 +1,9 @@
 import asyncio
+import itertools
 import logging
+import sys
+import threading
+import time
 from abc import ABC, abstractmethod
 
 from tenacity import (
@@ -35,7 +39,7 @@ class BaseWatcher(ABC):
         self,
         queue: asyncio.Queue,
         manifest: "Manifest",
-    ) -> None: ...
+    ) -> str: ...
 
     @abstractmethod
     async def _watch(
@@ -54,7 +58,30 @@ class BaseWatcher(ABC):
         watch_ready = asyncio.Event()
         watch_task = asyncio.create_task(self._watch(queue, manifest, watch_ready))
         try:
-            await self._catch_up(queue, manifest)
+            catchup_message = await self._catch_up(queue, manifest)
+
+            stop_spinning = threading.Event()
+
+            def _spin() -> None:
+                frames = itertools.cycle("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
+                while not stop_spinning.is_set():
+                    sys.stderr.write(f"\r{next(frames)} Catch-up in progress …  ")
+                    sys.stderr.flush()
+                    time.sleep(0.1)
+
+            spin_thread = threading.Thread(target=_spin, daemon=True) if sys.stderr.isatty() else None
+            if spin_thread is not None:
+                spin_thread.start()
+            try:
+                await queue.join()
+            finally:
+                if spin_thread is not None:
+                    stop_spinning.set()
+                    spin_thread.join()
+                    sys.stderr.write("\r" + " " * 40 + "\r")
+                    sys.stderr.flush()
+
+            log.info(catchup_message)
             watch_ready.set()
             if catchup_done:
                 catchup_done.set()

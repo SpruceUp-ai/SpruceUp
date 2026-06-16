@@ -34,21 +34,23 @@ class Coordinator:
         self._source_registry = source_registry
         self._cache_files = cache_files
         self._active_tasks = set()
+        self.silent = True
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._fatal: asyncio.Future[None] | None = None
 
     async def process_task(self, task: SyncTask) -> None:
         file_id = task.current_file_id
         if task.change_type == "delete":
+            source = self._source_registry[task.data_source_id]
+            label = source.display_name_for_id(file_id)
             try:
-                log.info("[delete] %s", file_id)
                 await self._sync_engine.delete_file(file_id)
+                log.info("Deleted %s", label)
             except Exception:
-                log.exception("[error] %s — delete failed", file_id)
+                log.exception("[error] %s — delete failed", label)
                 self._manifest.mark_failed(file_id, task.change_type)
         elif task.change_type == "upsert":
             source = self._source_registry[task.data_source_id]
-            log.info("[upsert] %s — transforming …", file_id)
             await self.upsert_file(task, source)
 
     async def upsert_file(self, task: SyncTask, source) -> None:
@@ -98,16 +100,10 @@ class Coordinator:
                 self._manifest.mark_failed(spruce_file.file_id, task.change_type)
                 return
 
-        if ctx.memo_total > 0:
-            log.info("[memoize] %s — %d/%d hits", label, ctx.memo_hits, ctx.memo_total)
-        if ctx.embed_total > 0:
-            log.info("[embed_cache] %s — %d/%d hits", label, ctx.embed_hits, ctx.embed_total)
-
         self._manifest.sweep_memoized(spruce_file.file_id, ctx.used_memoized_subfn_call_keys)
         self._manifest.sweep_embedding_cache(spruce_file.file_id, ctx.used_chunk_embedding_cache_keys)
 
         validate_schema_objects(user_chunks, self._target.schema)
-        log.info("[upsert] %s — %d chunk(s)", label, len(user_chunks))
 
         chunks = [
             ChunkWrapper(

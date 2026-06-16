@@ -13,6 +13,8 @@ logging.basicConfig(
     format="%(asctime)s  %(message)s",
     datefmt="%H:%M:%S",
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("watchfiles").setLevel(logging.WARNING)
 
 
 def main() -> None:

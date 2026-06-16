@@ -13,6 +13,7 @@ class SyncEngine:
     def __init__(self, manifest: Manifest, target: TargetConnector) -> None:
         self._manifest = manifest
         self._target = target
+        self.silent = True
 
     async def reconcile(self, file: SpruceFile) -> None:
         # Config changes (model, dimensions, target, schema) don't change chunk
@@ -45,15 +46,15 @@ class SyncEngine:
             self._manifest.upsert_chunks(manifest_upserts)
             self._manifest.delete_chunks(manifest_deletes)
 
-        log.info(
-            "Synced %s — %d upserted  %d deleted",
-            file.display_name,
-            len(target_upserts),
-            len(target_deletes),
-        )
+        if not self.silent:
+            log.info(
+                "Synced %s — %d chunk upserts  %d chunk deletes",
+                file.display_name,
+                len(target_upserts),
+                len(target_deletes),
+            )
 
     async def delete_file(self, file_id: str) -> None:
         hashes = self._manifest.get_chunks_for_file(file_id)
         await self._target.sync(file_id, [], hashes)
         self._manifest.delete_file_row(file_id)
-        log.info("Deleted %d chunk(s) for file_id=%s", len(hashes), file_id)

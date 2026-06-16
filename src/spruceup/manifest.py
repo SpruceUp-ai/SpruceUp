@@ -495,6 +495,10 @@ class Manifest:
     # Config state
     # ------------------------------------------------------------------
 
+    def is_first_run(self) -> bool:
+        count = self._conn.execute("SELECT COUNT(*) FROM config_state").fetchone()[0]
+        return count == 0
+
     def get_config_value(self, key: str) -> str | None:
         if key not in _CONFIG_KEYS:
             raise ValueError(f"Unknown config key: {key!r}")

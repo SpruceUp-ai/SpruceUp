@@ -45,6 +45,9 @@ class LocalFilesSource(SourceConnector):
                         f"{str(descendant)!r}. Nested watched directories cause duplicate processing."
                     )
 
+    def display_name_for_id(self, file_id: str) -> str:
+        return pathlib.Path(file_id_to_path(file_id)).name
+
     def is_supported(self, file_identifier: str) -> bool:
         return pathlib.Path(file_identifier).suffix.lstrip(".").lower() in SUPPORTED_EXTENSIONS
 
