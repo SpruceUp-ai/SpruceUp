@@ -32,7 +32,7 @@ def memoize(*, return_type):
                 raise RuntimeError(
                     f"""@memoize function '{fn.__name__}' was called outside a transform
                     context. @memoize subfunctions may only be called from within the
-                    transform function passed to defineConfig()."""
+                    transform function passed to define_config()."""
                 )
             args_h = hash_args(fn, args, kwargs, sig=_sig)
             ctx.used_memoized_subfn_call_keys.add((fn_hash, args_h))

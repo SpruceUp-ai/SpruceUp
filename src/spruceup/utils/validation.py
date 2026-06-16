@@ -18,14 +18,14 @@ def validate_pipeline(pipeline) -> None:
 
     config = getattr(pipeline, "config", None)
     if config is None:
-        errors.append("  config is not defined — call config = defineConfig(...)")
+        errors.append("  config is not defined — call config = define_config(...)")
     elif not isinstance(config, SpruceUpConfig):
         errors.append(
-            f"  config must be the result of defineConfig(), got {type(config).__name__!r}"
+            f"  config must be the result of define_config(), got {type(config).__name__!r}"
         )
 
     if config is not None and isinstance(config, SpruceUpConfig) and config.transform is None:
-        errors.append("  no transform function was provided to defineConfig()")
+        errors.append("  no transform function was provided to define_config()")
 
     if errors:
         raise SystemExit(

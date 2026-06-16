@@ -16,14 +16,14 @@ uv add spruceup-ai
 
 ## Setup
 
-Create a file named `spruceup_pipeline.py` in your project directory. This is the user-authored entry point SpruceUp loads at startup. It must export a single `config` variable built with `defineConfig()`.
+Create a file named `spruceup_pipeline.py` in your project directory. This is the user-authored entry point SpruceUp loads at startup. It must export a single `config` variable built with `define_config()`.
 
 ```python
 # spruceup_pipeline.py
 import re
 import os
 from dataclasses import dataclass
-from spruceup import defineConfig, FileProps, LocalFilesSource, PgVectorTarget, OpenAIEmbedder
+from spruceup import define_config, FileProps, LocalFilesSource, PgVectorTarget, OpenAIEmbedder
 
 @dataclass
 class ArticleChunk:
@@ -42,7 +42,7 @@ async def transform(*, file_props: FileProps, embed) -> list[ArticleChunk]:
         for para, emb in zip(paragraphs, embeddings)
     ]
 
-config = defineConfig(
+config = define_config(
     sources=[LocalFilesSource(watched_dir="./articles")],
     target=PgVectorTarget(
         connstr=os.environ["PG_CONNSTR"],
@@ -59,7 +59,7 @@ config = defineConfig(
 
 ## Running SpruceUp
 
-From the directory containing your `spruceup_pipeline.py` file:
+From the directory containing your `spruceup_pipeline.py` file, with your virtual environment activated:
 
 ```bash
 spruceup start
@@ -75,7 +75,7 @@ Everything you need is importable from the top-level `spruceup` package:
 
 ```python
 from spruceup import (
-    defineConfig,
+    define_config,
     FileProps,
 
     # Sources
@@ -100,10 +100,10 @@ from spruceup import (
 
 ---
 
-## `defineConfig()`
+## `define_config()`
 
 ```python
-config = defineConfig(
+config = define_config(
     sources=[...],
     target=...,
     embedder=...,

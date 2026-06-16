@@ -13,7 +13,7 @@ class SpruceUpConfig:
     cache_files: bool = False
 
 
-def defineConfig(*, sources, target, embedder, transform, cache_files=False) -> SpruceUpConfig:
+def define_config(*, sources, target, embedder, transform, cache_files=False) -> SpruceUpConfig:
     if not isinstance(sources, list) or not sources:
         raise ValueError("sources must be a non-empty list of source connectors")
     for i, source in enumerate(sources):

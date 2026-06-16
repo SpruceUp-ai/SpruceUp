@@ -1,4 +1,4 @@
-from .config import defineConfig
+from .config import define_config
 from .models import FileProps
 from .connectors import (
     CohereEmbedder,
@@ -14,7 +14,7 @@ from .connectors import (
 from .memoize import memoize
 
 __all__ = [
-    "defineConfig",
+    "define_config",
     "FileProps",
     "GoogleDriveSource",
     "LocalFilesSource",

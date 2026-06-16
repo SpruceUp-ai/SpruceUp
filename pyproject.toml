@@ -1,6 +1,6 @@
 [project]
 name = "spruceup-ai"
-version = "0.1.0"
+version = "0.2.0"
 description = "A standalone system for making automated, incremental updates to a vector database."
 readme = "README.md"
 license = {file = "LICENSE"}

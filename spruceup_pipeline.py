@@ -17,7 +17,7 @@ from spruceup import (
     PineconeTarget,
     WeaviateTarget,
     VoyageAIEmbedder,
-    defineConfig,
+    define_config,
     memoize,
 )
 
@@ -109,7 +109,7 @@ async def build_lecture_chunks(*, file_props: FileProps, embed) -> list[LectureC
 
 # --- config -----------------------------------------------------------
 
-config = defineConfig(
+config = define_config(
     sources=[
         LocalFilesSource(watched_dir="example/data_corpus"),
         # GoogleDriveSource(
@@ -130,7 +130,7 @@ config = defineConfig(
     transform=build_lecture_chunks,
 )
 
-# config = defineConfig(
+# config = define_config(
 #     sources=[
 #         LocalFilesSource(watched_dir="example/data_corpus"),
 #         # LocalFilesSource(watched_dir="example/second_local_source"),
@@ -148,7 +148,7 @@ config = defineConfig(
 #     transform=build_lecture_chunks,
 # )
 
-# config = defineConfig(
+# config = define_config(
 #     sources=[
 #         LocalFilesSource(watched_dir="example/data_corpus"),
 #     ],

@@ -29,10 +29,10 @@ SpruceUp is a document ingestion daemon. It watches source connectors for file c
 
 ### Pipeline file (`spruceup_pipeline.py`)
 
-The user-authored entry point. The CLI (`spruceup start`) imports it dynamically from the CWD. It must define a `config` variable returned by `defineConfig()`:
+The user-authored entry point. The CLI (`spruceup start`) imports it dynamically from the CWD. It must define a `config` variable returned by `define_config()`:
 
 ```python
-config = defineConfig(
+config = define_config(
     sources=[LocalFilesSource(watched_dir="example/data_corpus")],
     target=PgVectorTarget(connstr=..., table="data_chunks", schema=LectureChunk, vector_column="chunk_embedding"),
     embedder=OpenAIEmbedder(api_key=..., model="text-embedding-3-small"),
@@ -41,7 +41,7 @@ config = defineConfig(
 )
 ```
 
-`defineConfig()` validates types eagerly at import time. `validate_pipeline()` in `cli.py` checks the contract exists before starting the event loop.
+`define_config()` validates types eagerly at import time. `validate_pipeline()` in `cli.py` checks the contract exists before starting the event loop.
 
 ### Runtime flow (`app.py`)
 
