@@ -7,9 +7,9 @@
 Add SpruceUp to your project (e.g., with `poetry`, `pip`, or `uv`):
 
 ```bash
-poetry add spruceup # OR
-pip install spruceup # OR
-uv add spruceup
+poetry add spruceup-ai # OR
+pip install spruceup-ai # OR
+uv add spruceup-ai
 ```
 
 ---

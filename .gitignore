@@ -1,3 +1,4 @@
+dist/
 **/.env
 **/*.pyc
 **/.venv
@@ -6,7 +7,7 @@ pyrightconfig.json
 __pycache__
 .claude
 poetry.lock
-
+uv.lock
 Notes.md
 tenacity_test.py
 spruceup_manifest.db

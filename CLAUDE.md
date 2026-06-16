@@ -6,19 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Install dependencies (requires Python 3.14)
-poetry install
+uv sync
 
 # Run the app (must be run from the directory containing spruceup_pipeline.py)
-poetry run spruceup start
+uv run spruceup start
 
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run a single test file
-poetry run pytest tests/test_sync_engine.py
+uv run pytest tests/test_sync_engine.py
 
 # Run a specific test
-poetry run pytest tests/test_sync_engine.py::test_reconcile_new_file
+uv run pytest tests/test_sync_engine.py::test_reconcile_new_file
 ```
 
 Required env vars for the pipeline: `PG_CONNSTR`, and an embedder API key (e.g. `OPENAI_API_KEY`). Copy credentials into `.env`; `spruceup_pipeline.py` calls `dotenv.load_dotenv()` at import time.
