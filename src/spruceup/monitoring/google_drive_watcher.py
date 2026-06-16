@@ -200,7 +200,7 @@ class GoogleDriveWatcher(BaseWatcher):
         self,
         queue: asyncio.Queue,
         manifest: "Manifest",
-    ) -> None:
+    ) -> str:
         service = await asyncio.to_thread(self._build_service)
         stored_token = manifest.get_source_state(self._data_source_id, _STATE_PAGE_TOKEN)
 
@@ -211,11 +211,8 @@ class GoogleDriveWatcher(BaseWatcher):
             n_upserts, n_deletes = await self._incremental_scan(
                 service, queue, manifest, stored_token
             )
+        return f"{n_upserts} file upserts  {n_deletes} file deletes"
 
-        log.info(
-            "Catch-up complete — %d upsert(s)  %d delete(s)",
-            n_upserts, n_deletes,
-        )
 
     async def _watch(
         self,
@@ -244,6 +241,6 @@ class GoogleDriveWatcher(BaseWatcher):
                 )
             if n_upserts or n_deletes:
                 log.info(
-                    "Changes detected — %d upsert(s)  %d delete(s)",
+                    "Changes detected — %d upserts  %d deletes",
                     n_upserts, n_deletes,
                 )

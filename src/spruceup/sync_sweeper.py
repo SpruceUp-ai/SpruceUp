@@ -50,4 +50,4 @@ class SyncSweeper:
                 self._manifest.delete_file_row(file_id)
 
         if requeued:
-            log.info("Sync sweeper — re-enqueuing %d failed file(s)", requeued)
+            log.info("Sync sweeper — re-enqueuing %d failed files", requeued)

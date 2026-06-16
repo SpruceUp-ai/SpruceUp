@@ -57,6 +57,9 @@ class SourceConnector(ABC):
         # modified_at must be set to a Unix timestamp (float seconds).
         ...
 
+    def display_name_for_id(self, file_id: str) -> str:
+        return file_id
+
     def decode_content(self, raw_content: bytes, file_type: str) -> str | bytes:
         if file_type.lower() in BINARY_EXTENSIONS:
             return raw_content

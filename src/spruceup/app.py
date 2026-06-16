@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 @dataclass
 class ReindexPlan:
     force_reindex: bool
+    is_first_run: bool
     structure_changed: bool
     embeddings_invalidated: bool
     reasons: list[str]
@@ -27,6 +28,8 @@ class ReindexPlan:
 
 
 def _plan_reindex(manifest: Manifest, config) -> ReindexPlan:
+    first_run = manifest.is_first_run()
+
     transform_hash = hash_transform(config.transform)
     model = config.embedder.model
     dimensions = str(config.embedder.embedding_dimensions)
@@ -37,8 +40,8 @@ def _plan_reindex(manifest: Manifest, config) -> ReindexPlan:
         stored = manifest.get_config_value(key)
         return stored is not None and stored != current
 
-    transform_changed = manifest.transform_hash_changed(transform_hash)
-    memoize_changed = manifest.any_memoize_fn_hash_missing(_memoize_fn_hashes)
+    transform_changed = not first_run and manifest.transform_hash_changed(transform_hash)
+    memoize_changed = not first_run and manifest.any_memoize_fn_hash_missing(_memoize_fn_hashes)
     model_changed = _changed("embedding_model", model)
     dimensions_changed = _changed("embedding_dimensions", dimensions)
     target_changed = _changed("target_identity", target_identity)
@@ -58,7 +61,8 @@ def _plan_reindex(manifest: Manifest, config) -> ReindexPlan:
     ]
 
     return ReindexPlan(
-        force_reindex=bool(reasons),
+        force_reindex=first_run or bool(reasons),
+        is_first_run=first_run,
         structure_changed=dimensions_changed or target_changed or schema_changed,
         embeddings_invalidated=model_changed or dimensions_changed,
         reasons=reasons,
@@ -84,18 +88,16 @@ async def run(pipeline) -> None:
     )
 
     await config.embedder.health_check()
-    log.info(
-        "Embedder OK — model=%s  dimensions=%d",
-        config.embedder.model, config.embedder.embedding_dimensions,
-    )
+    
 
     plan = _plan_reindex(manifest, config)
     if plan.force_reindex:
         if plan.embeddings_invalidated:
             manifest.flush_embedding_cache()
-        log.info("Full reindex scheduled — %s", ", ".join(plan.reasons))
-    else:
-        log.info("No changes detected — incremental sync")
+        if plan.is_first_run:
+            log.info("First startup — scheduling initial index")
+        else:
+            log.info("Full reindex scheduled — %s", ", ".join(plan.reasons))
 
     def persist_config_state() -> None:
         for key, value in plan.fingerprints.items():
@@ -176,8 +178,10 @@ async def run(pipeline) -> None:
         sync_sweeper_task = asyncio.create_task(sync_sweeper.run())
 
         await startup_done.wait()
+        coordinator.silent = False
+        sync_engine.silent = False
         watched = ", ".join(repr(source) for source in config.sources)
-        log.info("Startup complete — watching %s for changes", watched)
+        log.info("Watching %s for changes", watched)
 
         try:
             await asyncio.gather(monitor_task, coordinator_task, sync_sweeper_task)
